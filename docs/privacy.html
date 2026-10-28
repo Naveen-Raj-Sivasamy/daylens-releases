@@ -86,7 +86,8 @@
         <li>sends email from the admin's Google account: scheduled reports, report reminders and messages sent with Contact Admin, to the people your team chooses;</li>
         <li>sends data to services your admin turns on, described under <a href="#others">Other services</a>.</li>
       </ul>
-      <p><strong>Team accounts.</strong> Teammates sign in to Daylens with a username and password that their admin creates. Passwords are stored in the team's Sheet as salted hashes, never as plain text, and never reach us. Teammates don't need a Google account.</p>
+      <p><strong>Team accounts.</strong> Teammates sign in to Daylens with a username and password that their admin creates. Passwords are stored in the team's Sheet as salted hashes, never as plain text, and never reach us. Teammates don't need a Google account. When an admin renames an account, the Sheet also keeps the old name, so the person can still sign in with it.</p>
+      <p><strong>App version.</strong> Each time Daylens talks to your team's script, it says which version of Daylens it is, so the script can ask an out-of-date copy to update. This goes only to your team's own script, not to us.</p>
       <p>Who can see the Sheet is controlled by the admin in Google Drive, like any other Google file. Because it's the admin's Sheet, the admin's organisation and Google's own terms also apply to it.</p>
 
       <h2 id="google">Google account access</h2>
