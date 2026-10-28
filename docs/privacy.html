@@ -83,10 +83,12 @@
       </ul>
       <p>The team's script reads and writes the team's Sheet. Depending on how your admin sets things up, it also:</p>
       <ul>
-        <li>sends email from the admin's Google account: scheduled reports, report reminders and messages sent with Contact Admin, to the people your team chooses;</li>
+        <li>sends email from the admin's Google account: scheduled reports, report reminders, the Friday check-in, kudos and messages sent with Contact Admin, to the people your team chooses;</li>
+        <li>once a month, if your admin keeps it switched on (it is for the Activity log), emails older rows to the team's admins as a backup file and then removes them from the Sheet. Leave records, holidays and reminders are never removed;</li>
         <li>sends data to services your admin turns on, described under <a href="#others">Other services</a>.</li>
       </ul>
-      <p><strong>Team accounts.</strong> Teammates sign in to Daylens with a username and password that their admin creates. Passwords are stored in the team's Sheet as salted hashes, never as plain text, and never reach us. Teammates don't need a Google account. When an admin renames an account, the Sheet also keeps the old name, so the person can still sign in with it.</p>
+      <p><strong>Team accounts.</strong> Teammates sign in to Daylens with a username and password that their admin creates. Passwords are stored in the team's Sheet as salted hashes, never as plain text, and never reach us. Teammates don't need a Google account. When an admin renames an account, the Sheet also keeps the old name, so the person can still sign in with it. An admin may also add a teammate's email address, used only for the Friday check-in and kudos; only admins can see it.</p>
+      <p><strong>Team dashboard.</strong> Everyone in a team can see, on Daylens's Home screen, which days each teammate logged entries that week and how many. It's worked out from the team's own Sheet and isn't sent anywhere else.</p>
       <p><strong>App version.</strong> Each time Daylens talks to your team's script, it says which version of Daylens it is, so the script can ask an out-of-date copy to update. This goes only to your team's own script, not to us.</p>
       <p>Who can see the Sheet is controlled by the admin in Google Drive, like any other Google file. Because it's the admin's Sheet, the admin's organisation and Google's own terms also apply to it.</p>
 
@@ -141,7 +143,8 @@
       <h3>Only if your team admin turns them on</h3>
       <ul>
         <li><strong>AI digest (Google Gemini).</strong> If your admin adds a Gemini key, then when someone creates an AI digest, the team's script sends the entries in that report to Google's Gemini service, using the team's own key, and shows the summary it returns. Daylens never sees the entries or the key. If the key is on Gemini's free tier, <a href="https://ai.google.dev/gemini-api/terms">Google's Gemini terms</a> allow Google to use what's sent to improve its products, and people at Google may review it. Use a paid key if your team's entries shouldn't be used that way.</li>
-        <li><strong>Microsoft Teams.</strong> If your admin adds a Teams channel link, the team's script posts the messages your admin chooses (such as report reminders, the day's highlights and AI digests) to that channel. See the <a href="https://privacy.microsoft.com/privacystatement">Microsoft privacy statement</a>.</li>
+        <li><strong>Ask Daylens (Google Gemini).</strong> With the same Gemini key, when someone asks the assistant a question, the team's script sends Gemini their question and the parts of the team's records that person can already see in Daylens that match it, plus Daylens's own help text, and shows the answer. It never sends passwords, keys, webhook links, email addresses, settings or hidden tabs, and it never saves anything itself: an entry it prepares is saved only when the person confirms it. The free-tier note above applies here too.</li>
+        <li><strong>Microsoft Teams.</strong> If your admin adds a Teams channel link, the team's script posts the messages your admin chooses (such as report reminders, the day's highlights, AI digests and kudos) to that channel. See the <a href="https://privacy.microsoft.com/privacystatement">Microsoft privacy statement</a>.</li>
         <li><strong>Microsoft Power Automate.</strong> If your admin connects a tab to a Power Automate flow (for example, to keep that tab in an Excel file), the team's script sends that tab's new entries to the flow instead of the Sheet.</li>
       </ul>
 
