@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daylens — Work &amp; Status Reports</title>
+<meta name="description" content="Daylens is a desktop app for team updates. Your team posts daily status, leave, tickets and meeting notes, and every entry is saved in a Google Sheet in your own Google Drive.">
+<meta property="og:title" content="Daylens — Work &amp; Status Reports">
+<meta property="og:description" content="Your team's daily updates, leave, tickets, reminders and reports, kept in a Google Sheet you own.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0a55db">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="assets/img/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="preload" href="assets/fonts/schibsted-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="Daylens home">
+      <img src="assets/img/icon-64.png" alt="" width="34" height="34">
+      Daylens
+    </a>
+    <nav class="head-nav" aria-label="Main">
+      <a class="opt" href="#how">How it works</a>
+      <a class="opt" href="#tour">Features</a>
+      <a class="opt" href="#data">Your data</a>
+      <a class="btn btn-primary btn-small" href="#get">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <h1>Your team's day, in a Google Sheet you own.</h1>
+        <p class="lede">Daylens is a desktop app for team updates. Your team posts daily status, leave, tickets and meeting notes in Daylens, and every entry is saved as a row in a Google Sheet in your own Google Drive.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://github.com/Naveen-Raj-Sivasamy/daylens-releases/releases/latest/download/Daylens-Setup.exe">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M4 17h12"/></svg>
+            Download for Windows
+          </a>
+          <a class="btn btn-quiet" href="https://github.com/Naveen-Raj-Sivasamy/daylens-releases/releases/latest/download/Daylens-Setup.dmg">Download for Mac</a>
+        </div>
+        <p class="small-note">Set up your team in about 5 minutes. Teammates join with an invite code.</p>
+      </div>
+
+      <div class="demo" id="demo" aria-label="Example: a daily status update is typed into Daylens and saved as row 8 of the team's Google Sheet">
+        <div class="demo-form" aria-hidden="true">
+          <h3>Daily Status</h3>
+          <div class="demo-field">
+            <label>Name</label>
+            <div class="demo-input">priya</div>
+          </div>
+          <div class="demo-field">
+            <label>Update</label>
+            <div class="demo-input active" data-typed>Homepage hero refreshed</div>
+          </div>
+          <div class="demo-actions"><span class="demo-submit">Submit</span></div>
+        </div>
+        <div class="sheet">
+          <div class="sheet-bar"><span class="file" aria-hidden="true"></span><b>Web Ops — Daylens</b> Daily Status tab</div>
+          <table class="grid">
+            <colgroup><col class="rn-col" style="width:38px"><col class="c-date"><col class="c-name"><col class="c-id"><col></colgroup>
+            <thead><tr><td class="rn"></td><th scope="col">Date</th><th scope="col">Name</th><th scope="col" class="c-id-cell">Ticket ID</th><th scope="col">Update</th></tr></thead>
+            <tbody>
+              <tr><td class="rn">5</td><td>Oct 27</td><td>arjun</td><td class="c-id-cell">WEB-412</td><td>Fixed checkout button on mobile</td></tr>
+              <tr><td class="rn">6</td><td>Oct 27</td><td>maya</td><td class="c-id-cell">WEB-415</td><td>Reviewed pricing page copy</td></tr>
+              <tr><td class="rn">7</td><td>Oct 28</td><td>arjun</td><td class="c-id-cell">WEB-412</td><td>Checkout fix tested on iOS and Android</td></tr>
+              <tr class="new" data-row><td class="rn">8</td><td>Oct 28</td><td>priya</td><td class="c-id-cell">WEB-421</td><td class="focus" data-cell>Homepage hero refreshed</td></tr>
+            </tbody>
+          </table>
+          <div class="sheet-status"><span data-status>Yellow row 8 is what will be added when you submit.</span><button type="button" class="replay" hidden>Replay</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band band-mist" id="how" aria-labelledby="how-h">
+    <div class="wrap">
+      <h2 id="how-h">Up and running before your next stand-up</h2>
+      <p class="intro">Only the team admin needs a Google account. Everyone else signs in to Daylens with a username and password.</p>
+      <ol class="steps">
+        <li>
+          <h3>Create your team</h3>
+          <p>The admin signs in with Google. Daylens creates your team's Sheet in the admin's Drive and sets it up, in about 5 minutes.</p>
+        </li>
+        <li>
+          <h3>Invite your teammates</h3>
+          <p>Send each person an invite code. They paste it into Daylens and choose their own password.</p>
+        </li>
+        <li>
+          <h3>Log the day</h3>
+          <p>Everyone posts updates, leave and tickets. Reminders stay on screen until they're done, and reports go out on your schedule.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="band" id="tour" aria-labelledby="tour-h">
+    <div class="wrap">
+      <h2 id="tour-h">Everything your team logs, in one place</h2>
+      <p class="intro">Start from ready-made tabs for daily status, leave, tickets and weekly meetings, then rename them and add your own fields.</p>
+      <div class="tour">
+        <div class="tour-tabs" role="tablist" aria-label="Daylens features" aria-orientation="vertical">
+          <button class="tour-tab" type="button" role="tab" id="tab-today" aria-controls="panel-today" aria-selected="true">
+            <span class="t">Today</span>
+            <span class="d">The bell and the top of Home show what needs you today: your due reminders, who's on leave, holidays and the team's message. Each item stays until you dismiss it.</span>
+          </button>
+          <button class="tour-tab" type="button" role="tab" id="tab-sheet" aria-controls="panel-sheet" aria-selected="false" tabindex="-1">
+            <span class="t">The Sheet, side by side</span>
+            <span class="d">As you fill in an entry, Daylens shows the real row it will become in your Sheet. Once it's saved, the row turns green.</span>
+          </button>
+          <button class="tour-tab" type="button" role="tab" id="tab-reports" aria-controls="panel-reports" aria-selected="false" tabindex="-1">
+            <span class="t">Reports</span>
+            <span class="d">View a report in the app, email it, or download it as an Excel file. Weekly and monthly reports can go out on a schedule, with a reminder to the team before each one.</span>
+          </button>
+          <button class="tour-tab" type="button" role="tab" id="tab-remind" aria-controls="panel-remind" aria-selected="false" tabindex="-1">
+            <span class="t">Reminders that stay</span>
+            <span class="d">When a ticket, mail or request falls due, a pop-up stays in the corner of your screen until you mark it Done or snooze it, with a soft chime you can turn off.</span>
+          </button>
+        </div>
+        <div class="tour-stage">
+          <div class="tour-panel" id="panel-today" role="tabpanel" aria-labelledby="tab-today">
+            <div class="window"><img src="assets/img/shot-today.webp" width="1600" height="875" alt="Daylens Home screen. The Today list shows a ticket reminder with Done and Snooze buttons, a note that leo is on leave today, and the team message about a release freeze. Below are the team's categories: Daily work and Team."></div>
+            <p class="tour-caption">The bell and the top of Home show what needs you today. Each item stays until you dismiss it.</p>
+          </div>
+          <div class="tour-panel" id="panel-sheet" role="tabpanel" aria-labelledby="tab-sheet" hidden>
+            <div class="window"><img src="assets/img/shot-sheet.webp" width="1600" height="875" loading="lazy" alt="Adding a Daily Status entry in Daylens. The form is on the left; on the right the team's Sheet shows rows 2 to 7, and a yellow row 8 that fills in as you type."></div>
+            <p class="tour-caption">As you fill in an entry, Daylens shows the real row it will become. Once saved, it turns green.</p>
+          </div>
+          <div class="tour-panel" id="panel-reports" role="tabpanel" aria-labelledby="tab-reports" hidden>
+            <div class="window"><img src="assets/img/shot-reports.webp" width="1600" height="875" loading="lazy" alt="A weekly report open in Daylens, with a tab for each Sheet tab, a search box, and buttons to email or download it."></div>
+            <p class="tour-caption">View a report in the app, email it, or download it as an Excel file.</p>
+          </div>
+          <div class="tour-panel" id="panel-remind" role="tabpanel" aria-labelledby="tab-remind" hidden>
+            <div class="desk"><img class="behind" src="assets/img/shot-sheet.webp" width="1600" height="875" loading="lazy" alt=""><img class="pop" src="assets/img/shot-alert.webp" width="688" height="198" loading="lazy" alt="A Daylens reminder pop-up in the corner of the screen: Ticket reminder WEB-420, with Done, Snooze 1 hour and Open buttons."><span class="taskbar" aria-hidden="true"></span></div>
+            <p class="tour-caption">Due reminders stay in the corner of your screen until you mark them Done or snooze them.</p>
+          </div>
+        </div>
+      </div>
+
+      <dl class="also">
+        <div><dt>All your teams in one app</dt><dd>Belong to more than one team? Switch between them in one click, without signing in again.</dd></div>
+        <div><dt>Your tabs, your fields</dt><dd>Rename tabs, add fields, set drop-down choices and group tabs into categories as your work changes.</dd></div>
+        <div><dt>Accounts for everyone</dt><dd>Admins add people, reset passwords and see an activity log of who changed what.</dd></div>
+        <div><dt>AI digest, if you want it</dt><dd>Turn a week of updates into a short summary, using your team's own free Gemini key.</dd></div>
+        <div><dt>Microsoft Teams posts</dt><dd>Optionally post report reminders, the day's highlights and digests to a Teams channel you choose.</dd></div>
+        <div><dt>Keeps itself up to date</dt><dd>New versions download in the background and ask before restarting. Admins update the team's Sheet in one click.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="band band-mist" id="data" aria-labelledby="data-h">
+    <div class="wrap data">
+      <div>
+        <h2 id="data-h">Your team's data stays in your Google Drive</h2>
+        <p class="intro">Daylens has no servers holding your work. Entries, accounts and settings live in your team's Google Sheet, and the small script that runs your team runs in the admin's own Google account. The maker of Daylens can't open your Sheet.</p>
+        <div class="sees">
+          <b>What the maker of Daylens receives</b>
+          <p>When a team is created: its team ID, its name and the app version. Nothing else, and never your entries.</p>
+        </div>
+      </div>
+      <div>
+        <table class="perms">
+          <caption>What Daylens asks Google for, and why</caption>
+          <thead><tr><th scope="col">Google's wording</th><th scope="col">Why Daylens needs it</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">See, edit, create and delete only the specific Google Drive files you use with this app</th><td>To create your team's Sheet. Daylens can't see any other file in your Drive.</td></tr>
+            <tr><th scope="row">Create and update Google Apps Script projects</th><td>To install your team's script in that Sheet, and to update it when a new version comes out.</td></tr>
+            <tr><th scope="row">Create and update Google Apps Script deployments</th><td>To publish the script as your team's private link, which the Daylens app talks to.</td></tr>
+            <tr><th scope="row">See your primary Google Account email address</th><td>To show which Google account owns your team's Sheet.</td></tr>
+          </tbody>
+        </table>
+        <p class="perms-note">Only the team admin signs in with Google, and only to create or update the team. The sign-in stays encrypted on the admin's computer. Read the <a href="privacy.html">privacy policy</a> for the full details.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="get" aria-labelledby="get-h">
+    <div class="wrap get">
+      <div>
+        <h2 id="get-h">Get Daylens</h2>
+        <p class="intro">For Windows and Mac. Once it's installed, Daylens updates itself and asks before restarting.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://github.com/Naveen-Raj-Sivasamy/daylens-releases/releases/latest/download/Daylens-Setup.exe">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M4 17h12"/></svg>
+            Download for Windows
+          </a>
+          <a class="btn btn-quiet" href="https://github.com/Naveen-Raj-Sivasamy/daylens-releases/releases/latest/download/Daylens-Setup.dmg">Download for Mac</a>
+        </div>
+        <p class="small-note">See what's new in each version on the <a href="https://github.com/Naveen-Raj-Sivasamy/daylens-releases/releases">releases page</a>.</p>
+      </div>
+      <ul class="start">
+        <li><b>Team admin</b><span>Open Daylens and choose <strong>Create a new team</strong>. The app walks you through it.</span></li>
+        <li><b>Teammates</b><span>Open Daylens, choose <strong>Join my team</strong>, and paste the invite code from your admin's message.</span></li>
+        <li><b>First install</b><span>Windows may say it protected your PC: choose <strong>More info</strong>, then <strong>Run anyway</strong>. On a Mac, if it won't open, go to System Settings → Privacy &amp; Security and choose <strong>Open Anyway</strong>.</span></li>
+        <li><b>Questions</b><span>Email <a href="mailto:{{SUPPORT_EMAIL}}">{{SUPPORT_EMAIL}}</a>.</span></li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="assets/img/icon-64.png" alt="" width="34" height="34">Daylens</a>
+    <nav aria-label="Footer">
+      <a href="privacy.html">Privacy policy</a>
+      <a href="terms.html">Terms of service</a>
+      <a href="https://github.com/Naveen-Raj-Sivasamy/daylens-releases/releases">Releases</a>
+      <a href="mailto:{{SUPPORT_EMAIL}}">Contact</a>
+    </nav>
+    <p class="fine">© 2026 Daylens. Google, Google Sheets, Google Drive and Gemini are trademarks of Google LLC, and Microsoft Teams is a trademark of Microsoft. Daylens is an independent app and isn't made by or affiliated with Google or Microsoft.</p>
+  </div>
+</footer>
+<script src="assets/site.js" defer></script>
+</body>
+</html>

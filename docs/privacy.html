@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy policy — Daylens</title>
+<meta name="description" content="How the Daylens desktop app handles your team's data and the Google account access it asks for.">
+<meta name="theme-color" content="#0a55db">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="assets/img/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="preload" href="assets/fonts/schibsted-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="Daylens home">
+      <img src="assets/img/icon-64.png" alt="" width="34" height="34">
+      Daylens
+    </a>
+    <nav class="head-nav" aria-label="Main">
+      <a class="opt" href="privacy.html" aria-current="page">Privacy</a>
+      <a class="opt" href="terms.html">Terms</a>
+      <a class="btn btn-primary btn-small" href="./#get">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <div class="doc-head">
+    <div class="wrap">
+      <h1>Privacy policy</h1>
+      <p>Daylens keeps your team's work in your own Google Sheet. This page explains exactly what the app touches, where it's kept and who can see it.</p>
+      <p class="updated">Effective October 28, 2026</p>
+    </div>
+  </div>
+
+  <div class="wrap doc">
+    <nav class="toc" aria-label="On this page">
+      <b>On this page</b>
+      <ol>
+        <li><a href="#summary">The short version</a></li>
+        <li><a href="#who">Who we are</a></li>
+        <li><a href="#where">Where your team's data lives</a></li>
+        <li><a href="#google">Google account access</a></li>
+        <li><a href="#limited-use">Google API Services User Data Policy</a></li>
+        <li><a href="#computer">What's kept on your computer</a></li>
+        <li><a href="#us">What we receive</a></li>
+        <li><a href="#others">Other services</a></li>
+        <li><a href="#never">What we never do</a></li>
+        <li><a href="#security">Security</a></li>
+        <li><a href="#choices">Deleting data and removing access</a></li>
+        <li><a href="#website">This website</a></li>
+        <li><a href="#children">Children</a></li>
+        <li><a href="#changes">Changes to this policy</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ol>
+    </nav>
+
+    <article class="prose">
+      <section class="summary" id="summary">
+        <h2>The short version</h2>
+        <ul>
+          <li>Your team's entries are saved in a Google Sheet in your team admin's own Google Drive, not on our servers. We can't open it.</li>
+          <li>Only the team admin signs in with Google, to create the team and to update it. Daylens asks Google for access to only the files it creates, plus the ability to install and update your team's script.</li>
+          <li>The only thing we receive is a note when a team is created: its team ID, its name and the app version.</li>
+          <li>No ads, no selling data, no tracking or analytics in the app, and no cookies on this website.</li>
+        </ul>
+      </section>
+
+      <h2 id="who">Who we are</h2>
+      <p>Daylens is a desktop app for Windows and Mac, made by an independent developer. In this policy, "Daylens", "we" and "us" mean the maker of the Daylens app and this website. "You" means anyone who uses Daylens, whether as a team admin or a teammate.</p>
+      <p>This policy covers the Daylens desktop app and this website. It doesn't cover Google, GitHub, Microsoft or other services you use with Daylens; their own privacy policies apply to them.</p>
+
+      <h2 id="where">Where your team's data lives</h2>
+      <p>Daylens doesn't run servers that hold your team's work. When a team admin creates a team, Daylens creates two things in the admin's own Google account:</p>
+      <ul>
+        <li><strong>The team's Google Sheet</strong>, in the admin's Google Drive. It holds your team's entries (daily updates, leave, tickets, meeting notes and any other tabs you add), reminders, team accounts, settings and an activity log. The one exception is a tab your admin chooses to send to Microsoft Power Automate, described under <a href="#others">Other services</a>.</li>
+        <li><strong>The team's script</strong>, a Google Apps Script attached to that Sheet. It runs under the admin's own Google account and is published as a private web link that the Daylens app on each teammate's computer talks to. Google asks the admin to approve the script's permissions on Google's own approval screen.</li>
+      </ul>
+      <p>The team's script reads and writes the team's Sheet. Depending on how your admin sets things up, it also:</p>
+      <ul>
+        <li>sends email from the admin's Google account: scheduled reports, report reminders and messages sent with Contact Admin, to the people your team chooses;</li>
+        <li>sends data to services your admin turns on, described under <a href="#others">Other services</a>.</li>
+      </ul>
+      <p><strong>Team accounts.</strong> Teammates sign in to Daylens with a username and password that their admin creates. Passwords are stored in the team's Sheet as salted hashes, never as plain text, and never reach us. Teammates don't need a Google account.</p>
+      <p>Who can see the Sheet is controlled by the admin in Google Drive, like any other Google file. Because it's the admin's Sheet, the admin's organisation and Google's own terms also apply to it.</p>
+
+      <h2 id="google">Google account access</h2>
+      <p>Only the team admin signs in with Google, and only to <strong>create a team</strong> or to <strong>update the team's script</strong> to a newer version. Daylens opens Google's sign-in page in your web browser and asks for these permissions:</p>
+      <table>
+        <thead><tr><th scope="col">What Google calls it</th><th scope="col">What Daylens does with it</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">See, edit, create and delete only the specific Google Drive files you use with this app<br><code>drive.file</code></th><td>Creates the team's Google Sheet. This permission only covers files Daylens itself creates or that you open with it, so Daylens can't see or change anything else in your Drive.</td></tr>
+          <tr><th scope="row">Create and update Google Apps Script projects<br><code>script.projects</code></th><td>Installs the team's script in that Sheet, and replaces it with the newer version when you click Update.</td></tr>
+          <tr><th scope="row">Create and update Google Apps Script deployments<br><code>script.deployments</code></th><td>Publishes the script as the team's web link, and keeps the same link when the script is updated.</td></tr>
+          <tr><th scope="row">See your primary Google Account email address<br><code>email</code>, <code>openid</code></th><td>Shows the admin which Google account the team's Sheet belongs to, so they sign in with the right account when updating.</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Where the sign-in is kept.</strong> After signing in, Google gives Daylens a sign-in key so the admin doesn't have to sign in every time they update. Daylens keeps it only on the admin's computer, encrypted with the computer's own secure storage (Windows Data Protection or the macOS Keychain). It is never sent to us. The admin's Google email address is kept on the same computer, next to it.</p>
+      <p>Daylens uses this access only to create and update the team's Sheet and script. It doesn't use it to read your Gmail, your other files, your contacts or anything else in your Google account.</p>
+
+      <h2 id="limited-use">Google API Services User Data Policy</h2>
+      <blockquote>Daylens's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</blockquote>
+      <p>In practice, that means:</p>
+      <ul>
+        <li>We use Google user data only to provide the Daylens features described above, which you can see in the app.</li>
+        <li>We don't transfer Google user data to anyone, except as needed to provide those features, to comply with the law, or as part of a merger, acquisition or sale of Daylens after asking for your explicit consent first.</li>
+        <li>We don't use Google user data for advertising, and we don't sell it.</li>
+        <li>No person at Daylens reads your Google user data. It isn't sent to us at all.</li>
+        <li>We don't use Google user data to develop, improve or train general artificial intelligence or machine-learning models.</li>
+      </ul>
+
+      <h2 id="computer">What's kept on your computer</h2>
+      <p>The Daylens app keeps a few files on each person's computer, in Daylens's own app folder, so it can open your team and remember your settings:</p>
+      <ul>
+        <li>your team's connection details: the team's web link, team ID and team name (for each team you've joined);</li>
+        <li>your Daylens sign-in session, your username and your role, so you stay signed in;</li>
+        <li>your settings, such as theme, sound, snoozed reminders and items you've dismissed;</li>
+        <li>your team's list of tabs and categories, so the app opens quickly;</li>
+        <li>drafts of entries you've started but not submitted;</li>
+        <li>for admins who signed in with Google, the encrypted Google sign-in key and Google email described above.</li>
+      </ul>
+      <p>Your password isn't saved on your computer. These files stay on your computer and aren't sent to us.</p>
+
+      <h2 id="us">What we receive</h2>
+      <p>When a team admin creates a new team, Daylens may send us three things: the <strong>team ID</strong>, the <strong>team name</strong> and the <strong>Daylens version</strong>. We use them only to know which teams use Daylens, to support them and to manage licences.</p>
+      <p>We don't receive your entries, your Sheet's link, your team's accounts, anyone's email address or anything else from the app. If you'd like your team removed from our list, <a href="#contact">email us</a>.</p>
+      <p>If you email us, we receive your email address and what you write, and use them only to reply and help you.</p>
+
+      <h2 id="others">Other services</h2>
+      <h3>Always used</h3>
+      <ul>
+        <li><strong>Google</strong> (Google Sheets, Drive, Apps Script and Gmail sending) stores and runs your team, in the admin's Google account. See <a href="https://policies.google.com/privacy">Google's privacy policy</a>.</li>
+        <li><strong>GitHub</strong> hosts the Daylens installers and updates. When you download Daylens, or when the app checks for a new version, your computer connects to GitHub, which receives your IP address and basic technical details as part of that connection. See the <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement">GitHub privacy statement</a>.</li>
+      </ul>
+      <h3>Only if your team admin turns them on</h3>
+      <ul>
+        <li><strong>AI digest (Google Gemini).</strong> If your admin adds a Gemini key, then when someone creates an AI digest, the team's script sends the entries in that report to Google's Gemini service, using the team's own key, and shows the summary it returns. Daylens never sees the entries or the key. If the key is on Gemini's free tier, <a href="https://ai.google.dev/gemini-api/terms">Google's Gemini terms</a> allow Google to use what's sent to improve its products, and people at Google may review it. Use a paid key if your team's entries shouldn't be used that way.</li>
+        <li><strong>Microsoft Teams.</strong> If your admin adds a Teams channel link, the team's script posts the messages your admin chooses (such as report reminders, the day's highlights and AI digests) to that channel. See the <a href="https://privacy.microsoft.com/privacystatement">Microsoft privacy statement</a>.</li>
+        <li><strong>Microsoft Power Automate.</strong> If your admin connects a tab to a Power Automate flow (for example, to keep that tab in an Excel file), the team's script sends that tab's new entries to the flow instead of the Sheet.</li>
+      </ul>
+
+      <h2 id="never">What we never do</h2>
+      <ul>
+        <li>We don't show ads, and we don't sell or rent anyone's data.</li>
+        <li>The Daylens app has no tracking or analytics.</li>
+        <li>We don't read, copy or keep your team's entries.</li>
+      </ul>
+
+      <h2 id="security">Security</h2>
+      <ul>
+        <li>Everything between the Daylens app, your team's script and Google travels over encrypted HTTPS connections.</li>
+        <li>Your team's script shares your team's entries only with people signed in to your team, and only admins can change team settings, accounts and tabs.</li>
+        <li>Passwords are stored as salted hashes. After too many wrong passwords, sign-in for that account pauses for 15 minutes.</li>
+        <li>The admin's Google sign-in key is encrypted on their computer.</li>
+      </ul>
+      <p>No system is perfectly secure. Keep your computer's account protected, share invite codes only with your team, and remove people's accounts when they leave the team.</p>
+
+      <h2 id="choices">Deleting data and removing access</h2>
+      <ul>
+        <li><strong>A team on your computer:</strong> in Daylens, go to Settings → Team setup → Remove from this PC. This removes that team's saved details from your computer. The team's Sheet isn't affected.</li>
+        <li><strong>Daylens on your computer:</strong> uninstall Daylens. To also remove your saved settings, delete the <code>Daylens</code> folder in <code>%APPDATA%</code> on Windows, or <code>~/Library/Application Support/Daylens</code> on a Mac.</li>
+        <li><strong>Your team's data:</strong> the admin can edit or delete entries in the Sheet, or delete the whole Sheet (with its script) from Google Drive at any time. Admins can also deactivate or delete teammates' accounts in Daylens.</li>
+        <li><strong>Google access:</strong> the admin can remove Daylens's access at any time on their <a href="https://myaccount.google.com/connections">Google Account's third-party connections page</a>. Daylens then can't update the team's script until the admin signs in again; the team keeps working.</li>
+        <li><strong>Our list of teams:</strong> <a href="#contact">email us</a> and we'll delete your team's entry.</li>
+      </ul>
+      <p>Depending on where you live, you may have other rights over your personal data, such as asking what we hold about you. Because we hold almost nothing, most requests are answered by the steps above, but you can always <a href="#contact">ask us</a>.</p>
+
+      <h2 id="website">This website</h2>
+      <p>This website doesn't use cookies, analytics or advertising, and doesn't load anything from other companies. Its fonts and images are served from the site itself. The site is hosted on GitHub Pages, so GitHub receives your IP address and basic technical details when you visit, as it does for any website it hosts.</p>
+
+      <h2 id="children">Children</h2>
+      <p>Daylens is a workplace tool. It isn't meant for children, and we don't knowingly collect information from anyone under 16.</p>
+
+      <h2 id="changes">Changes to this policy</h2>
+      <p>If Daylens starts handling data in a new way, we'll update this page and the date at the top before the change reaches the app. Significant changes will also be noted in the release notes for that version.</p>
+
+      <h2 id="contact">Contact</h2>
+      <p>Questions about privacy, or a request about your data? Email <a href="mailto:{{SUPPORT_EMAIL}}">{{SUPPORT_EMAIL}}</a>.</p>
+    </article>
+  </div>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="assets/img/icon-64.png" alt="" width="34" height="34">Daylens</a>
+    <nav aria-label="Footer">
+      <a href="privacy.html">Privacy policy</a>
+      <a href="terms.html">Terms of service</a>
+      <a href="https://github.com/Naveen-Raj-Sivasamy/daylens-releases/releases">Releases</a>
+      <a href="mailto:{{SUPPORT_EMAIL}}">Contact</a>
+    </nav>
+    <p class="fine">© 2026 Daylens. Google, Google Sheets, Google Drive and Gemini are trademarks of Google LLC, and Microsoft Teams is a trademark of Microsoft. Daylens is an independent app and isn't made by or affiliated with Google or Microsoft.</p>
+  </div>
+</footer>
+<script src="assets/site.js" defer></script>
+</body>
+</html>
