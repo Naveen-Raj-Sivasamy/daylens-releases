@@ -1,0 +1,466 @@
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'none'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<script src="../preload-web.js"></script>
+<script src="../web-ui.js" defer></script>
+<link rel="stylesheet" href="../web.css" />
+
+<meta charset="utf-8" />
+<title>Today's Highlights</title>
+<style>
+  :root {
+    --brand: #16332a;
+    --brand-hover: #234c3d;
+    --surface: #f6f1e6;
+    --text: #1c3a2f;
+    --text-dim: #86807a;
+    --on-brand: #f3ede0;
+    --on-brand-dim: #b9ab86;
+    --gold: #c9a15f;
+    --gold-bright: #d8b877;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: transparent;
+    user-select: none;
+  }
+  #card {
+    /* No fixed/percentage height, same reasoning as the main popup's
+       #card — this must size itself to its real content so scrollHeight
+       reports a true value for the resize-to-fit IPC call below. */
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(160deg, var(--brand), var(--brand-hover));
+    border: 1px solid rgba(0,0,0,0.25);
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.28);
+    overflow: hidden;
+    cursor: pointer;
+  }
+  #titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 10px 12px 16px;
+    -webkit-app-region: drag;
+  }
+  #title {
+    color: var(--on-brand);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+  }
+  #close-btn {
+    -webkit-app-region: no-drag;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.14);
+    color: var(--on-brand);
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #close-btn:hover { background: rgba(255,255,255,0.28); }
+
+  /* ---------------- OOO runner + rocket stage ----------------
+     Purely decorative, sits above #body, only shown on days with at
+     least one planned-leave entry (see startStage()/stopStage() below).
+     Fixed height (doesn't grow/shrink with content) so it never fights
+     the resize-to-fit measurement below — it's just always-there space,
+     shown or hidden as a whole. */
+  #stage {
+    position: relative;
+    /* Base height for one runner lane — startStage() grows this inline
+       (style.height) when there's more than one person on leave, so
+       extra people get their own lane instead of taking turns, without
+       needing a separate CSS rule per lane count. */
+    height: 88px;
+    margin: 0 16px 10px 16px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.07);
+    overflow: hidden;
+  }
+  #stage.hidden { display: none; }
+
+  #rocket {
+    position: absolute;
+    left: 50%;
+    bottom: -14px;
+    transform: translateX(-50%);
+    font-size: 28px;
+    opacity: 0;
+    pointer-events: none;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35));
+  }
+  #rocket.launch {
+    animation: rocket-launch 1.15s cubic-bezier(.25,.65,.2,1) forwards;
+  }
+  @keyframes rocket-launch {
+    0%   { bottom: -14px; opacity: 1; transform: translateX(-50%) rotate(0deg); }
+    65%  { bottom: 50px;  opacity: 1; transform: translateX(-50%) rotate(-8deg); }
+    100% { bottom: 58px;  opacity: 0; transform: translateX(-50%) rotate(-8deg); }
+  }
+
+  #sparks {
+    position: absolute;
+    left: 50%;
+    top: 14px;
+    width: 0;
+    height: 0;
+  }
+  .spark {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .spark.burst {
+    animation: spark-burst 1s ease-out forwards;
+  }
+  @keyframes spark-burst {
+    0%   { opacity: 1; transform: rotate(var(--angle)) translateX(0); }
+    100% { opacity: 0; transform: rotate(var(--angle)) translateX(var(--dist)); }
+  }
+
+  /* Fills the whole stage (not just a fixed-height strip at the bottom)
+     so each .runner-lane below can position itself with its own `bottom`
+     offset — that's what lets multiple people stack into separate lanes
+     instead of only ever having room for one. */
+  #runner-track {
+    position: absolute;
+    left: 0; right: 0;
+    top: 0; bottom: 0;
+  }
+  /* One of these per person on leave today (built in JS — see
+     buildRunnerLane()), all running at once rather than taking turns, per
+     feedback that "in sequence" read as one runner stalling/disappearing
+     before the next started. */
+  .runner-lane {
+    position: absolute;
+    bottom: 8px;
+    left: -44px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    opacity: 0;
+  }
+  .runner-lane.running {
+    animation: run-across 3.2s linear forwards;
+  }
+  @keyframes run-across {
+    0%   { left: -44px; opacity: 1; }
+    92%  { opacity: 1; }
+    100% { left: 100%;  opacity: 0; }
+  }
+  .runner-name {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 8px;
+    color: #fff;
+    white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .runner-name.boy { background: #2f6fed; }
+  .runner-name.girl { background: #e05aa0; }
+  .runner-name.neutral { background: #7a6a90; }
+  .runner-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    /* scaleX(-1) baked into every frame, not just applied once statically
+       — a keyframe animation's own `transform` replaces any transform set
+       outside it, so the flip has to live in the keyframes themselves.
+       The runner emoji (running figure) faces left by default on both
+       Windows' and Apple's emoji sets; run-across above moves left-to-
+       right, so without this the runner visibly moves backwards. */
+    animation: run-bounce 0.26s ease-in-out infinite alternate;
+  }
+  .runner-badge.boy { background: #2f6fed; }
+  .runner-badge.girl { background: #e05aa0; }
+  .runner-badge.neutral { background: #7a6a90; }
+  @keyframes run-bounce {
+    from { transform: scaleX(-1) translateY(0); }
+    to   { transform: scaleX(-1) translateY(-4px); }
+  }
+
+  #body {
+    padding: 4px 16px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .section {
+    background: rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .section-label {
+    color: var(--on-brand-dim);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .section-main {
+    color: var(--on-brand);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+  .section-sub {
+    color: var(--on-brand-dim);
+    font-size: 12px;
+    margin-top: 2px;
+  }
+  .leave-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--on-brand);
+    font-size: 13px;
+    padding: 2px 0;
+  }
+  .leave-row + .leave-row { border-top: 1px solid rgba(255,255,255,0.12); }
+  .leave-name { font-weight: 600; }
+  .leave-reason { color: var(--on-brand-dim); text-align: right; }
+  #hint {
+    color: var(--on-brand-dim);
+    font-size: 10px;
+    text-align: center;
+    padding-bottom: 2px;
+  }
+</style>
+<script src="chime.js"></script>
+</head>
+<body>
+  <div id="card">
+    <div id="titlebar">
+      <div id="title">📌 Today</div>
+      <button id="close-btn" title="Dismiss">✕</button>
+    </div>
+
+    <!-- OOO stage: rocket/firework + one runner per person on planned
+         leave, cycled in sequence. Hidden entirely on a day with no
+         leaves — see startStage()/stopStage(). -->
+    <div id="stage" class="hidden">
+      <div id="rocket">🚀</div>
+      <div id="sparks"></div>
+      <div id="runner-track"></div>
+    </div>
+
+    <div id="body"></div>
+    <div id="hint">Click to open the app</div>
+  </div>
+
+<script>
+  const bodyEl = document.getElementById('body');
+  const cardEl = document.getElementById('card');
+  const closeBtn = document.getElementById('close-btn');
+  const stageEl = document.getElementById('stage');
+  const rocketEl = document.getElementById('rocket');
+  const sparksEl = document.getElementById('sparks');
+  const runnerTrackEl = document.getElementById('runner-track');
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+  }
+
+  // ---------------- OOO stage: rocket/firework + runner ----------------
+  // "character" comes straight from an optional "Character" column on the
+  // Planned Leave sheet (Code.gs's getTodayHighlights) — Boy/Girl, entered
+  // by whoever logs the leave. Nothing here guesses gender from a name:
+  // anything not exactly "boy" or "girl" (including a blank column, or the
+  // column not existing at all) falls back to a neutral color so a person
+  // who hasn't been given a Character yet still gets their own runner and
+  // name, just without a blue/pink color choice attached to them.
+  const SPARK_COLORS = ['#ffd166', '#ef476f', '#06d6a0', '#118ab2', '#ffffff', '#f7b32b'];
+  const SPARK_COUNT = 12;
+
+  let runnerQueue = [];
+  let runnerLoopTimer = null;
+
+  // One #stage height for a single person, growing for each extra one so
+  // they get their own lane — capped so a big team on leave the same day
+  // still fits a small banner instead of it growing without bound.
+  const STAGE_BASE_HEIGHT = 88;
+  const RUNNER_LANE_HEIGHT = 32;
+  const STAGE_MAX_EXTRA_LANES = 3;
+  const RUNNER_CROSS_MS = 3200; // matches run-across's own duration
+  const RUNNER_LOOP_GAP_MS = 700; // pause between crossings before looping
+
+  function launchRocket() {
+    sparksEl.innerHTML = '';
+    for (let i = 0; i < SPARK_COUNT; i++) {
+      const s = document.createElement('div');
+      s.className = 'spark';
+      s.style.setProperty('--angle', Math.round((360 / SPARK_COUNT) * i) + 'deg');
+      s.style.setProperty('--dist', (110 + (i % 3) * 12) + 'px');
+      s.style.background = SPARK_COLORS[i % SPARK_COLORS.length];
+      sparksEl.appendChild(s);
+    }
+    // Restart the CSS animation from scratch even if it's still mid-run
+    // from a previous stage/day (removing+re-adding the class alone won't
+    // restart it without a reflow in between).
+    rocketEl.classList.remove('launch');
+    void rocketEl.offsetWidth;
+    rocketEl.classList.add('launch');
+    setTimeout(() => {
+      Array.from(sparksEl.children).forEach((s) => s.classList.add('burst'));
+    }, 740); // lines up with the rocket reaching the top of rocket-launch above
+  }
+
+  // Accepts both the original free-typed "boy"/"girl" and "male"/"female"
+  // (Code.gs already lowercases whatever's in the Character column) —
+  // the latter is what a Male/Female/Others dropdown option produces once
+  // that column is switched from free text to a select. "others" (or
+  // anything else, including blank) falls through to neutral, same as
+  // before.
+  const BOY_VALUES = ['boy', 'male'];
+  const GIRL_VALUES = ['girl', 'female'];
+
+  function buildRunnerLane(person, laneIndex) {
+    const kind = BOY_VALUES.includes(person.character) ? 'boy' : GIRL_VALUES.includes(person.character) ? 'girl' : 'neutral';
+    const lane = document.createElement('div');
+    lane.className = 'runner-lane';
+    lane.style.bottom = (8 + laneIndex * RUNNER_LANE_HEIGHT) + 'px';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'runner-name ' + kind;
+    nameEl.textContent = person.name || 'Out today';
+    const badgeEl = document.createElement('div');
+    badgeEl.className = 'runner-badge ' + kind;
+    badgeEl.textContent = kind === 'girl' ? '🏃‍♀️' : '🏃';
+    lane.appendChild(nameEl);
+    lane.appendChild(badgeEl);
+    return lane;
+  }
+
+  // Everyone on leave today crosses together in one pass, rather than
+  // taking turns — the earlier one-at-a-time design read as a single
+  // runner stalling/disappearing before the next one started. Loops for
+  // as long as the banner stays open, same as before.
+  function runAllTogether() {
+    runnerTrackEl.innerHTML = '';
+    runnerQueue.forEach((person, i) => {
+      const lane = buildRunnerLane(person, i);
+      runnerTrackEl.appendChild(lane);
+      void lane.offsetWidth; // force layout so each fresh lane's animation actually starts
+      lane.classList.add('running');
+    });
+    runnerLoopTimer = setTimeout(runAllTogether, RUNNER_CROSS_MS + RUNNER_LOOP_GAP_MS);
+  }
+
+  function startStage(leaves) {
+    clearTimeout(runnerLoopTimer);
+    runnerQueue = leaves;
+    stageEl.classList.remove('hidden');
+    const extraLanes = Math.min(Math.max(leaves.length - 1, 0), STAGE_MAX_EXTRA_LANES);
+    stageEl.style.height = (STAGE_BASE_HEIGHT + extraLanes * RUNNER_LANE_HEIGHT) + 'px';
+    launchRocket();
+    runAllTogether();
+  }
+
+  function stopStage() {
+    clearTimeout(runnerLoopTimer);
+    runnerLoopTimer = null;
+    runnerQueue = [];
+    stageEl.classList.add('hidden');
+    stageEl.style.height = '';
+    runnerTrackEl.innerHTML = '';
+  }
+
+  function render(highlights) {
+    if (highlights.leaves && highlights.leaves.length) {
+      startStage(highlights.leaves);
+    } else {
+      stopStage();
+    }
+
+    const parts = [];
+    if (highlights.holiday) {
+      parts.push(
+        '<div class="section">' +
+          '<div class="section-label">Holiday</div>' +
+          '<div class="section-main">🎉 ' + escapeHtml(highlights.holiday.reason || '(unnamed)') + '</div>' +
+          (highlights.holiday.resourceOff
+            ? '<div class="section-sub">Off: ' + escapeHtml(highlights.holiday.resourceOff) + '</div>'
+            : '') +
+        '</div>'
+      );
+    }
+    if (highlights.leaves && highlights.leaves.length) {
+      const rows = highlights.leaves.map((l) =>
+        '<div class="leave-row"><span class="leave-name">' + escapeHtml(l.name || '(unnamed)') +
+        '</span><span class="leave-reason">' + escapeHtml(l.reason || '') + '</span></div>'
+      ).join('');
+      parts.push(
+        '<div class="section">' +
+          '<div class="section-label">On planned leave today</div>' +
+          rows +
+        '</div>'
+      );
+    }
+    if (highlights.message) {
+      parts.push(
+        '<div class="section">' +
+          '<div class="section-label">Note</div>' +
+          '<div class="section-main" style="font-weight:400;">' + escapeHtml(highlights.message) + '</div>' +
+        '</div>'
+      );
+    }
+    bodyEl.innerHTML = parts.join('');
+  }
+
+  function resizeToFit() {
+    // Same resize-to-fit-content approach as the main popup's index.html
+    // — measure real content height, ask main to resize the actual OS
+    // window to match (a percentage/fixed height here can't do this,
+    // same reasoning as that file's own comment on #card). Runs after
+    // render() has already shown/hidden #stage, so the measurement below
+    // already reflects whichever state it's in.
+    const height = cardEl.scrollHeight;
+    if (window.statusApp && window.statusApp.resizeBanner) {
+      window.statusApp.resizeBanner(height);
+    }
+  }
+
+  if (window.statusApp && window.statusApp.onBannerData) {
+    window.statusApp.onBannerData((highlights) => {
+      render(highlights || {});
+      requestAnimationFrame(resizeToFit);
+      if (highlights && highlights.chime && window.playChime) window.playChime(); // Sound on (Settings)
+    });
+  }
+
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (window.statusApp && window.statusApp.closeBanner) window.statusApp.closeBanner();
+  });
+  cardEl.addEventListener('click', () => {
+    if (window.statusApp && window.statusApp.openAppFromBanner) window.statusApp.openAppFromBanner();
+  });
+</script>
+</body>
+</html>

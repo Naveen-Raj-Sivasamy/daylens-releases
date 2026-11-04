@@ -1,0 +1,457 @@
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'none'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<script src="../preload-web.js"></script>
+<script src="../web-ui.js" defer></script>
+<link rel="stylesheet" href="../web.css" />
+
+<meta charset="utf-8" />
+<script src="theme.js"></script>
+<title>Daylens</title>
+<style>
+  html, body {
+    margin: 0; height: 100%;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--brand);
+    color: var(--on-brand);
+  }
+  body {
+    display: flex; flex-direction: column; padding: 0; box-sizing: border-box;
+    /* Frameless window (see main.js) — draggable from anywhere on the
+       background, not just the title bar strip, since that was the only
+       place a click-drag actually moved the window otherwise. Every real
+       control below gets its own no-drag override so this doesn't break
+       clicking/typing into any of them. */
+    -webkit-app-region: drag;
+  }
+  input, button, a {
+    -webkit-app-region: no-drag;
+  }
+  .titlebar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; flex: 0 0 auto;
+  }
+  .titlebar-title { font-size: 12px; font-weight: 700; color: var(--on-brand-dim); letter-spacing: 0.3px; white-space: nowrap; }
+  .titlebar-close {
+    background: rgba(255,255,255,0.14); border: none; color: var(--on-brand);
+    font-size: 12px; cursor: pointer; padding: 4px 9px; border-radius: 7px;
+    -webkit-app-region: no-drag; /* stay clickable inside the draggable title bar */
+  }
+  .titlebar-close:hover { background: rgba(255,255,255,0.24); }
+  /* Second grab point, opposite end from the titlebar — same as
+     manage.html's .drag-footer. Inherits drag from body itself, it's
+     just a flex sibling of .content that isn't inside its no-drag area. */
+  .drag-footer {
+    flex: 0 0 auto; height: 14px; display: flex; align-items: center; justify-content: center;
+  }
+  .drag-footer::before {
+    content: '•••'; color: rgba(255,255,255,0.25); font-size: 10px; letter-spacing: 3px;
+  }
+  .content {
+    /* -webkit-app-region: no-drag — same fix as manage.html's
+       .scroll-area, see its comment for the full reasoning: body above
+       is a drag region, Electron drag regions swallow scroll-wheel
+       input over anything draggable, and this content area (most of
+       what you'd hover to scroll) was never excluded from it. */
+    flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center;
+    padding: 0 28px 28px; box-sizing: border-box; overflow-y: auto; -webkit-app-region: no-drag;
+  }
+  h2 { margin: 0 0 6px; font-size: 17px; font-weight: 700; text-align: center; }
+  p { margin: 0 0 18px; font-size: 12px; color: var(--on-brand-dim); font-weight: 600; line-height: 1.4; text-align: center; }
+  .field-label {
+    font-size: 10.5px; color: var(--on-brand-dim); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 5px;
+  }
+  input {
+    width: 100%; padding: 10px 12px; border-radius: 10px; border: none;
+    font-size: 13px; margin-bottom: 12px; box-sizing: border-box;
+    background: var(--on-brand); color: var(--on-gold);
+  }
+  input:focus { outline: 2px solid var(--gold); }
+  button {
+    background: var(--gold); color: var(--on-gold); border: none; width: 100%;
+    padding: 11px 12px; border-radius: 10px; font-weight: 700; font-size: 13px;
+    cursor: pointer; margin-top: 4px;
+  }
+  button:hover { background: var(--gold-bright); }
+  button:disabled { opacity: 0.6; cursor: default; }
+  button.secondary {
+    background: transparent; color: var(--on-brand-dim); margin-top: 8px;
+  }
+  button.secondary:hover { color: var(--on-brand); }
+  .err { color: #ffd4d4; font-size: 11px; font-weight: 700; margin-top: 10px; min-height: 14px; text-align: center; }
+  .hidden { display: none !important; }
+  hr { border: none; border-top: 1px solid rgba(255,255,255,0.18); margin: 6px 0 16px; }
+
+  /* The first-run window now has a normal Windows frame (title bar, ✕),
+     so this page's own drag regions / title strip / ✕ are no longer needed. */
+  body { -webkit-app-region: no-drag !important; }
+  .titlebar, .drag-footer { display: none !important; }
+  .err.block { text-align: left; }
+  html, body { background: var(--page-bg, var(--brand)); color: var(--card-text, var(--on-brand)); }
+  .hero { font-size: 40px; text-align: center; margin-bottom: 6px; }
+  .view { background: var(--card-bg, transparent); border: 1px solid var(--card-border, transparent); box-shadow: var(--card-shadow, none); border-radius: 20px; padding: 24px; }
+  .choice-grid { display: grid; gap: 12px; margin-top: 6px; }
+  button.choice { display: grid; grid-template-columns: 44px 1fr; grid-template-rows: auto auto; column-gap: 12px; text-align: left; align-items: center; padding: 16px; margin: 0;
+    background: var(--input-bg) !important; color: var(--card-text) !important; border: 1px solid var(--input-border); box-shadow: none !important; }
+  button.choice:hover { border-color: var(--gold-bright); }
+  button.choice:disabled { opacity: 0.55; }
+  .choice .ci { grid-row: 1 / span 2; font-size: 26px; width: 44px; height: 44px; border-radius: 12px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; }
+  .choice .ct { font-size: 15px; font-weight: 800; }
+  .choice .ch { font-size: 12px; color: var(--card-text-dim); font-weight: 500; }
+  .steps { display: flex; gap: 6px; justify-content: center; margin-bottom: 10px; }
+  .steps span { font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: var(--input-bg); color: var(--card-text-dim); }
+  .steps span.on { background: var(--accent-grad); color: var(--on-accent); }
+  .steps span.done { color: var(--h1, #3ddc97); }
+  .hint-line { font-size: 12px; font-weight: 700; margin: -6px 0 12px; min-height: 16px; color: var(--card-text-dim); }
+  .hint-line.good { color: #3ddc97; } .hint-line.bad { color: #ff8f8f; }
+  html[data-mode="light"] .hint-line.good { color: #12804f; } html[data-mode="light"] .hint-line.bad { color: #c62828; }
+  ol.howto { text-align: left; font-size: 12.5px; line-height: 1.5; color: var(--card-text); padding-left: 20px; margin: 0 0 14px; }
+  ol.howto li { margin-bottom: 6px; }
+  button.link-btn { all: unset; cursor: pointer; color: var(--gold-bright); font-weight: 800; text-decoration: underline; }
+  button.link-btn:hover { background: none; color: var(--gold-bright); }
+  #g-restart-line { margin: 10px 0 0; text-align: center; }
+
+  input { background: var(--input-bg, #fff); color: var(--input-text, #1c3a2f); border: 1px solid var(--input-border, transparent); }
+  input:focus { outline: none; border-color: var(--gold-bright); box-shadow: 0 0 0 3px var(--accent-soft); }
+  button:not(.secondary) { background: var(--accent-grad, var(--gold)); color: var(--on-accent, var(--on-gold)); box-shadow: var(--accent-glow, none); border-radius: 12px; }
+  button.secondary { color: var(--card-text-dim, var(--on-brand-dim)); }
+  .field-label { color: var(--card-text-dim, var(--on-brand-dim)); }
+  p { color: var(--card-text-dim, #d3c39c); }
+  /* App mode (embedded in the main desktop-app window — see app-mode.js). */
+  html.app-mode .titlebar { display: none; }
+  html.app-mode .content { padding: 28px max(28px, calc((100% - 460px) / 2)); }
+
+  textarea { width: 100%; box-sizing: border-box; min-height: 64px; resize: vertical; padding: 10px 12px; border-radius: 10px; font: 600 12px/1.4 Consolas, 'Cascadia Mono', monospace;
+    background: var(--input-bg, #fff); color: var(--input-text, #1c3a2f); border: 1px solid var(--input-border, transparent); margin-bottom: 8px; -webkit-app-region: no-drag; }
+  textarea:focus { outline: none; border-color: var(--gold-bright); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .small-help { font-size: 11.5px; text-align: left; margin: 12px 0 0; }
+  .view h2 { font-size: 19px; }
+  /* setup guide */
+  .guide-meta { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: -8px 0 14px; }
+  .guide-meta span { font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: var(--input-bg); color: var(--card-text-dim); }
+  .privacy { font-size: 12px; line-height: 1.45; text-align: left; padding: 10px 12px; border-radius: 12px; background: var(--accent-soft); color: var(--card-text); margin: 0 0 14px; }
+  ol.guide-steps { text-align: left; font-size: 12.5px; line-height: 1.5; color: var(--card-text); padding-left: 20px; margin: 0 0 16px; }
+  ol.guide-steps li { margin-bottom: 7px; }
+  .guide-why { font-size: 11.5px; color: var(--card-text-dim); margin-top: 1px; }
+  /* live checklist */
+  ul.checklist { list-style: none; padding: 0; margin: 0 0 14px; text-align: left; }
+  ul.checklist li { display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: start; padding: 8px 10px; border-radius: 12px; margin-bottom: 6px; background: var(--input-bg); }
+  ul.checklist .st { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900;
+    background: var(--card-border, rgba(255,255,255,.15)); color: var(--card-text-dim); }
+  ul.checklist li.working .st { background: var(--accent-soft); color: var(--gold-bright); animation: pulse 1s infinite alternate; }
+  ul.checklist li.done .st { background: #1fa774; color: #fff; }
+  ul.checklist li.failed .st, ul.checklist li.waiting .st { background: #e8a33a; color: #2a1a05; }
+  ul.checklist .t { font-size: 13px; font-weight: 800; color: var(--card-text); }
+  ul.checklist .d { font-size: 11.5px; color: var(--card-text-dim); word-break: break-all; }
+  @keyframes pulse { from { opacity: .45; } to { opacity: 1; } }
+  .action-card { text-align: left; padding: 14px; border-radius: 14px; border: 1.5px dashed var(--gold-bright); margin: 0 0 12px; }
+  .action-card h3 { margin: 0 0 6px; font-size: 14px; }
+  .action-card p { text-align: left; margin: 0 0 10px; color: var(--card-text); }
+  .action-card .row { display: flex; gap: 8px; }
+  .action-card .row button { margin: 0; }
+  ol.howto b { color: var(--card-text); }
+</style>
+<script src="app-mode.js"></script>
+<script src="setup-guide.js"></script>
+</head>
+<body>
+  <div class="content">
+    <!-- 1. choose -->
+    <div id="choose" class="view hidden">
+      <div class="hero">👋</div>
+      <h2>Welcome to Daylens</h2>
+      <p><b>Daylens</b> — Work &amp; Status Reports. Your team's daily updates, leave, tickets and reminders, kept in your own Google Sheet.</p>
+      <div class="choice-grid">
+        <button type="button" class="choice" id="choose-join"><span class="ci">🔑</span><span class="ct">Join my team</span><span class="ch">I got an invite from my team's admin</span></button>
+        <button type="button" class="choice" id="choose-create"><span class="ci">✨</span><span class="ct">Create a new team</span><span class="ch">Set up Daylens for your team — about 5 minutes</span></button>
+      </div>
+    </div>
+
+    <!-- 2. join with an invite code -->
+    <div id="join" class="view hidden">
+      <h2 id="join-title">Join your team</h2>
+      <p id="join-sub">Paste the invite code from your admin's message, then sign in.</p>
+      <div class="field-label">Invite code</div>
+      <textarea id="join-code" placeholder="DL1-…" spellcheck="false"></textarea>
+      <div class="hint-line" id="join-team-line"></div>
+      <div class="field-label">Username</div>
+      <input id="join-user" type="text" autocomplete="username" />
+      <div class="field-label">Password</div>
+      <input id="join-pass" type="password" autocomplete="current-password" />
+      <button id="join-btn">Sign in</button>
+      <div class="err" id="join-err"></div>
+      <p class="small-help">No invite code? Ask your team's admin — they'll find it under People, or Settings → Team setup. No Google account needed.</p>
+      <button class="secondary" id="join-back">← Back</button>
+      <button class="secondary hidden" id="cancel-btn">Cancel</button>
+    </div>
+
+    <!-- 3. create: overview + team name -->
+    <div id="create-intro" class="view hidden">
+      <h2>Set up your team</h2>
+      <div class="guide-meta"><span id="ci-time"></span><span>Google account needed</span></div>
+      <div class="privacy" id="ci-privacy"></div>
+      <div id="ci-steps"></div>
+      <div class="field-label">Team name</div>
+      <input id="c-name" type="text" placeholder="e.g. Customer Support" />
+      <button id="ci-next">Start</button>
+      <div class="err" id="ci-err"></div>
+      <button class="secondary" id="ci-back">← Back</button>
+    </div>
+
+    <!-- 4a. create: Sign in with Google builds everything -->
+    <div id="create-google" class="view hidden">
+      <div class="steps"><span class="done">1 Name</span><span class="on">2 Your Sheet</span><span>3 Admin</span></div>
+      <h2>Create your team's Sheet</h2>
+      <p>Daylens creates it in <b>your</b> Google Drive. Follow the steps as they appear.</p>
+      <ul class="checklist" id="g-list">
+        <li data-step="signin"><span class="st">1</span><div><div class="t">Sign in with Google</div><div class="d">Tick every box, then click Continue.</div></div></li>
+        <li data-step="sheet"><span class="st">2</span><div><div class="t">Create your team's Sheet</div><div class="d"></div></div></li>
+        <li data-step="backend"><span class="st">3</span><div><div class="t">Install its backend</div><div class="d"></div></div></li>
+        <li data-step="publish"><span class="st">4</span><div><div class="t">Publish it</div><div class="d"></div></div></li>
+        <li data-step="allow"><span class="st">5</span><div><div class="t">Allow your team's backend</div><div class="d">One page from Google — it runs as you, in your own account.</div></div></li>
+      </ul>
+      <div class="action-card hidden" id="g-switch">
+        <h3>Turn on one switch</h3>
+        <p>Google needs "Google Apps Script API" turned <b>On</b> for your account. It's one switch: open the page, flip it, come back.</p>
+        <div class="row"><button type="button" id="g-open-switch">Open the switch page</button><button type="button" id="g-switch-done">I've turned it on — continue</button></div>
+      </div>
+      <div class="action-card hidden" id="g-allow">
+        <h3>Allow your team's backend</h3>
+        <p>A Google page opens. Choose your account. If it says <b>"Google hasn't verified this app"</b>, click <b>Advanced → Go to Daylens backend (unsafe)</b>, then <b>Allow</b>. It's your own backend, running in your own account.</p>
+        <div class="row"><button type="button" id="g-open-allow">Open the Allow page</button></div>
+        <div class="hint-line" id="g-allow-state" style="margin:10px 0 0;"></div>
+      </div>
+      <button id="g-start">Sign in with Google</button>
+      <div class="hint-line hidden" id="g-restart-line">Google showed an error, or you closed its page? <button type="button" class="link-btn" id="g-restart">Start sign-in again</button></div>
+      <div class="err" id="g-err"></div>
+      <button class="secondary" id="g-manual">Set it up by hand instead</button>
+      <button class="secondary" id="g-back">← Back</button>
+    </div>
+
+    <!-- 4b. create: by hand -->
+    <div id="create-manual" class="view hidden">
+      <div class="steps"><span class="done">1 Name</span><span class="on">2 Your Sheet</span><span>3 Admin</span></div>
+      <h2>Set up your team's Sheet by hand</h2>
+      <p>About 5 minutes, once. Your data stays in your own Google Drive.</p>
+      <div id="m-steps"></div>
+      <button type="button" id="copy-script">Copy the backend</button>
+      <div class="field-label" style="margin-top:14px;">Web app URL (ends in /exec)</div>
+      <input id="c-url" type="text" placeholder="https://script.google.com/macros/s/…/exec" spellcheck="false" />
+      <button id="m-next">Check &amp; continue</button>
+      <div class="err" id="m-err"></div>
+      <button class="secondary" id="m-back">← Back</button>
+    </div>
+
+    <!-- 5. create: first admin -->
+    <div id="create-admin" class="view hidden">
+      <div class="steps"><span class="done">1 Name</span><span class="done">2 Your Sheet</span><span class="on">3 Admin</span></div>
+      <h2>Create your admin account</h2>
+      <p>For signing in to Daylens, adding teammates and managing the app. <b>Not</b> your Google password.</p>
+      <div class="field-label">Your username</div>
+      <input id="c-user" type="text" autocomplete="username" />
+      <div class="field-label">Password (8+ characters)</div>
+      <input id="c-pass" type="password" autocomplete="new-password" />
+      <div class="field-label">Repeat password</div>
+      <input id="c-pass2" type="password" autocomplete="new-password" />
+      <button id="ca-create">Create team</button>
+      <div class="err" id="ca-err"></div>
+    </div>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const G = window.APP_GUIDE;
+  let info = {};
+  let googleOk = false;
+  let backendUrl = '';
+  function show(view) {
+    document.querySelectorAll('.view').forEach((v) => v.classList.toggle('hidden', v.id !== view));
+    const first = $(view).querySelector('input:not([type=hidden]), textarea');
+    if (first && !first.value) first.focus();
+  }
+
+  const appView = new URLSearchParams(location.search).get('view') || 'join';
+  async function init() {
+    [info, googleOk] = await Promise.all([
+      window.statusApp.getTeamInfo().catch(() => ({})),
+      window.statusApp.googleSetupAvailable().catch(() => false),
+    ]);
+    $('ci-time').textContent = G.create.time;
+    $('ci-privacy').textContent = G.create.privacy;
+    $('ci-steps').innerHTML = G.stepsHtml(G.create.steps);
+    $('m-steps').innerHTML = G.stepsHtml(G.manual, 'howto');
+    if (!googleOk) $('g-manual').classList.add('hidden');
+    if (window.__appMode) {
+      // In the app (team switcher → Join another team / Create a new
+      // team). The team that's open now stays on this PC too.
+      $('join-title').textContent = info.teamName ? 'Join another team' : 'Join a team';
+      if (info.teamName) {
+        const note = document.createElement('p');
+        note.className = 'small-help';
+        note.id = 'join-keeps';
+        note.style.cssText = 'text-align:center; margin:6px 0 14px;';
+        note.textContent = `${info.teamName} stays on this PC. Switch between your teams from the team card at the top of the menu.`;
+        ($('join-title').nextElementSibling || $('join-title')).insertAdjacentElement('afterend', note);
+      }
+      $('join-back').classList.add('hidden');
+      $('cancel-btn').classList.remove('hidden');
+      if (appView === 'create') show('create-intro');
+      else { show('join'); pasteFromClipboard(); }
+    } else {
+      show('choose');
+    }
+  }
+
+  // --- choose ---
+  $('choose-join').onclick = async () => { show('join'); await pasteFromClipboard(); };
+  $('choose-create').onclick = () => show('create-intro');
+  $('join-back').onclick = () => show('choose');
+  $('cancel-btn').onclick = () => window.close();
+
+  // --- join ---
+  async function pasteFromClipboard() {
+    if ($('join-code').value.trim()) return;
+    const c = await window.statusApp.readClipboardInvite().catch(() => ({}));
+    if (c && c.ok) { $('join-code').value = c.code; await readCode(); }
+  }
+  let readTimer = null;
+  async function readCode() {
+    const line = $('join-team-line');
+    const text = $('join-code').value;
+    if (!text.trim()) { line.className = 'hint-line'; line.textContent = ''; return; }
+    const r = await window.statusApp.readInvite(text);
+    if (!r.ok) { line.className = 'hint-line bad'; line.textContent = r.error; return; }
+    line.className = 'hint-line good';
+    line.textContent = r.teamName ? `✓ Team: ${r.teamName}` : (r.isLink ? '✓ Team backend link' : '✓ Invite code');
+    if (r.username && !$('join-user').value) $('join-user').value = r.username;
+    ($('join-user').value ? $('join-pass') : $('join-user')).focus();
+  }
+  $('join-code').addEventListener('input', () => { clearTimeout(readTimer); readTimer = setTimeout(readCode, 250); });
+  async function doJoin() {
+    if (!$('join-user').value.trim()) await readCode(); // the code may carry the username
+    const payload = { invite: $('join-code').value, username: $('join-user').value.trim(), password: $('join-pass').value };
+    if (!payload.invite.trim()) { $('join-err').textContent = "Paste the invite code from your admin's message."; return; }
+    if (!payload.username || !payload.password) { $('join-err').textContent = 'Enter your username and password.'; return; }
+    $('join-err').textContent = '';
+    $('join-btn').disabled = true; $('join-btn').textContent = 'Signing in…';
+    const res = await window.statusApp.joinTeam(payload).catch((err) => ({ ok: false, error: err.message }));
+    $('join-btn').disabled = false; $('join-btn').textContent = 'Sign in';
+    if (!res || !res.ok) { $('join-err').textContent = (res && res.error) || 'Could not sign in.'; return; }
+    if (window.__appMode) window.__appPost({ type: 'connection-changed' });
+  }
+  $('join-btn').onclick = doJoin;
+  $('join-pass').addEventListener('keydown', (e) => { if (e.key === 'Enter') doJoin(); });
+
+  // --- create: name ---
+  $('ci-next').onclick = () => {
+    if (!$('c-name').value.trim()) { $('ci-err').textContent = 'Type your team name.'; return; }
+    $('ci-err').textContent = '';
+    show(googleOk ? 'create-google' : 'create-manual');
+  };
+  $('c-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('ci-next').click(); });
+  $('ci-back').onclick = () => (window.__appMode && appView === 'create' ? window.close() : show('choose'));
+
+  // --- create: with Google ---
+  const STATE_ICON = { working: '…', done: '✓', failed: '!', waiting: '!' };
+  function setStep(step, state, detail) {
+    const li = document.querySelector(`#g-list li[data-step="${step}"]`);
+    if (!li) return;
+    li.className = state || '';
+    const n = [...li.parentNode.children].indexOf(li) + 1;
+    li.querySelector('.st').textContent = STATE_ICON[state] || String(n);
+    if (detail) li.querySelector('.d').textContent = detail;
+  }
+  window.statusApp.onGoogleSetupProgress((p) => setStep(p.step, p.state, p.state === 'done' && p.step === 'signin' && p.detail ? `Signed in as ${p.detail}` : (p.state === 'done' ? '' : p.detail)));
+  let restartSignIn = false;
+  async function runGoogle() {
+    $('g-err').textContent = '';
+    $('g-switch').classList.add('hidden');
+    $('g-start').disabled = true; $('g-start').textContent = 'Working… follow the steps above';
+    $('g-restart-line').classList.remove('hidden');
+    const r = await window.statusApp.googleSetup($('c-name').value.trim()).catch((err) => ({ ok: false, error: err.message }));
+    $('g-restart-line').classList.add('hidden');
+    if (restartSignIn) { restartSignIn = false; return runGoogle(); }
+    if (r && r.ok) {
+      backendUrl = r.backendUrl;
+      $('g-start').classList.add('hidden');
+      setStep('allow', 'working', 'Waiting for you to click Allow on Google\'s page…');
+      $('g-allow').classList.remove('hidden');
+      window.statusApp.openAllowPage(backendUrl);
+      waitForAllow();
+      return;
+    }
+    $('g-start').disabled = false;
+    if (r && r.cancelled) { $('g-start').textContent = 'Sign in with Google'; return; }
+    $('g-start').textContent = 'Try again';
+    if (r && r.needSwitch) { $('g-switch').classList.remove('hidden'); window.statusApp.openSwitchPage(); return; }
+    $('g-err').textContent = (r && r.error) || 'Something went wrong — try again.';
+  }
+  let allowTimer = null;
+  async function waitForAllow() {
+    clearTimeout(allowTimer);
+    const r = await window.statusApp.checkBackend(backendUrl).catch(() => ({ ok: false }));
+    if (r && r.ok) {
+      setStep('allow', 'done', 'Allowed ✓');
+      $('g-allow').classList.add('hidden');
+      setTimeout(() => show('create-admin'), 600);
+      return;
+    }
+    $('g-allow-state').textContent = 'Waiting for you to click Allow… (this updates by itself)';
+    allowTimer = setTimeout(waitForAllow, 3000);
+  }
+  $('g-start').onclick = runGoogle;
+  // A Google error page (e.g. "Access blocked") never answers Daylens: stop the
+  // waiting sign-in and open Google's page again.
+  $('g-restart').onclick = async () => {
+    restartSignIn = true;
+    const r = await window.statusApp.cancelGoogleSignIn().catch(() => ({ ok: false }));
+    if (!r || !r.ok) restartSignIn = false; // nothing was waiting
+  };
+  const stopSignIn = () => { restartSignIn = false; window.statusApp.cancelGoogleSignIn().catch(() => {}); };
+  $('g-open-switch').onclick = () => window.statusApp.openSwitchPage();
+  $('g-switch-done').onclick = runGoogle;
+  $('g-open-allow').onclick = () => window.statusApp.openAllowPage(backendUrl);
+  $('g-manual').onclick = () => { clearTimeout(allowTimer); stopSignIn(); show('create-manual'); };
+  $('g-back').onclick = () => { clearTimeout(allowTimer); stopSignIn(); show('create-intro'); };
+
+  // --- create: by hand ---
+  $('copy-script').onclick = async () => {
+    const r = await window.statusApp.copyBackendScript();
+    $('copy-script').textContent = r && r.ok ? 'Copied ✓ — now paste it in Apps Script' : 'Not available in this build';
+  };
+  $('m-next').onclick = async () => {
+    const url = $('c-url').value.trim();
+    $('m-err').textContent = '';
+    $('m-next').disabled = true; $('m-next').textContent = 'Checking…';
+    const r = await window.statusApp.checkBackend(url).catch((err) => ({ ok: false, error: err.message }));
+    $('m-next').disabled = false; $('m-next').textContent = 'Check & continue';
+    if (!r || !r.ok) { $('m-err').textContent = (r && r.error) || 'Could not reach that link.'; return; }
+    if (r.teamId && r.hasUsers) { $('m-err').textContent = `That Sheet already has a team ("${r.teamName || r.teamId}") — ask its admin for an invite code and use Join instead.`; return; }
+    backendUrl = url;
+    show('create-admin');
+  };
+  $('m-back').onclick = () => show('create-intro');
+
+  // --- create: first admin ---
+  $('ca-create').onclick = async () => {
+    const p1 = $('c-pass').value, p2 = $('c-pass2').value;
+    if (!$('c-user').value.trim()) { $('ca-err').textContent = 'Choose your admin username.'; return; }
+    if (p1.length < 8) { $('ca-err').textContent = 'Use at least 8 characters for the password.'; return; }
+    if (p1 !== p2) { $('ca-err').textContent = "The two passwords don't match."; return; }
+    $('ca-err').textContent = '';
+    $('ca-create').disabled = true; $('ca-create').textContent = 'Creating your team…';
+    const res = await window.statusApp.createTeam({ teamName: $('c-name').value.trim(), backendUrl, username: $('c-user').value.trim(), password: p1 })
+      .catch((err) => ({ ok: false, error: err.message }));
+    $('ca-create').disabled = false; $('ca-create').textContent = 'Create team';
+    if (!res || !res.ok) { $('ca-err').textContent = (res && res.error) || 'Could not create the team.'; return; }
+    if (window.__appMode) window.__appPost({ type: 'connection-changed' });
+  };
+  $('c-pass2').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('ca-create').click(); });
+
+  init();
+</script>
+</body>
+</html>

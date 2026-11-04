@@ -1,0 +1,3127 @@
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'none'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<script src="../preload-web.js"></script>
+<script src="../web-ui.js" defer></script>
+<link rel="stylesheet" href="../web.css" />
+
+<meta charset="utf-8" />
+<script src="theme.js"></script>
+<title>Tabs &amp; fields</title>
+<style>
+  html, body {
+    margin: 0; height: 100%;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--brand);
+    color: var(--on-brand);
+  }
+  body {
+    display: flex; flex-direction: column; padding: 0; box-sizing: border-box;
+    /* Frameless window (see main.js) — draggable from anywhere on the
+       background, not just the title bar strip, since that was the only
+       place a click-drag actually moved the window otherwise. Every real
+       control below gets its own no-drag override so this doesn't break
+       clicking/typing into any of them. */
+    -webkit-app-region: drag;
+  }
+  input, select, textarea, button, a {
+    -webkit-app-region: no-drag;
+  }
+  .titlebar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px; flex: 0 0 auto;
+  }
+  .titlebar-title { font-size: 12px; font-weight: 700; color: var(--on-brand-dim); letter-spacing: 0.3px; white-space: nowrap; }
+  .titlebar-close {
+    background: rgba(255,255,255,0.14); border: none; color: var(--on-brand);
+    font-size: 12px; cursor: pointer; padding: 4px 9px; border-radius: 7px;
+    -webkit-app-region: no-drag; /* stay clickable inside the draggable title bar */
+  }
+  .titlebar-close:hover { background: rgba(255,255,255,0.24); }
+  /* Second grab point, opposite end from the titlebar — see the comment
+     where this element is placed in the body. Inherits drag from body
+     itself (no explicit app-region needed), it's just a flex sibling of
+     .scroll-area that isn't inside its no-drag area. The three dots are
+     a plain visual affordance so it doesn't look like empty dead space. */
+  .drag-footer {
+    flex: 0 0 auto; height: 14px; display: flex; align-items: center; justify-content: center;
+  }
+  .drag-footer::before {
+    content: '•••'; color: rgba(255,255,255,0.25); font-size: 10px; letter-spacing: 3px;
+  }
+  /* -webkit-app-region: no-drag here is the actual fix for "scrollbar
+     doesn't work" — body above is a drag region (see its own comment),
+     and this content area was never excluded from it. Electron drag
+     regions swallow mouse-wheel/scroll input over anything marked
+     draggable, not just click-drag — so scrolling over any of this
+     area's plain text/headings (most of it) was being eaten by the
+     window-drag handler instead of reaching the scroll. min-height: 0
+     turned out NOT to be the cause (verified: modern browsers already
+     treat a flex item's min-height as 0 once it has overflow-y: auto —
+     it's redundant here, kept only as documentation of what was ruled
+     out). Dragging the window still works via the titlebar strip above. */
+  .scroll-area { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px 24px 32px; box-sizing: border-box; -webkit-app-region: no-drag; }
+  h2 { margin: 0 0 6px; font-size: 17px; font-weight: 700; }
+  h3 { margin: 0 0 4px; font-size: 14px; font-weight: 700; color: var(--gold-bright); }
+  p.hint { margin: 0 0 14px; font-size: 11.5px; color: var(--on-brand-dim); font-weight: 600; line-height: 1.4; }
+  code { background: rgba(255,255,255,0.16); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+  .field-label {
+    font-size: 10.5px; color: var(--on-brand-dim); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 5px;
+  }
+  input, select {
+    padding: 8px 10px; border-radius: 8px; border: none;
+    font-size: 12.5px; background: var(--on-brand); color: var(--on-gold); box-sizing: border-box;
+  }
+  input:focus, select:focus { outline: 2px solid var(--gold); }
+  button {
+    background: var(--gold); color: var(--on-gold); border: none;
+    padding: 9px 14px; border-radius: 8px; font-weight: 700; font-size: 12.5px;
+    cursor: pointer;
+  }
+  button:hover { background: var(--gold-bright); }
+  button:disabled { opacity: 0.6; cursor: default; }
+  button.secondary { background: transparent; color: var(--on-brand-dim); border: 1px solid rgba(255,255,255,0.35); }
+  button.secondary:hover { color: var(--on-brand); border-color: var(--on-brand); }
+  button.icon-btn { background: rgba(255,255,255,0.14); color: var(--on-brand); padding: 5px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; }
+  button.icon-btn:hover { background: rgba(255,255,255,0.24); }
+  .section { background: rgba(255,255,255,0.06); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .hidden { display: none !important; }
+  .m-tile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin: 6px 0 18px; }
+  .m-tile {
+    display: flex; gap: 12px; align-items: flex-start; text-align: left; width: 100%; min-height: 84px;
+    background: var(--surface); color: var(--text); border: 1px solid transparent; border-radius: 14px;
+    padding: 16px; cursor: pointer; font-family: inherit; box-shadow: 0 1px 3px rgba(0,0,0,0.14);
+    transition: transform 0.08s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+  }
+  .m-tile:hover { transform: translateY(-1px); border-color: var(--gold); box-shadow: 0 4px 14px rgba(0,0,0,0.22); background: var(--tile-hover); }
+  .m-tile-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--brand); display: flex; align-items: center; justify-content: center; font-size: 18px; flex: 0 0 auto; }
+  .m-tile-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .m-tile-title { font-size: 14px; font-weight: 800; }
+  .m-tile-hint { font-size: 11.5px; color: var(--text-dim); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .m-backbar { display: flex; align-items: center; gap: 12px; margin: 4px 0 14px; }
+  .m-backbar button { background: var(--gold); color: var(--on-gold); border: none; border-radius: 8px; padding: 7px 12px; font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; }
+  #section-crumb { font-size: 15px; font-weight: 800; color: var(--on-brand); }
+  .group { background: rgba(255,255,255,0.07); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+  .group-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  /* The icon a category / tab shows on its tile — click to choose another. */
+  /* Clean-up & backups / Friday check-in */
+  .cu-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--input-bg); border: 1px solid var(--card-border); margin-bottom: 8px; }
+  .cu-row .cu-name { font-weight: 800; color: var(--card-text); }
+  .cu-row .cu-kind { margin-left: 6px; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--card-text); }
+  .cu-row .cu-why { grid-column: 1 / -1; font-size: 12px; color: var(--card-text); opacity: 0.8; }
+  .cu-row select { margin: 0; min-width: 180px; }
+  .cu-row.off { opacity: 0.7; }
+  .cu-to, .cu-last, .cu-preview, .wc-preview { font-size: 13px; color: var(--card-text); margin: 8px 0; line-height: 1.45; }
+  .cu-preview b, .wc-preview b { font-weight: 800; }
+  .wc-check { display: flex; gap: 8px; align-items: center; margin: 8px 0; color: var(--card-text); font-weight: 700; cursor: pointer; }
+  .wc-check input { width: auto; margin: 0; }
+  .wc-when { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0 10px 26px; color: var(--card-text); }
+  .wc-when select { margin: 0; width: auto; }
+  .confirming { box-shadow: 0 0 0 2px var(--gold-bright) inset; }
+  /* Rich-text box (richtext-lite.js): toolbar, text, link row, preview. */
+  .rt-wrap { margin-top: 6px; border: 1px solid var(--card-border); border-radius: 11px; background: var(--input-bg); padding: 6px; }
+  .rt-toolbar { display: flex; gap: 4px; margin-bottom: 6px; }
+  .rt-btn { width: auto; margin: 0; padding: 4px 10px; font-size: 12.5px; font-weight: 800; border-radius: 7px; border: 1px solid var(--card-border); background: transparent; color: var(--card-text); cursor: pointer; }
+  .rt-btn.rt-italic { font-style: italic; font-family: Georgia, serif; }
+  .rt-btn:hover, .rt-btn:focus-visible { border-color: var(--gold-bright); outline: none; background: var(--accent-soft); }
+  .rt-btn:disabled { opacity: 0.5; cursor: default; }
+  .rt-text { width: 100%; box-sizing: border-box; min-height: 84px; resize: vertical; margin: 0; font: inherit; font-size: 13px; }
+  .rt-link-row { display: flex; gap: 6px; margin-top: 6px; }
+  .rt-link-row[hidden] { display: none; }
+  .rt-link-row input { flex: 1 1 auto; margin: 0; }
+  .rt-preview { margin-top: 6px; padding: 8px 10px; border-radius: 8px; border: 1px dashed var(--card-border); font-size: 13px; line-height: 1.45; color: var(--card-text); }
+  .rt-preview ul, .rt-preview ol { margin: 4px 0; padding-left: 20px; }
+  .rt-preview a { color: var(--gold-bright); text-decoration: underline; }
+  .rt-preview-empty { opacity: 0.7; font-style: italic; }
+  .rt-wrap.rt-disabled { opacity: 0.6; }
+  .icon-pick-btn { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 11px; border: 1.5px dashed var(--card-border); background: var(--input-bg); color: var(--card-text); font-size: 20px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; font-weight: 800; }
+  .icon-pick-btn:hover, .icon-pick-btn:focus-visible { border-color: var(--gold-bright); outline: none; background: var(--input-bg); }
+  .icon-picker { position: fixed; z-index: 60; width: 340px; max-height: 360px; display: flex; flex-direction: column; background: var(--chrome); color: var(--on-brand); border: 1px solid var(--card-border); border-radius: 14px; box-shadow: 0 18px 50px rgba(0,0,0,0.45); padding: 10px; }
+  html[data-mode="light"] .icon-picker { background: #fff; color: #1d2433; box-shadow: 0 18px 50px rgba(30,45,90,0.2); }
+  .icon-picker input { margin: 0 0 8px; }
+  .icon-picker .ip-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; overflow-y: auto; padding: 2px; }
+  .icon-picker .ip-grid button { width: auto; min-width: 0; font-size: 20px; height: 36px; border: none; border-radius: 8px; background: transparent; cursor: pointer; padding: 0; }
+  .icon-picker .ip-grid button:hover, .icon-picker .ip-grid button:focus-visible { background: var(--accent-soft); outline: none; }
+  .icon-picker .ip-grid button.on { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--gold-bright); }
+  .icon-picker .ip-auto:hover { background: none; text-decoration: underline; }
+  .icon-picker .ip-auto { width: auto; margin-top: 8px; font-size: 12px; font-weight: 700; border: none; background: none; color: var(--gold-bright); cursor: pointer; text-align: left; padding: 4px; }
+  .group-header input { flex: 1; }
+  .opt-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .opt-row input { flex: 1; }
+  /* The group-header row's delete button ("✕ Remove list") is wider than
+     an option row's ("✕") — since both buttons sit next to a flex:1 input,
+     the wider one silently ate more space from ITS input than the ✕
+     buttons did from theirs, so the header input's right edge landed
+     visibly short of every option-row input below it (the "field
+     stretching looks odd" a group of these renders as). Same fixed width
+     on both button kinds — a plain ✕ just ends up centered in the extra
+     room — makes every input in the group end at the same edge. */
+  .opt-del-btn { width: 100px; text-align: center; flex-shrink: 0; }
+  .chip-group { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+  button.chip { background: rgba(255,255,255,0.1); color: var(--on-brand-dim); border: 1px solid rgba(255,255,255,0.25); padding: 4px 10px; border-radius: 999px; font-size: 11.5px; }
+  button.chip:hover { border-color: rgba(255,255,255,0.5); color: var(--on-brand); }
+  button.chip.selected { background: var(--gold-bright); color: var(--brand); border-color: var(--gold-bright); font-weight: 600; }
+  .fs-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .fs-row select, .fs-row input { flex: 1 1 110px; min-width: 90px; }
+  .row-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .err { color: #ffd4d4; font-size: 11px; font-weight: 700; margin-top: 8px; min-height: 14px; }
+  .ok { color: #c9f7d1; font-size: 11px; font-weight: 700; margin-top: 8px; min-height: 14px; }
+  .hidden { display: none !important; }
+  hr { border: none; border-top: 1px solid rgba(255,255,255,0.18); margin: 6px 0 16px; }
+  .cat-tab-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 0; }
+  .cat-tab-empty { font-size: 11.5px; color: var(--on-brand-dim); font-style: italic; }
+  .cat-tab-adder { display: flex; gap: 8px; margin-top: 8px; }
+  .cat-tab-adder select { flex: 1; }
+  .fs-tab-adder { display: flex; gap: 8px; flex: 1 1 260px; flex-wrap: wrap; align-items: center; }
+  .fs-tab-adder select { flex: 1; min-width: 140px; }
+  .compare-table { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+  .compare-row {
+    display: grid; grid-template-columns: 1fr 92px 92px; align-items: center;
+    gap: 10px; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,0.06);
+    font-size: 12px;
+  }
+  .compare-row.compare-head {
+    background: transparent; font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--on-brand-dim); font-weight: 700; padding: 0 10px 2px;
+  }
+  .compare-row > div:first-child { color: var(--on-brand); font-weight: 600; }
+  .badge {
+    display: block; width: 100%; box-sizing: border-box; text-align: center;
+    padding: 4px 6px; border-radius: 999px; font-size: 10.5px; font-weight: 800;
+    letter-spacing: 0.2px;
+  }
+  .badge.yes { background: #2e7d4f; color: #eaffef; }
+  .badge.no { background: #7a2e2e; color: #ffe9e9; }
+  .badge.code { background: #8a5a1e; color: #fff3e0; }
+  #gate { max-width: 380px; margin: 40px auto 0; text-align: center; }
+  #gate input { width: 100%; margin-bottom: 12px; box-sizing: border-box; }
+
+  /* App mode (embedded in the main desktop-app window — see app-mode.js):
+     the shell's sidebar/title strip replace this window's own title bar,
+     and content keeps a readable width centered in a large window. */
+  html.app-mode .titlebar { display: none; }
+  html.app-mode .scroll-area { padding: 22px max(28px, calc((100% - 960px) / 2)) 0; }
+  /* room at the end, so the last line can scroll clear of the Ask button */
+  html.app-mode #content::after { content: ''; display: block; height: 96px; }
+
+  /* ===================== Vibrant look (2.0) =====================
+     Everything below restyles the existing editors — same elements, same
+     ids, same save logic. Colours come from theme.js: --page-bg (glow
+     background), --card-* (glass cards in dark themes, white cards in
+     Light), --accent-grad (buttons), and --h1..--h6, six fixed vibrant
+     colours used to colour-code cards and chips (cycled per card). */
+  html, body { background: var(--page-bg); background-attachment: fixed; color: var(--card-text); }
+  .scroll-area { padding-bottom: 0 !important; }
+  h2 { font-size: 24px; font-weight: 800; letter-spacing: -0.3px; color: var(--card-text); margin-bottom: 4px; }
+  #content > p.hint { font-size: 13px; font-weight: 500; color: var(--card-text-dim); margin-bottom: 18px; }
+  h3 { font-size: 18px; font-weight: 800; color: var(--card-text); letter-spacing: -0.2px; margin-bottom: 4px; }
+  p.hint { color: var(--card-text-dim); font-weight: 500; font-size: 12.5px; }
+  .field-label { color: var(--card-text-dim); }
+  code { background: var(--input-bg); color: var(--card-text); }
+
+  /* section = the editor you opened: a big glass/white card. No backdrop-filter
+     anywhere: it puts the text on its own layer, and Windows then draws it
+     without ClearType — that was the "blurry text". */
+  .section {
+    background: var(--card-bg); border: 1px solid var(--card-border); box-shadow: var(--card-shadow);
+    border-radius: 20px; padding: 22px 22px 0; margin-bottom: 18px;
+  }
+
+  /* inner cards (one per list / tab / category / report / group) */
+  .group {
+    --h: var(--h1);
+    background: var(--card-bg-2); border: 1px solid var(--card-border); border-radius: 16px;
+    padding: 14px 16px; margin-bottom: 12px; position: relative;
+  }
+  .group:nth-child(6n+2) { --h: var(--h2); } .group:nth-child(6n+3) { --h: var(--h3); }
+  .group:nth-child(6n+4) { --h: var(--h4); } .group:nth-child(6n+5) { --h: var(--h5); } .group:nth-child(6n) { --h: var(--h6); }
+  html[data-mode="light"] .group { border-top: 4px solid var(--h); box-shadow: 0 6px 18px rgba(30,45,90,0.06); }
+  html[data-mode="dark"] .group { box-shadow: inset 3px 0 0 var(--h); }
+  .group .group { box-shadow: none; border-top-width: 1px; }
+
+  /* inputs & selects */
+  input, select, textarea {
+    background: var(--input-bg); color: var(--input-text); border: 1px solid var(--input-border);
+    border-radius: 10px; padding: 9px 12px; font-size: 13px; font-family: inherit;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  }
+  input::placeholder, textarea::placeholder { color: var(--card-text-dim); opacity: 0.7; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--gold-bright); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .group-header input { font-size: 15px; font-weight: 800; }
+
+  /* buttons */
+  button { border-radius: 12px; font-family: inherit; }
+  button:not(.secondary):not(.icon-btn):not(.chip):not(.m-tile):not(.opt-x):not(.text-btn):not(.new-list-tile):not(.plain-btn) {
+    background: var(--accent-grad); color: var(--on-accent); box-shadow: var(--accent-glow); font-weight: 800; padding: 10px 18px;
+  }
+  button:not(.secondary):not(.icon-btn):not(.chip):not(.m-tile):not(.opt-x):not(.text-btn):not(.new-list-tile):not(.plain-btn):hover { filter: brightness(1.06); }
+  button.secondary { background: var(--input-bg); color: var(--card-text); border: 1px dashed var(--input-border); font-weight: 700; }
+  button.secondary:hover { border-color: var(--gold-bright); color: var(--card-text); }
+  button.icon-btn { background: transparent; color: #ff8f8f; border: 1px solid transparent; font-weight: 700; padding: 6px 10px; }
+  html[data-mode="light"] button.icon-btn { color: #d64545; }
+  button.icon-btn:hover { background: rgba(255,120,120,0.12); }
+  /* icon-btns that ADD something (+ Add, + Add another column…) aren't destructive */
+  button.icon-btn.add-btn { color: var(--card-text); border: 1.5px dashed var(--input-border); border-radius: 999px; }
+  button.icon-btn.add-btn:hover { border-color: var(--gold-bright); background: transparent; }
+
+  /* chips (tab pickers in Categories / Report configs) */
+  .chip-group, .cat-tab-chips { gap: 8px; }
+  button.chip {
+    --h: var(--h2); border-radius: 999px; padding: 6px 13px; font-size: 12.5px; font-weight: 700;
+    background: transparent; color: var(--card-text-dim); border: 1.5px dashed var(--input-border);
+  }
+  button.chip.selected { border-style: solid; }
+  html[data-mode="dark"] button.chip.selected { background: color-mix(in srgb, var(--h) 18%, transparent); color: color-mix(in srgb, var(--h) 35%, white); border-color: color-mix(in srgb, var(--h) 40%, transparent); }
+  html[data-mode="light"] button.chip.selected { background: color-mix(in srgb, var(--h) 13%, white); color: color-mix(in srgb, var(--h) 60%, black); border-color: transparent; }
+  .group button.chip { --h: inherit; }
+
+  /* sticky save bar: every section's Save row stays in view at the bottom */
+  .row-actions {
+    position: sticky; bottom: 0; z-index: 5; margin: 16px -22px 0; padding: 14px 22px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: var(--card-bg); border-top: 1px solid var(--card-border);
+    border-radius: 0 0 20px 20px;
+  }
+  html[data-mode="dark"] .row-actions { background: var(--chrome); }
+  .save-state { flex: 1; display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; color: var(--card-text-dim); min-width: 150px; order: -1; }
+  .save-state .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--card-text-dim); opacity: 0.5; }
+  .save-state.dirty { color: var(--card-text); }
+  .save-state.dirty .dot { background: var(--h4); opacity: 1; box-shadow: 0 0 10px var(--h4); }
+  .save-state.saved .dot { background: var(--h1); opacity: 1; }
+  .err, .ok { font-size: 12.5px; }
+  .err { color: #ff9b9b; } .ok { color: #6bf0a0; }
+  html[data-mode="light"] .err { color: #c62828; } html[data-mode="light"] .ok { color: #12804f; }
+
+  /* compare table */
+  .compare-row { background: var(--card-bg-2); border: 1px solid var(--card-border); border-radius: 12px; padding: 10px 12px; font-size: 13px; }
+  .compare-row > div:first-child { color: var(--card-text); }
+  .compare-row.compare-head { background: transparent; border: none; color: var(--card-text-dim); }
+  .badge.yes { background: linear-gradient(135deg, #3ddc97, #1fa774); color: #05301d; }
+  .badge.no { background: rgba(255,120,120,0.18); color: #ff9b9b; }
+  html[data-mode="light"] .badge.no { background: #fdecec; color: #c62828; }
+  .badge.code { background: linear-gradient(135deg, #ffc24d, #ff8a3d); color: #2a1a05; }
+
+  /* Manage home tiles + back bar */
+  .m-tile-grid { gap: 14px; }
+  .m-tile { --h: var(--h1); background: var(--card-bg); color: var(--card-text); border: 1px solid var(--card-border); box-shadow: var(--card-shadow); border-radius: 18px; }
+  .m-tile:nth-child(6n+2) { --h: var(--h2); } .m-tile:nth-child(6n+3) { --h: var(--h3); }
+  .m-tile:nth-child(6n+4) { --h: var(--h4); } .m-tile:nth-child(6n+5) { --h: var(--h5); } .m-tile:nth-child(6n) { --h: var(--h6); }
+  .m-tile:hover { background: var(--card-bg); border-color: var(--h); transform: translateY(-2px); }
+  .m-tile-icon { background: linear-gradient(135deg, var(--h), color-mix(in srgb, var(--h) 65%, black)); box-shadow: 0 4px 12px color-mix(in srgb, var(--h) 35%, transparent); }
+  .m-tile-hint { color: var(--card-text-dim); }
+  .m-backbar button { background: var(--accent-grad); color: var(--on-accent); border-radius: 999px; padding: 7px 14px; box-shadow: var(--accent-glow); }
+  #section-crumb { color: var(--card-text-dim); font-size: 13px; font-weight: 700; }
+
+  /* ---- Dropdown options: one card per list, options as chips ---- */
+  #options-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px; }
+  #options-groups .group { margin: 0; padding: 16px 18px 18px; border-radius: 18px; }
+  .opt-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .opt-badge { width: 34px; height: 34px; border-radius: 10px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 900; color: #fff;
+    background: linear-gradient(135deg, var(--h), color-mix(in srgb, var(--h) 65%, black)); }
+  .opt-card-head .opt-key-input { flex: 1; min-width: 0; background: transparent; border: 1px solid transparent; font-size: 15px; font-weight: 800; padding: 6px 8px; color: var(--card-text); }
+  .opt-card-head .opt-key-input:hover { border-color: var(--input-border); }
+  .opt-card-head .opt-key-input:focus { background: var(--input-bg); }
+  .opt-count { font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; background: var(--input-bg); color: var(--card-text-dim); white-space: nowrap; }
+  .opt-rows { display: flex; flex-wrap: wrap; gap: 8px; }
+  .opt-row.opt-chip {
+    display: inline-flex; align-items: center; gap: 4px; margin: 0; padding: 3px 5px 3px 4px; border-radius: 999px;
+    border: 1px solid transparent;
+  }
+  html[data-mode="dark"] .opt-row.opt-chip { background: color-mix(in srgb, var(--h) 16%, transparent); border-color: color-mix(in srgb, var(--h) 38%, transparent); }
+  html[data-mode="light"] .opt-row.opt-chip { background: color-mix(in srgb, var(--h) 12%, white); }
+  .opt-row.opt-chip input {
+    flex: none; background: transparent; border: none; box-shadow: none; padding: 4px 4px 4px 10px; font-size: 13px; font-weight: 700;
+    min-width: 2ch; width: auto;
+  }
+  html[data-mode="dark"] .opt-row.opt-chip input { color: color-mix(in srgb, var(--h) 30%, white); }
+  html[data-mode="light"] .opt-row.opt-chip input { color: color-mix(in srgb, var(--h) 60%, black); }
+  .opt-row.opt-chip:focus-within { box-shadow: 0 0 0 2px var(--h); }
+  button.opt-x {
+    width: 22px; height: 22px; border-radius: 50%; padding: 0; border: none; cursor: pointer; flex: 0 0 auto;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900;
+    background: color-mix(in srgb, var(--h) 28%, transparent); color: var(--card-text);
+  }
+  button.opt-x:hover { background: #e5484d; color: #fff; }
+  .opt-add {
+    display: inline-flex; align-items: center; border: 1.5px dashed var(--input-border); border-radius: 999px; padding: 0 4px 0 12px;
+  }
+  .opt-add:focus-within { border-color: var(--h); border-style: solid; }
+  .opt-add span { font-weight: 800; color: var(--card-text-dim); }
+  .opt-add input { background: transparent; border: none; box-shadow: none !important; padding: 7px 8px; width: 120px; font-size: 13px; font-weight: 700; }
+  .opt-remove-list { margin-left: 2px; }
+  .new-list-tile {
+    border: 2px dashed var(--input-border); border-radius: 18px; min-height: 120px; display: flex; align-items: center; justify-content: center;
+    gap: 8px; font-weight: 800; font-size: 14px; color: var(--card-text-dim); cursor: pointer; background: transparent; box-shadow: none !important;
+  }
+  .new-list-tile:hover { border-color: var(--gold-bright); color: var(--card-text); }
+  /* Tabs section */
+  .m-sub { font-size: 13px; font-weight: 800; margin: 18px 0 8px; color: var(--card-text); }
+  .tm-tab-row { display: grid; grid-template-columns: auto 1fr auto auto auto auto; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 12px;
+    background: var(--card-bg-2, var(--surface)); border: 1px solid var(--card-border); margin-bottom: 6px; color: var(--card-text); }
+  .tm-tab-name { font-weight: 800; font-size: 13.5px; }
+  .tm-type { font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; background: var(--accent-soft, rgba(255,255,255,.1)); color: var(--card-text); }
+  .tm-type-l { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--card-text-dim); white-space: nowrap; }
+  .tm-type-l select { width: auto; margin: 0; padding: 5px 26px 5px 9px; font-size: 12px; font-weight: 700; }
+  .tm-tab-row button { width: auto; margin: 0; padding: 6px 12px; font-size: 12px; }
+  .tm-show { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--card-text-dim); cursor: pointer; white-space: nowrap; }
+  .tm-show input { width: 16px; height: 16px; margin: 0; accent-color: var(--gold); }
+  .tm-tab-row.is-hidden .tm-tab-name { opacity: 0.55; }
+  .tm-tab-action { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .tm-tab-action input { flex: 1; min-width: 160px; }
+  .tm-warn { font-size: 12px; width: 100%; }
+  button.danger { background: #c62828 !important; color: #fff !important; }
+  .tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+  .tpl-tile { display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 12px; border-radius: 14px; cursor: pointer; width: 100%; margin: 0;
+    background: var(--card-bg-2, var(--surface)) !important; color: var(--card-text) !important; border: 1.5px dashed var(--card-border) !important; box-shadow: none !important; font-family: inherit; }
+  .tpl-tile:hover, .tpl-tile.on { border-color: var(--gold-bright, var(--gold)) !important; border-style: solid !important; }
+  .tpl-icon { font-size: 22px; line-height: 1; }
+  .tpl-name { display: block; font-weight: 800; font-size: 13.5px; }
+  .tpl-hint { display: block; font-size: 11.5px; color: var(--card-text-dim); font-weight: 500; margin-top: 2px; }
+  .tpl-form { margin-top: 12px; padding: 14px; border-radius: 16px; border: 1.5px solid var(--gold-bright, var(--gold)); background: var(--card-bg); color: var(--card-text); }
+  .tpl-form-title { font-weight: 800; font-size: 15px; margin-bottom: 8px; }
+  .tm-field-row { display: grid; grid-template-columns: 1.2fr 1fr 1.6fr auto; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .tm-field-row input, .tm-field-row select { width: 100%; margin: 0; }
+  .tm-tab-action[hidden], .tpl-form[hidden] { display: none !important; }
+  .tpl-form .row-actions { position: static !important; background: none !important; border: none !important; box-shadow: none !important; margin: 12px 0 0 !important; padding: 0 !important; justify-content: flex-end; }
+  .tm-field-row .icon-btn { width: auto; }
+  /* 1.5.1: a field's names from the team directory */
+  .tm-f-choices { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .tm-f-choices.off > * { display: none !important; }
+  .dir-chooser { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+  .dir-chooser[hidden] { display: none; }
+  .dir-g { width: auto !important; margin: 0 !important; padding: 4px 10px !important; border-radius: 999px !important; font: inherit; font-size: 12px !important; font-weight: 700; cursor: pointer;
+    background: transparent !important; color: var(--card-text) !important; border: 1px solid var(--card-border) !important; box-shadow: none !important; }
+  .dir-g.on { background: var(--gold) !important; color: var(--on-gold) !important; border-color: var(--gold) !important; }
+  .dir-g:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 1px; }
+  .dir-g-hint { font-size: 11.5px; }
+  .fs-src-wrap { display: flex; flex-direction: column; gap: 6px; }
+  .fs-layout { display: inline-flex; gap: 4px; align-items: center; align-self: flex-end; flex: none; }
+  .fs-layout button { width: auto; margin: 0; padding: 6px 10px; font-size: 12px; font-weight: 800; border-radius: 8px; cursor: pointer;
+    background: var(--input-bg); color: var(--card-text); border: 1px solid var(--input-border); }
+  .fs-layout button:hover:not(:disabled) { background: var(--input-bg); border-color: var(--gold-bright); color: var(--card-text); }
+  .fs-layout button:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 1px; }
+  .fs-layout .fs-mv { min-width: 32px; }
+  .fs-layout button:disabled { opacity: 0.35; }
+  .fs-row.fs-hidden .fs-col, .fs-row.fs-hidden .fs-type { opacity: 0.55; }
+  .fs-hidden-note { font-size: 11.5px; font-weight: 700; color: var(--card-text-dim); margin: 6px 2px 0; }
+  .fs-hidden-note[hidden] { display: none; }
+  .fs-src-wrap input[hidden] { display: none; }
+  .notice { margin: 10px 0 4px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--gold); background: var(--accent-soft); color: var(--card-text); font-size: 12.5px; font-weight: 600; }
+  .notice[hidden] { display: none; }
+  /* Import from Excel or CSV */
+  .imp-pick-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 6px 0 4px; }
+  .imp-file { font-size: 13px; font-weight: 600; color: var(--card-text-dim); }
+  .imp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 12px; }
+  .imp-grid select { width: 100%; }
+  .imp-cols { display: grid; grid-template-columns: minmax(140px, 220px) 1fr; gap: 6px 12px; align-items: center; }
+  .imp-cols .imp-to { font-weight: 700; font-size: 13px; }
+  .imp-cols .imp-sample { grid-column: 2; font-size: 11.5px; color: var(--card-text-dim); margin: -4px 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .imp-cols select { width: 100%; margin: 0; }
+  .imp-preview { overflow: auto; max-height: 260px; border: 1px solid var(--card-border); border-radius: 12px; }
+  .imp-preview table { border-collapse: collapse; font-size: 12px; width: max-content; min-width: 100%; }
+  .imp-preview th, .imp-preview td { padding: 6px 10px; border-bottom: 1px solid var(--card-border); text-align: left; white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+  .imp-preview th { position: sticky; top: 0; background: var(--card-bg-2); }
+  .imp-sum { font-size: 12.5px; margin: 8px 0 0; color: var(--card-text-dim); }
+  .imp-rec { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--card-border); font-size: 13px; }
+  .imp-rec .grow { flex: 1; }
+  #imp-extra .hint-inline { font-size: 11.5px; font-weight: 500; color: var(--card-text-dim); margin-left: 6px; }
+  /* View only (a regular user looking at the admin screens): everything
+     shows, nothing can be changed, and the secrets stay hidden. */
+  .vo-banner {
+    display: flex; gap: 10px; align-items: flex-start; margin: 4px 0 16px; padding: 12px 14px;
+    border-radius: 14px; border: 1px solid var(--gold); background: var(--accent-soft);
+    color: var(--card-text); font-size: 13px; font-weight: 600; line-height: 1.45;
+  }
+  .vo-banner .vo-ic { font-size: 16px; line-height: 1.2; }
+  .vo-hidden {
+    display: inline-flex; align-items: center; gap: 6px; margin: 2px 0 8px; padding: 6px 11px;
+    border-radius: 999px; background: var(--input-bg); border: 1px dashed var(--input-border);
+    color: var(--card-text-dim); font-size: 12.5px; font-weight: 600;
+  }
+  body.view-only .row-actions, body.view-only .vo-gone,
+  body.view-only #tm-templates, body.view-only #tabs-section .m-sub, body.view-only #tm-new-tab,
+  body.view-only #fs-tab-adder { display: none !important; }
+  body.view-only .section { padding-bottom: 22px; }
+  body.view-only #content input:disabled, body.view-only #content select:disabled,
+  body.view-only #content textarea:disabled, body.view-only #content button:disabled {
+    opacity: 1; cursor: default; color: var(--input-text);
+  }
+  body.view-only #content button.chip:disabled { color: var(--card-text-dim); }
+  body.view-only #content [contenteditable="false"] { cursor: default; }
+  .rc-when-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .rc-when-row select { flex: 0 1 auto; width: auto; min-width: 150px; margin: 0; }
+  .rc-when-row [hidden] { display: none !important; }
+  .rc-days { display: flex; flex-wrap: wrap; gap: 6px; }
+  .rc-days[hidden] { display: none; }
+  .rc-days button.chip { min-width: 52px; }
+  .rc-when { margin: 6px 0 0; font-size: 12.5px; color: var(--card-text); font-weight: 600; }
+  .rc-when .rc-covers { display: block; font-weight: 500; color: var(--card-text-dim); }
+  .tpl-check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; margin: 12px 0 4px; cursor: pointer; }
+  .tpl-check input { width: auto; margin: 0; }
+  .hint-inline { font-weight: 500; text-transform: none; letter-spacing: 0; }
+</style>
+<script src="app-mode.js"></script>
+<script src="tab-templates.js"></script>
+<script src="report-schedule.js"></script>
+<script src="icons.js"></script>
+<script src="richtext-lite.js"></script>
+</head>
+<body>
+  <div class="titlebar">
+    <span class="titlebar-title">Tabs &amp; fields</span>
+    <button class="titlebar-close" id="titlebar-close-btn" title="Close">✕</button>
+  </div>
+
+  <div class="scroll-area">
+  <!-- Admins only. Who's an admin is decided by the account's Role in
+       Team Accounts and checked against the server (get-admin-status in
+       main.js) — the old separate per-PC admin password is gone. -->
+  <div id="gate">
+    <h2>Tabs &amp; fields</h2>
+    <p class="hint" id="gate-msg">Checking your access…</p>
+  </div>
+
+  <div id="content" class="hidden">
+    <h2>Tabs &amp; fields</h2>
+    <p class="hint">Pick what you want to change. Changes save straight to your connected Sheet — no code, no redeploy.</p>
+
+    <!-- Hidden unless the initial load itself fails (a slow/unreachable
+         Sheet, same TimeoutError the main popup already surfaces with its
+         own Retry) — every section below stays in its empty starting
+         state until this succeeds, which used to happen completely
+         silently: the gate was already hidden and #content already
+         shown by the time the fetch below could fail, so there was
+         nothing on screen telling you why nothing loaded. -->
+    <div class="section" id="load-error-section" hidden>
+      <p class="err" id="load-error-msg"></p>
+      <button id="load-retry-btn">Retry</button>
+    </div>
+
+    <div class="section" id="tabs-section">
+      <h3>Tabs</h3>
+      <p class="hint">Each tab is one thing your team logs. Add one from a template — Daily status, Leave, Ticket tracker, Weekly meeting — or start from Custom, then adjust its fields any time.</p>
+      <p class="hint" style="margin-top:-4px;">Turn off "Show in app" for a tab nobody should type into, like an archive, a pivot table or a chart. It stays in your Sheet.</p>
+      <p class="hint" style="margin-top:-4px;"><b>For</b> says what a tab is for. A Leave tab feeds "Who's off" and the leave calendar; a Ticket tracker gets the ticket list and board. Changing it never touches the tab's entries.</p>
+      <div id="tm-tab-list"></div>
+      <div class="m-sub">Add a tab</div>
+      <div id="tm-templates" class="tpl-grid"></div>
+      <div id="tm-new-tab" class="tpl-form" hidden>
+        <div class="tpl-form-title" id="tm-new-title"></div>
+        <div class="field-label">Tab name</div>
+        <input id="tm-new-name" type="text" style="width:100%;" />
+        <div class="field-label" style="margin-top:10px;">Category on the Home screen <span class="hint-inline">(optional — pick one or type a new one)</span></div>
+        <input id="tm-new-category" type="text" list="tm-category-list" style="width:100%;" />
+        <datalist id="tm-category-list"></datalist>
+        <div class="field-label" style="margin-top:10px;">Fields</div>
+        <div id="tm-new-fields"></div>
+        <button type="button" class="secondary" id="tm-add-field">+ Add field</button>
+        <label class="tpl-check"><input type="checkbox" id="tm-new-report" /> Include this tab in the team report email</label>
+        <div class="row-actions">
+          <button type="button" class="secondary" id="tm-new-cancel">Cancel</button>
+          <button type="button" id="tm-new-create">Create tab</button>
+        </div>
+      </div>
+      <div class="err" id="tabs-err"></div>
+      <div class="ok" id="tabs-ok"></div>
+    </div>
+
+    <div class="section" id="options-section">
+      <h3>Dropdown &amp; Multiselect Options</h3>
+      <p class="hint">Each card is one dropdown list (e.g. "Leave.Type"). Click an option to rename it, ✕ to remove it, or type in "Add option" and press Enter. Then Save.</p>
+      <div id="options-groups"></div>
+      <div class="row-actions">
+        <button class="secondary" id="add-option-key-btn" hidden>+ Add option list</button>
+        <button id="save-options-btn">Save Options</button>
+      </div>
+      <div class="err" id="options-err"></div>
+      <div class="ok" id="options-ok"></div>
+    </div>
+
+    <div class="section" id="field-types-section">
+      <h3>Field Types</h3>
+      <p class="hint">Add a tab below and every real column on it shows up automatically — just pick a Type for the ones that need one; a column left at "(plain text)" needs nothing further. Need a column that isn't on the sheet yet? Add it inside that tab's section — it's created there when you save.</p>
+      <p class="hint" style="margin-top:-4px;">↑ ↓ change the order fields appear on the form (their columns move in the Sheet too). <b>Hide</b> takes a field off the form; its column and old entries stay in the Sheet, and <b>Show</b> brings it back.</p>
+      <div id="fs-rows"></div>
+      <div class="row-actions">
+        <div id="fs-tab-adder" class="fs-tab-adder"></div>
+        <button id="save-fs-btn">Save Field Types</button>
+      </div>
+      <div class="err" id="fs-err"></div>
+      <div class="ok" id="fs-ok"></div>
+    </div>
+
+    <div class="section" id="categories-section">
+      <h3>Landing-Screen Categories</h3>
+      <p class="hint">Group tabs under a category button, picked from the dropdown below each one. A tab not added to any category still shows, just ungrouped.</p>
+      <div id="cat-groups"></div>
+      <div class="row-actions">
+        <button class="secondary" id="add-category-btn">+ Add category</button>
+        <button id="save-categories-btn">Save Categories</button>
+      </div>
+      <div class="err" id="cat-err"></div>
+      <div class="ok" id="cat-ok"></div>
+    </div>
+
+    <div class="section" id="app-settings-section">
+      <h3>App Settings</h3>
+      <p class="hint">Your team's Teams channel, the AI digest key, and who "Contact Admin" emails. Report reminders are set on each report in Reports → Scheduled reports; which tabs show in the app is in "Tabs".</p>
+
+      <div class="field-label">Teams channel (report reminders)</div>
+      <p class="hint" style="margin: -2px 0 6px;">Optional. Paste a Teams channel's webhook link to also post each report's reminder there. Ticket trackers post to their own channels (Ticket Groups). Leave blank for email only.</p>
+      <input id="teams-webhook-url" type="text" placeholder="https://..." style="width:100%;" />
+
+      <div class="field-label" style="margin-top:14px;">Gemini API key (AI digest)</div>
+      <p class="hint" style="margin: -2px 0 6px;">Free key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">aistudio.google.com/apikey</a> (your Google account, no credit card). It powers AI digest; leave it blank to keep that off. Good to know: on Google's free tier, Google may use what's sent to improve its products, and people there may read it, so don't use the free tier for confidential work.</p>
+      <input id="gemini-api-key" type="password" placeholder="AIza..." style="width:100%;" autocomplete="off" />
+
+      <div class="field-label" style="margin-top:10px;">Gemini model</div>
+      <p class="hint" style="margin: -2px 0 6px;">Google renames/retires these more often than you'd expect (a "flash" model getting swapped for a newer one is normal) — if the digest ever starts failing with a 404 "model not found/no longer available" error, the error message itself names the replacement model to use; paste it here, no code change needed.</p>
+      <input id="gemini-model" type="text" placeholder="gemini-3.6-flash" style="width:100%;" />
+
+      <div class="field-label" style="margin-top:14px;">Leave approval</div>
+      <p class="hint" style="margin: -2px 0 6px;">When on, a leave request goes to the approver the person picks (mark approvers in People → Make approver). It shows as pending until they approve it, and only approved leave counts on the dashboard and in the weekly check-in. Both sides get a pop-up.</p>
+      <label class="wc-check" style="margin-bottom:4px;"><input type="checkbox" id="leave-approval" /> <span>Leave needs an approver's OK</span></label>
+
+      <div class="field-label" style="margin-top:14px;">Admin contact emails</div>
+      <p class="hint" style="margin: -2px 0 6px;">Who the "Contact Admin" footer (every screen) emails when someone submits an issue — and who gets the monthly backups (Clean-up &amp; backups) and the weekly check-in list. Every submission is also logged on _SupportTickets regardless of whether this list is empty.</p>
+      <div id="admin-contact-emails-rows"></div>
+      <button class="icon-btn" type="button" id="add-admin-contact-email-btn">+ Add email</button>
+
+      <div class="row-actions">
+        <button id="save-report-settings-btn">Save App Settings</button>
+      </div>
+      <div class="err" id="report-settings-err"></div>
+      <div class="ok" id="report-settings-ok"></div>
+
+    </div>
+
+    <div class="section" id="cleanup-section">
+      <h3>Clean-up &amp; backups</h3>
+      <p class="hint">Keeps your team's Sheet small and quick. On the 1st of each month, rows older than the period you choose are emailed to your admins as CSV files (they open in Excel or Google Sheets), then removed from the Sheet. Keep that email: it's your backup.</p>
+      <div class="notice" id="cleanup-update-note" hidden>Clean-up needs the latest update of your team's Sheet. An admin can install it in Settings → About Daylens → Update.</div>
+      <div id="cleanup-body">
+        <div class="cu-to" id="cleanup-to"></div>
+        <div id="cleanup-rows"><p class="hint">Loading…</p></div>
+        <p class="hint cu-never">Leave and holiday records and reminders are never removed. Ticket trackers only lose closed tickets (Resolved, Closed, Done…); open ones stay however old. A row whose date can't be read for certain stays too.</p>
+        <div class="cu-preview" id="cleanup-preview"></div>
+        <div class="cu-last" id="cleanup-last"></div>
+        <div id="copy-box" hidden>
+          <div class="field-label" style="margin-top:16px;">Monthly full copy</div>
+          <p class="hint" style="margin: -2px 0 6px;">On the 1st of each month, every tab is copied into a new Google Sheet in a “Daylens copies” folder in <span id="copy-owner">the Google Drive of the account that runs your team's Sheet</span>. The 3 newest are kept; the oldest goes to Drive's trash (restorable there for 30 days). A copy holds everything the Sheet holds — sign-ins and settings too — and only that account can open it, so keep the copies private, as you do the Sheet. To bring something back, open a copy and paste the rows you need into the Sheet.</p>
+          <label class="wc-check" style="margin-bottom:6px;"><input type="checkbox" id="copy-on" /> <span>Keep a monthly full copy of the Sheet</span></label>
+          <div id="copy-list"></div>
+          <div class="cu-last" id="copy-last"></div>
+          <button class="secondary" type="button" id="copy-now-btn">Make a copy now</button>
+          <div class="err" id="copy-err"></div>
+          <div class="ok" id="copy-ok"></div>
+        </div>
+        <div class="notice" id="copy-update-note" hidden>The monthly full copy needs the latest update of your team's Sheet. An admin can install it in Settings → About Daylens → Update.</div>
+        <div class="row-actions">
+          <button class="secondary" id="cleanup-run-btn">Back up now</button>
+          <button id="save-cleanup-btn">Save clean-up</button>
+        </div>
+        <div class="err" id="cleanup-err"></div>
+        <div class="ok" id="cleanup-ok"></div>
+      </div>
+    </div>
+
+    <div class="section" id="import-section">
+      <h3>Import from Excel or CSV</h3>
+      <p class="hint">Bring an existing tracker into Daylens. Pick the file, match its columns and names once, check the preview, then import. You can undo an import afterwards.</p>
+      <div class="imp-pick-row"><button type="button" id="imp-pick">Choose a file…</button> <span class="imp-file" id="imp-file"></span></div>
+      <div id="imp-body" hidden>
+        <div class="imp-grid">
+          <div id="imp-sheet-wrap" hidden><div class="field-label">Sheet in the file</div><select id="imp-sheet" aria-label="Sheet in the file"></select></div>
+          <div><div class="field-label">Import into</div><select id="imp-tab" aria-label="Import into"></select></div>
+        </div>
+        <div class="field-label" style="margin-top:14px;">Columns — which column of the file fills each column of the tab</div>
+        <div id="imp-cols" class="imp-cols"></div>
+        <div id="imp-extra"></div>
+        <div id="imp-names-wrap" hidden>
+          <div class="field-label" style="margin-top:14px;">Names — who each name in the file is in People</div>
+          <p class="hint" style="margin:-2px 0 6px;">Each different name once, not each row. Pick the person, or keep the name as written (it shows under "Something missing?" until someone in People has that name).</p>
+          <div id="imp-names" class="imp-cols"></div>
+        </div>
+        <div id="imp-dates-wrap" hidden>
+          <div class="field-label" style="margin-top:14px;">Dates like 03/04/2026 mean</div>
+          <select id="imp-datefmt" aria-label="Date order"><option value="dmy">3 April (day first)</option><option value="mdy">4 March (month first, US style)</option></select>
+        </div>
+        <div class="field-label" style="margin-top:14px;">Preview</div>
+        <div id="imp-preview" class="imp-preview"></div>
+        <div class="row-actions">
+          <button type="button" id="imp-go">Import</button>
+        </div>
+        <div class="err" id="imp-err"></div>
+      </div>
+      <div class="ok" id="imp-ok"></div>
+      <div class="field-label" style="margin-top:14px;">Recent imports</div>
+      <div id="imp-recent"><p class="hint">Loading…</p></div>
+    </div>
+
+    <div class="section" id="weekly-check-section" data-home="reports">
+      <h3>Friday check-in</h3>
+      <p class="hint">Once a week, anyone who hasn't added anything that week gets a reminder in Daylens, plus an email if they have one in People. Nobody on leave for the whole week is reminded.</p>
+      <div class="notice" id="wc-update-note" hidden>The Friday check-in needs the latest update of your team's Sheet. An admin can install it in Settings → About Daylens → Update.</div>
+      <div id="wc-body">
+        <label class="wc-check"><input type="checkbox" id="wc-enabled" /> <span>Remind people who haven't added anything this week</span></label>
+        <div class="wc-when">
+          <span>Every</span>
+          <select id="wc-day" aria-label="Day"></select>
+          <span>at</span>
+          <select id="wc-hour" aria-label="Time"></select>
+        </div>
+        <label class="wc-check"><input type="checkbox" id="wc-summary" checked /> <span>Email the admins the list of who was reminded</span></label>
+        <div class="wc-preview" id="wc-preview"></div>
+        <p class="hint">Emails come from the Google account that owns your team's Sheet. Google lets a free Gmail account email up to 100 people a day (Google Workspace: 1,500), shared by everything the Sheet sends.</p>
+        <div class="row-actions">
+          <button class="secondary" id="wc-run-btn">Remind them now</button>
+          <button id="save-wc-btn">Save check-in</button>
+        </div>
+        <div class="err" id="wc-err"></div>
+        <div class="ok" id="wc-ok"></div>
+      </div>
+    </div>
+
+    <div class="section" id="report-configs-section" data-home="reports">
+      <h3>Scheduled reports</h3>
+      <p class="hint">Each report emails the tabs and columns you pick to the people you choose — every day, every weekday, once a week, once a month, or on days you choose — with an optional reminder to the team a few hours before it goes out.</p>
+      <p class="hint rc-limits">Reports and reminders are emailed from the Google account that owns your team's Sheet. Google lets a free Gmail account email up to 100 people a day (Google Workspace: 1,500) — every recipient of every email counts, so a big team on a free account may need Workspace.</p>
+      <div class="notice" id="rc-update-note" hidden>Your team's Sheet needs the latest update to send reports every day, every weekday, once a month or on days you choose. Until then, reports can go out once a week. An admin can update it in Settings → About Daylens → Update.</div>
+      <div id="report-configs"></div>
+      <div class="row-actions">
+        <button class="secondary" id="add-report-config-btn">+ Add report</button>
+        <button id="save-report-configs-btn">Save scheduled reports</button>
+      </div>
+      <div class="err" id="report-configs-err"></div>
+      <div class="ok" id="report-configs-ok"></div>
+    </div>
+
+    <div class="section" id="ticket-groups-section">
+      <h3>Ticket Groups</h3>
+      <p class="hint">Each group posts its tickets (from a Ticket tracker tab) to its own Teams channel — pick the group right on the ticket form. Paste the channel's Incoming Webhook link here.</p>
+      <div id="connect-groups"></div>
+      <div class="row-actions">
+        <button class="secondary" id="add-connect-group-btn">+ Add group</button>
+        <button id="save-connect-groups-btn">Save Connect Groups</button>
+      </div>
+      <div class="err" id="connect-groups-err"></div>
+      <div class="ok" id="connect-groups-ok"></div>
+    </div>
+
+    <div class="section" id="data-sources-section">
+      <h3>Data Sources</h3>
+      <p class="hint">Every tab saves straight to this Google Sheet by default. Point a tab at "Excel" instead to send its new entries to a Power Automate flow (which then writes them into an actual Excel file on OneDrive/SharePoint) rather than a sheet tab here — that tab still needs to exist on the Sheet so its columns/field types are defined, but its rows live in Excel instead. Existing-entries list/edit/delete isn't available yet for Excel-linked tabs — just adding new entries, for now.</p>
+      <div id="data-sources"></div>
+      <div class="row-actions">
+        <button class="secondary" id="add-data-source-btn">+ Add data source</button>
+        <button id="save-data-sources-btn">Save Data Sources</button>
+      </div>
+      <div class="err" id="data-sources-err"></div>
+      <div class="ok" id="data-sources-ok"></div>
+    </div>
+
+  </div>
+  </div>
+
+  <!-- A thin always-draggable strip at the very bottom — .scroll-area
+       above is deliberately no-drag now (that's the actual scrolling
+       fix), which left dragging possible only via the titlebar strip at
+       the very top. This gives a second, easier-to-reach grab point
+       without bringing back the "swallows scroll input" problem, since
+       it's a sibling of .scroll-area, not inside it. -->
+  <div class="drag-footer"></div>
+
+<script src="footer.js"></script>
+<script>
+  document.getElementById('titlebar-close-btn').addEventListener('click', () => window.close());
+  // "Home" from a settings window just means "leave settings" — closing
+  // returns to whatever the main popup was already showing, same as the
+  // titlebar's own close button above. See footer.js's own comment on
+  // window.__kcGoHome for why this is set per-page.
+  window.__kcGoHome = () => window.close();
+  let liveTabs = [];
+  // True while the team's Sheet runs a backend older than 1.1.0 — it can
+  // only send reports once a week, so the editor offers just that.
+  let needsBackendUpdate = false;
+  let sheetBefore12 = false; // the team's Sheet can't keep a custom reminder message yet
+  let sheetBefore13 = false; // …nor do clean-up, the Friday check-in or the dashboard
+  let optionsMap = {};
+  let fieldSchemaMap = {};
+  let categoriesMap = {};
+  let allTabs = []; // every real tab, including currently-hidden ones — Report Settings/Report Configs both need this
+  let reportSettings = { hiddenTabs: [], reminderRecipients: [], teamsWebhookUrl: '', adminContactEmails: [] };
+  let tabTypes = {}; // tab -> template type (_TabTypes)
+  // Field Types (1.5.1): every tab's columns in the Sheet's order (hidden ones too), which
+  // are hidden from the form, and which the tab can't do without. Null on
+  // a Sheet before 1.5.1 — then there's no ↑ ↓ / Hide.
+  let fieldLayoutP = Promise.resolve(null);
+  // [{name, tabs: [{tab, fields: [...]}], recipients: [...], scheduleDay, scheduleHour, enabled}, ...]
+  let reportConfigs = [];
+  let connectGroups = []; // [{name, webhookUrl}, ...]
+  // The team directory's groups (1.5.1): a Dropdown / Pick several field can
+  // take its names from them. null on a team Sheet from before 1.5.1.
+  let dirInfo = null;
+  const DIR_KEY = '@dir:';
+  const isDirKey = (k) => String(k || '').indexOf(DIR_KEY) === 0;
+  // "@dir:Dev|CMS" → ["Dev", "CMS"]; "@dir:*" → ["*"].
+  function dirKeyGroups(key) {
+    const g = String(key || '').slice(DIR_KEY.length).split('|').map((x) => x.trim()).filter(Boolean);
+    return g.length && !g.includes('*') ? g : ['*'];
+  }
+  // Which groups a field takes its names from: Everyone, the people with a
+  // Daylens account, or any of the groups (several at once).
+  function dirChooser(key) {
+    const wrap = document.createElement('div');
+    wrap.className = 'dir-chooser';
+    const sel = new Set(dirKeyGroups(key).map((g) => g.toLowerCase()));
+    const groups = (dirInfo && dirInfo.groups) || [];
+    const opts = [['*', 'Everyone'], [(dirInfo && dirInfo.accountsGroup) || 'Daylens users', ((dirInfo && dirInfo.accountsGroup) || 'Daylens users')]]
+      .concat(groups.filter((g) => g.status === 'Active' || sel.has(g.name.toLowerCase())).map((g) => [g.name, g.name + (g.status !== 'Active' ? ' (' + g.status.toLowerCase() + ')' : '')]));
+    dirKeyGroups(key).forEach((g) => { if (g !== '*' && !opts.some(([v]) => v.toLowerCase() === g.toLowerCase())) opts.push([g, g + ' (no such group)']); });
+    const draw = () => {
+      wrap.innerHTML = opts.map(([v, l]) => `<button type="button" class="dir-g${sel.has(v.toLowerCase()) ? ' on' : ''}" data-v="${esc(v)}" aria-pressed="${sel.has(v.toLowerCase())}">${esc(l)}</button>`).join('')
+        + (groups.length ? '' : '<span class="hint dir-g-hint">Add groups in People → Team directory.</span>');
+      wrap.querySelectorAll('.dir-g').forEach((b) => {
+        b.onclick = () => {
+          const v = b.dataset.v.toLowerCase();
+          if (v === '*') { sel.clear(); sel.add('*'); }
+          else { sel.delete('*'); if (sel.has(v)) sel.delete(v); else sel.add(v); if (!sel.size) sel.add('*'); }
+          draw();
+        };
+      });
+    };
+    draw();
+    wrap.getKey = () => {
+      if (sel.has('*')) return DIR_KEY + '*';
+      return DIR_KEY + opts.map(([v]) => v).filter((v) => sel.has(v.toLowerCase())).join('|');
+    };
+    return wrap;
+  }
+  let dataSources = []; // [{tab, sourceType, webhookUrl}, ...] — sourceType: 'GoogleSheet' | 'Excel'
+  // A regular (non-admin) user: every screen here shows, view only. The
+  // server sends no secrets to them (keys, webhook links, emails) and
+  // refuses any change — this just makes that plain on screen.
+  let viewOnly = false;
+  let settingsHidden = {}; // what's set but not shown: {teamsWebhookSet, geminiKeySet, adminContactEmails: n, …}
+  const hiddenNote = (text) => {
+    const p = document.createElement('div');
+    p.className = 'vo-hidden';
+    p.textContent = '🔒 ' + text;
+    return p;
+  };
+  const people = (n) => `${n} ${n === 1 ? 'person' : 'people'}`;
+
+  // Mirrors _FieldSchema's actual supported Type values exactly — see
+  // buildFieldInput() in index.html and the _Features guide tab. '' means
+  // "no row at all", i.e. plain text — never written back as a real row.
+  const FIELD_TYPES = ['', 'select', 'multiselect', 'checkbox', 'date', 'week-auto', 'sequence', 'richtext', 'url', 'attachment'];
+  // Friendlier text for the two less self-explanatory types above — every
+  // other type's raw value already reads fine as its own label.
+  const FIELD_TYPE_LABELS = {
+    url: 'url (one or more links)',
+    attachment: 'attachment (SharePoint link)',
+  };
+
+  async function init() {
+    const msgEl = document.getElementById('gate-msg');
+    const status = await window.statusApp.getAdminStatus({ fresh: true }).catch((err) => ({ admin: false, error: err.message }));
+    if (!status.admin && status.loggedIn && !status.connectionBroken) {
+      enterViewOnly();
+      document.getElementById('gate').classList.add('hidden');
+      await loadAndShowContent();
+      return;
+    }
+    if (!status.admin) {
+      msgEl.className = 'err';
+      msgEl.textContent = !status.loggedIn
+        ? 'Log in first — this section is for Admin accounts.'
+        : status.connectionBroken
+          ? "The app's connection to the Sheet is out of date (the backend rejected its token). Restart the app — the start screen offers \u201cFix organization connection\u201d."
+          : (status.error && !/admin/i.test(status.error) ? `Couldn't confirm admin access: ${status.error}` : 'Only Admin accounts can manage fields & options. Ask an admin to change your role in Team Accounts if you need this.');
+      return;
+    }
+    if (status.offline) {
+      msgEl.textContent = 'Offline — using your saved Admin role. Changes will still be checked by the server when you save.';
+    }
+    document.getElementById('gate').classList.add('hidden');
+    await loadAndShowContent();
+  }
+
+  async function loadAndShowContent() {
+    document.getElementById('gate').classList.add('hidden');
+    document.getElementById('content').classList.remove('hidden');
+
+    const errorSection = document.getElementById('load-error-section');
+    const errorMsg = document.getElementById('load-error-msg');
+    errorSection.hidden = true;
+
+    let tabsRes, optsRes, fsRes, catRes, reportRes, configsRes, groupsRes, dataSourcesRes, typesRes, iconsRes, statusRes;
+    // The Sheet's version is asked for alongside the rest, not after it
+    // (fresh here: an admin may have just updated it).
+    const statusP = window.statusApp.getBackendStatus().catch(() => null);
+    const dirP = window.statusApp.getDirectory ? window.statusApp.getDirectory().catch(() => null) : Promise.resolve(null);
+    try {
+      [tabsRes, optsRes, fsRes, catRes, reportRes, configsRes, groupsRes, dataSourcesRes, typesRes, iconsRes] = await Promise.all([
+        window.statusApp.getTabs(),
+        window.statusApp.getOptions(),
+        window.statusApp.getFieldSchema(),
+        window.statusApp.getCategories(),
+        window.statusApp.getReportSettings(),
+        window.statusApp.getReportConfigs(),
+        window.statusApp.getConnectGroups(),
+        window.statusApp.getDataSources(),
+        window.statusApp.getTabTypes(),
+        window.statusApp.getIcons().catch(() => null),
+      ]);
+    } catch (err) {
+      // Was a silent dead end: the gate above is already hidden and
+      // #content already shown by this point, so a rejection here used
+      // to just leave every section sitting at its empty starting state
+      // forever with nothing on screen explaining why — same class of
+      // "Couldn't reach the sheet" the main popup already shows a real
+      // Retry for, just missing here. This IS that.
+      errorMsg.textContent = viewOnly && /admin access required/i.test(String(err && err.message))
+        ? 'Teammates can look at these once your team\'s Sheet has the latest update. An admin can install it in Settings → About Daylens → Update.'
+        : 'Couldn\'t load — ' + (err.message || String(err));
+      errorSection.hidden = false;
+      return;
+    }
+    liveTabs = (tabsRes && tabsRes.tabs) || [];
+    try {
+      const bs = statusRes = await statusP;
+      const cur = String((bs && bs.current) || '').split('.').map(Number);
+      needsBackendUpdate = !!(bs && bs.ok && bs.current) && (cur[0] < 1 || (cur[0] === 1 && (cur[1] || 0) < 1));
+      sheetBefore12 = !!(bs && bs.ok && bs.current) && (cur[0] < 1 || (cur[0] === 1 && (cur[1] || 0) < 2));
+      sheetBefore13 = !!(bs && bs.ok && bs.current) && (cur[0] < 1 || (cur[0] === 1 && (cur[1] || 0) < 3));
+    } catch { needsBackendUpdate = false; sheetBefore12 = false; }
+    document.getElementById('rc-update-note').hidden = !needsBackendUpdate;
+    optionsMap = (optsRes && optsRes.options) || {};
+    fieldSchemaMap = (fsRes && fsRes.fieldSchema) || {};
+    // A tab added since (with typed fields) shows in Field Types straight away.
+    if (fsTabSections.length) Object.keys(fieldSchemaMap).forEach((t) => { if (!fsTabSections.includes(t)) fsTabSections.push(t); });
+    categoriesMap = (catRes && catRes.categories) || {};
+    allTabs = (reportRes && reportRes.allTabs) || [];
+    reportSettings = (reportRes && reportRes.reportSettings) || reportSettings;
+    settingsHidden = (reportRes && reportRes.hidden) || {};
+    // The tabs every editor here offers = the Tabs list above (the Sheet's
+    // tabs, minus the ones turned off for the app) — one source, so the
+    // Categories/Field Types pickers can never disagree with what you see.
+    if (allTabs.length) {
+      const hiddenNow = new Set(reportSettings.hiddenTabs || []);
+      liveTabs = allTabs.filter((x) => !hiddenNow.has(x));
+    }
+    reportConfigs = (configsRes && configsRes.configs) || [];
+    const dirRes = await dirP;
+    dirInfo = dirRes && dirRes.ok ? { groups: dirRes.groups || [], accountsGroup: dirRes.accountsGroup || 'Daylens users' } : null;
+    connectGroups = (groupsRes && groupsRes.groups) || [];
+    dataSources = (dataSourcesRes && dataSourcesRes.dataSources) || [];
+    tabTypes = (typesRes && typesRes.tabTypes) || {};
+    fieldLayoutP = window.statusApp.getFieldLayout ? window.statusApp.getFieldLayout().then((r) => (r && r.ok ? r.layout : null)).catch(() => null) : Promise.resolve(null);
+    liveIcons = (iconsRes && iconsRes.icons) || {};
+    renderTabsSection();
+    const wantSection = new URLSearchParams(location.search).get('section');
+    if (wantSection && !window.__openedWanted && window.__openSection) { window.__openedWanted = true; window.__openSection(wantSection); }
+    renderOptions();
+    renderFieldSchema();
+    renderCategories();
+    renderReportSettings();
+    renderReportConfigs();
+    renderConnectGroups();
+    renderDataSources();
+  }
+
+  // Returns whether the save actually succeeded — most sections don't
+  // need this (whatever they were editing is already showing the values
+  // that were just saved), but Field Types does: a successful save can
+  // change which tab a field visually belongs under, so it needs to know
+  // when to re-render. See the .fs-row save handler below.
+  async function saveSection(btnId, errId, okId, action) {
+    const btn = document.getElementById(btnId);
+    const errEl = document.getElementById(errId);
+    const okEl = document.getElementById(okId);
+    errEl.textContent = '';
+    okEl.textContent = '';
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = 'Saving…';
+    try {
+      const result = await action();
+      if (!result || result.ok === false) throw new Error((result && result.error) || 'Save failed.');
+      okEl.textContent = 'Saved.';
+      return true;
+    } catch (err) {
+      errEl.textContent = err.message || String(err);
+      return false;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  }
+
+  // -------------------- Tabs: add from a template, rename, delete --------------------
+  const FIELD_TYPE_CHOICES = [
+    ['text', 'Text'], ['select', 'Dropdown'], ['multiselect', 'Pick several'], ['date', 'Date'],
+    ['week-auto', 'Week (from a date)'], ['sequence', 'Number 1, 2, 3…'], ['url', 'Link'], ['checkbox', 'Checkbox'],
+  ];
+  const esc = (v) => String(v == null ? '' : v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let newTabTemplate = null;
+  const TAB_FOR_CHOICES = [['custom', 'Plain tab'], ['daily-status', 'Daily status'], ['leave', 'Leave'], ['ticket-tracker', 'Ticket tracker'], ['weekly-meeting', 'Weekly meeting']];
+
+  function renderTabsSection() {
+    const list = document.getElementById('tm-tab-list');
+    list.innerHTML = '';
+    if (!allTabs.length) {
+      list.innerHTML = '<p class="hint">No tabs yet — add your first one below.</p>';
+    }
+    const hiddenSet = new Set(reportSettings.hiddenTabs || []);
+    allTabs.forEach((t) => {
+      const row = document.createElement('div');
+      row.className = 'tm-tab-row' + (hiddenSet.has(t) ? ' is-hidden' : '');
+      row.dataset.tab = t;
+      const type = tabTypes[t];
+      row.innerHTML = `
+        <span class="tm-icon-host"></span>
+        <span class="tm-tab-name">${esc(t)}</span>
+        <label class="tm-type-l" title="What this tab is for: it decides which screens Daylens uses for it and what Home's dashboard reads (only a Leave tab feeds Who's off and the leave calendar)"><span class="tm-type-cap">For</span><select class="tm-type-sel" aria-label="What ${esc(t)} is for">${TAB_FOR_CHOICES.map(([v, l]) => `<option value="${v}"${(type || 'custom') === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+        <label class="tm-show" title="Off: the tab stays in your Sheet but isn't shown in the app"><input type="checkbox" class="tm-show-cb" ${hiddenSet.has(t) ? '' : 'checked'} /> Show in app</label>
+        <button type="button" class="secondary tm-rename">Rename</button>
+        <button type="button" class="secondary tm-delete">Delete</button>
+        <div class="tm-tab-action" hidden></div>`;
+      const action = row.querySelector('.tm-tab-action');
+      // What it's for (1.5.1) — saves straight away; it changes only which
+      // screens the tab gets, never its entries.
+      const typeSel = row.querySelector('.tm-type-sel');
+      typeSel.onchange = async () => {
+        const v = typeSel.value;
+        const was = tabTypes[t] || 'custom';
+        typeSel.disabled = true;
+        let said = '';
+        const ok = await runTabAction(async () => { const r = await window.statusApp.setTabType(t, v); said = (r && r.message) || ''; return r; }, '');
+        typeSel.disabled = false;
+        if (!ok) { typeSel.value = was; return; }
+        document.getElementById('tabs-ok').textContent = said || 'Saved.';
+        tabTypes = Object.assign({}, tabTypes, { [t]: v });
+        fieldLayoutP = window.statusApp.getFieldLayout ? window.statusApp.getFieldLayout().then((r) => (r && r.ok ? r.layout : null)).catch(() => null) : Promise.resolve(null);
+        renderFieldSchema();
+        if (window.__appMode) window.__appPost({ type: 'tabs-changed' });
+      };
+      // Its icon on Home — saves straight away.
+      const ib = iconButton('tab', () => t, async (icon) => {
+        const ok = await runTabAction(() => window.statusApp.saveIcons({ ['tab:' + t]: icon }), icon ? `"${t}" now shows ${icon} on its tile.` : `"${t}" is back to its automatic icon.`);
+        if (ok) { liveIcons['tab:' + t] = icon; if (window.__appMode) window.__appPost({ type: 'tabs-changed' }); }
+      });
+      ib.classList.add('tm-icon-btn');
+      ib.dataset.icon = liveIcons['tab:' + t] || '';
+      ib.refresh();
+      row.querySelector('.tm-icon-host').appendChild(ib);
+      // Show in app on/off — saves straight away. Hidden tabs stay in the
+      // Sheet (an archive, a pivot table, a chart nobody types into).
+      row.querySelector('.tm-show-cb').onchange = async (e) => {
+        const show = e.target.checked;
+        e.target.disabled = true;
+        const ok = await runTabAction(() => window.statusApp.setTabHidden(t, !show), show ? `"${t}" shows in the app again.` : `"${t}" is hidden from the app (it stays in your Sheet).`);
+        e.target.disabled = false;
+        if (!ok) { e.target.checked = !show; return; }
+        const hidden = new Set(reportSettings.hiddenTabs || []);
+        if (show) hidden.delete(t); else hidden.add(t);
+        reportSettings = Object.assign({}, reportSettings, { hiddenTabs: [...hidden] });
+        liveTabs = allTabs.filter((x) => !hidden.has(x));
+        row.classList.toggle('is-hidden', !show);
+        if (window.__appMode) window.__appPost({ type: 'tabs-changed' });
+      };
+      row.querySelector('.tm-rename').onclick = () => {
+        action.hidden = false;
+        action.innerHTML = `<input type="text" class="tm-rename-input" value="${esc(t)}" /><button type="button" class="tm-rename-save">Save name</button>`;
+        const input = action.querySelector('input');
+        input.focus(); input.select();
+        action.querySelector('.tm-rename-save').onclick = async () => {
+          const newName = input.value.trim();
+          if (!newName || newName === t) { action.hidden = true; return; }
+          const ok = await runTabAction(() => window.statusApp.renameTab(t, newName), `Renamed to "${newName}".`);
+          if (ok) { await loadAndShowContent(); if (window.__appMode) window.__appPost({ type: 'tabs-changed' }); }
+        };
+      };
+      row.querySelector('.tm-delete').onclick = () => {
+        action.hidden = false;
+        action.innerHTML = `<span class="tm-warn">Deletes the tab <b>and all its entries</b> from your Sheet. Type <b>${esc(t)}</b> to confirm:</span>
+          <input type="text" class="tm-delete-input" /><button type="button" class="danger tm-delete-confirm">Delete for good</button>`;
+        action.querySelector('input').focus();
+        action.querySelector('.tm-delete-confirm').onclick = async () => {
+          const typed = action.querySelector('input').value.trim();
+          const ok = await runTabAction(() => window.statusApp.deleteTab(t, typed), `Deleted "${t}".`);
+          if (ok) { await loadAndShowContent(); if (window.__appMode) window.__appPost({ type: 'tabs-changed' }); }
+        };
+      };
+      list.appendChild(row);
+    });
+
+    const grid = document.getElementById('tm-templates');
+    grid.innerHTML = '';
+    window.TAB_TEMPLATES.forEach((tpl) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tpl-tile';
+      b.dataset.template = tpl.id;
+      b.innerHTML = `<span class="tpl-icon">${tpl.icon}</span><span><span class="tpl-name">${esc(tpl.name)}</span><span class="tpl-hint">${esc(tpl.hint)}</span></span>`;
+      b.onclick = () => openNewTab(tpl);
+      grid.appendChild(b);
+    });
+    const dl = document.getElementById('tm-category-list');
+    dl.innerHTML = Object.keys(categoriesMap).map((c) => `<option value="${esc(c)}"></option>`).join('');
+  }
+
+  // ---- Icon picker: the library from icons.js, with search ----
+  let liveIcons = {}; // {"category:Name": "🎫", "tab:Name": "📝"}
+  let openPicker = null;
+  function closeIconPicker() { if (openPicker) { openPicker.remove(); openPicker = null; } }
+  document.addEventListener('mousedown', (e) => { if (openPicker && !openPicker.contains(e.target) && !e.target.closest('.icon-pick-btn')) closeIconPicker(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeIconPicker(); });
+  function openIconPicker(anchor, current, onPick) {
+    closeIconPicker();
+    const box = document.createElement('div');
+    box.className = 'icon-picker';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-label', 'Choose an icon');
+    box.innerHTML = '<input type="search" class="ip-search" placeholder="Search icons (e.g. leave, bug, mail)…" /><div class="ip-grid" role="listbox"></div><button type="button" class="ip-auto plain-btn">↺ Use the automatic icon</button>';
+    const grid = box.querySelector('.ip-grid');
+    const draw = (q) => {
+      grid.innerHTML = '';
+      window.DaylensIcons.LIBRARY.filter(([icon, words]) => !q || words.includes(q)).forEach(([icon, words]) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = icon;
+        b.title = words.split(' ').slice(0, 3).join(', ');
+        b.dataset.icon = icon;
+        b.className = icon === current ? 'plain-btn on' : 'plain-btn';
+        b.onclick = () => { closeIconPicker(); onPick(icon); };
+        grid.appendChild(b);
+      });
+      if (!grid.children.length) grid.innerHTML = '<p class="hint" style="grid-column:1/-1; margin:6px;">No icon matches — try another word.</p>';
+    };
+    draw('');
+    box.querySelector('.ip-search').oninput = (e) => draw(e.target.value.trim().toLowerCase());
+    box.querySelector('.ip-auto').onclick = () => { closeIconPicker(); onPick(''); };
+    document.body.appendChild(box);
+    const r = anchor.getBoundingClientRect();
+    box.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 350)) + 'px';
+    box.style.top = (r.bottom + 6 + 360 > window.innerHeight ? Math.max(8, r.top - 366) : r.bottom + 6) + 'px';
+    openPicker = box;
+    box.querySelector('.ip-search').focus();
+  }
+  function iconButton(kind, name, onPick) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'icon-pick-btn plain-btn';
+    const show = () => {
+      const picked = b.dataset.icon || '';
+      b.textContent = picked || window.DaylensIcons.guess(name());
+      b.title = picked ? 'Icon on its tile — click to change' : 'Automatic icon — click to choose one';
+      b.setAttribute('aria-label', (kind === 'category' ? 'Category' : 'Tab') + ' icon: ' + b.textContent + ' — choose another');
+    };
+    b.refresh = show;
+    b.onclick = () => openIconPicker(b, b.dataset.icon || '', (icon) => { b.dataset.icon = icon; show(); onPick(icon); });
+    return b;
+  }
+
+  async function runTabAction(fn, okText) {
+    const err = document.getElementById('tabs-err'), ok = document.getElementById('tabs-ok');
+    err.textContent = ''; ok.textContent = '';
+    try {
+      const r = await fn();
+      if (!r || r.ok === false) throw new Error((r && r.error) || 'That didn\'t work.');
+      ok.textContent = okText;
+      return true;
+    } catch (e) {
+      err.textContent = e.message || String(e);
+      return false;
+    }
+  }
+
+  function fieldRow(col, fixed) {
+    const row = document.createElement('div');
+    row.className = 'tm-field-row';
+    row.dataset.optionsKey = col.optionsKey || '';
+    row.dataset.basedOn = col.basedOn || '';
+    const opts = FIELD_TYPE_CHOICES.map(([v, l]) => `<option value="${v}" ${v === (col.type || 'text') ? 'selected' : ''}>${l}</option>`).join('');
+    const ownList = !row.dataset.optionsKey || isDirKey(row.dataset.optionsKey);
+    row.innerHTML = `
+      <input type="text" class="tm-f-name" value="${esc(col.name)}" placeholder="Field name" ${fixed ? 'readonly title="This template needs this field"' : ''} />
+      <select class="tm-f-type" ${fixed ? 'disabled' : ''}>${opts}</select>
+      <div class="tm-f-choices">
+        ${dirInfo && ownList ? `<select class="tm-f-src" aria-label="Where its choices come from"><option value="list">Choices I type</option><option value="dir" ${isDirKey(row.dataset.optionsKey) ? 'selected' : ''}>Names from the team directory</option></select>` : ''}
+        <input type="text" class="tm-f-options" value="${esc((col.options || []).join(', '))}" placeholder="Choices, separated by commas" />
+      </div>
+      <button type="button" class="icon-btn tm-f-del" title="Remove this field" ${fixed ? 'disabled' : ''}>✕</button>`;
+    const typeSel = row.querySelector('.tm-f-type');
+    const optsInput = row.querySelector('.tm-f-options');
+    const srcSel = row.querySelector('.tm-f-src');
+    const box = row.querySelector('.tm-f-choices');
+    let chooser = null;
+    const sync = () => {
+      const choice = ['select', 'multiselect'].includes(typeSel.value);
+      const fromDir = !!(srcSel && srcSel.value === 'dir');
+      box.classList.toggle('off', !(choice && ownList));
+      optsInput.hidden = fromDir;
+      if (fromDir && !chooser) { chooser = dirChooser(isDirKey(row.dataset.optionsKey) ? row.dataset.optionsKey : DIR_KEY + '*'); box.appendChild(chooser); }
+      if (chooser) chooser.hidden = !fromDir;
+    };
+    row.dirKey = () => (srcSel && srcSel.value === 'dir' && chooser && ['select', 'multiselect'].includes(typeSel.value) ? chooser.getKey() : '');
+    typeSel.onchange = sync;
+    if (srcSel) srcSel.onchange = sync;
+    sync();
+    row.querySelector('.tm-f-del').onclick = () => row.remove();
+    return row;
+  }
+
+  function openNewTab(tpl) {
+    newTabTemplate = tpl;
+    const form = document.getElementById('tm-new-tab');
+    form.hidden = false;
+    document.getElementById('tm-new-title').textContent = `${tpl.icon} New ${tpl.name} tab`;
+    let name = tpl.id === 'custom' ? '' : tpl.name;
+    for (let i = 2; name && allTabs.includes(name); i++) name = `${tpl.name} ${i}`;
+    document.getElementById('tm-new-name').value = name;
+    document.getElementById('tm-new-category').value = tpl.category || '';
+    document.getElementById('tm-new-report').checked = !!tpl.inReport;
+    const fields = document.getElementById('tm-new-fields');
+    fields.innerHTML = '';
+    tpl.columns.forEach((c) => fields.appendChild(fieldRow(c, (tpl.fixed || []).includes(c.name))));
+    document.querySelectorAll('.tpl-tile').forEach((b) => b.classList.toggle('on', b.dataset.template === tpl.id));
+    document.getElementById('tm-new-name').focus();
+    form.scrollIntoView({ block: 'nearest' });
+  }
+  document.getElementById('tm-add-field').onclick = () => document.getElementById('tm-new-fields').appendChild(fieldRow({ name: '', type: 'text' }, false));
+  document.getElementById('tm-new-cancel').onclick = () => {
+    document.getElementById('tm-new-tab').hidden = true;
+    document.querySelectorAll('.tpl-tile').forEach((b) => b.classList.remove('on'));
+  };
+  document.getElementById('tm-new-create').onclick = async () => {
+    const tpl = newTabTemplate;
+    if (!tpl) return;
+    const columns = Array.from(document.querySelectorAll('#tm-new-fields .tm-field-row')).map((r) => {
+      const dirKey = r.dirKey ? r.dirKey() : '';
+      return {
+        name: r.querySelector('.tm-f-name').value.trim(),
+        type: r.querySelector('.tm-f-type').value,
+        options: dirKey ? [] : r.querySelector('.tm-f-options').value.split(',').map((x) => x.trim()).filter(Boolean),
+        optionsKey: dirKey || (isDirKey(r.dataset.optionsKey) ? '' : r.dataset.optionsKey || ''),
+        basedOn: r.dataset.basedOn || '',
+      };
+    }).filter((c) => c.name);
+    const firstDate = columns.find((c) => c.type === 'date' || /(^|[\s_-])date$/i.test(c.name));
+    columns.forEach((c) => { if (c.type === 'week-auto' && !c.basedOn && firstDate) c.basedOn = firstDate.name; });
+    const spec = {
+      name: document.getElementById('tm-new-name').value.trim(),
+      type: tpl.type,
+      category: document.getElementById('tm-new-category').value.trim(),
+      inReport: document.getElementById('tm-new-report').checked,
+      columns,
+    };
+    const btn = document.getElementById('tm-new-create');
+    btn.disabled = true; btn.textContent = 'Creating…';
+    const ok = await runTabAction(() => window.statusApp.createTab(spec), `Tab "${spec.name}" added — it's on the Home screen now.`);
+    btn.disabled = false; btn.textContent = 'Create tab';
+    if (ok) {
+      document.getElementById('tm-new-tab').hidden = true;
+      const msg = document.getElementById('tabs-ok').textContent;
+      await loadAndShowContent();
+      document.getElementById('tabs-ok').textContent = msg;
+      if (window.__appMode) window.__appPost({ type: 'tabs-changed' });
+    }
+  };
+
+  // -------------------- Options --------------------
+
+  function renderOptions() {
+    const container = document.getElementById('options-groups');
+    container.innerHTML = '';
+    Object.keys(optionsMap).forEach((key) => container.appendChild(buildOptionGroup(key, optionsMap[key])));
+    addNewListTile();
+  }
+
+  // One option = one chip. The chip IS an input (click to rename in place)
+  // with a ✕ — still .opt-row > input, so the Save handler below reads
+  // them exactly as before.
+  function sizeChipInput(input) {
+    // +2ch: bold text is wider than 1ch per letter, so never clip the last one
+    input.style.width = Math.max(3, (input.value || input.placeholder || '').length + 2) + 'ch';
+  }
+  function buildOptionRow(value) {
+    const row = document.createElement('span');
+    row.className = 'opt-row opt-chip';
+    const input = document.createElement('input');
+    input.value = value || '';
+    input.placeholder = 'option';
+    input.setAttribute('aria-label', 'Option');
+    sizeChipInput(input);
+    input.addEventListener('input', () => sizeChipInput(input));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'opt-x';
+    del.title = 'Remove this option';
+    del.textContent = '✕';
+    del.onclick = () => { const g = row.closest('.group'); row.remove(); if (g) updateOptCount(g); markDirty(row.closest('.section') || document.getElementById('options-groups')); };
+    row.appendChild(input);
+    row.appendChild(del);
+    return row;
+  }
+  function updateOptCount(group) {
+    const n = group.querySelectorAll('.opt-row.opt-chip').length;
+    const c = group.querySelector('.opt-count');
+    if (c) c.textContent = n + (n === 1 ? ' option' : ' options');
+  }
+
+  // One card per dropdown list: coloured badge, list name (editable in
+  // place), option count, Remove list; options as chips; an "Add option"
+  // chip you type into (Enter adds it and keeps you there for the next).
+  function buildOptionGroup(key, values) {
+    const group = document.createElement('div');
+    group.className = 'group opt-card';
+
+    const header = document.createElement('div');
+    header.className = 'opt-card-head';
+    const badge = document.createElement('span');
+    badge.className = 'opt-badge';
+    badge.textContent = (key || '?').replace(/[^A-Za-z0-9]/g, '').slice(0, 1).toUpperCase() || '•';
+    const keyInput = document.createElement('input');
+    keyInput.className = 'opt-key-input';
+    keyInput.value = key || '';
+    keyInput.placeholder = 'List name (e.g. SITES)';
+    keyInput.title = 'Click to rename this list';
+    keyInput.addEventListener('input', () => { badge.textContent = (keyInput.value || '?').replace(/[^A-Za-z0-9]/g, '').slice(0, 1).toUpperCase() || '•'; });
+    const count = document.createElement('span');
+    count.className = 'opt-count';
+    const delKeyBtn = document.createElement('button');
+    delKeyBtn.type = 'button';
+    delKeyBtn.className = 'icon-btn opt-remove-list';
+    delKeyBtn.textContent = 'Remove list';
+    delKeyBtn.onclick = () => {
+      if ((values || []).length && !window.confirm(`Remove the whole "${keyInput.value || 'untitled'}" list? (Takes effect when you Save.)`)) return;
+      const sec = group.closest('.section');
+      group.remove();
+      markDirty(sec);
+    };
+    header.appendChild(badge);
+    header.appendChild(keyInput);
+    header.appendChild(count);
+    header.appendChild(delKeyBtn);
+    group.appendChild(header);
+
+    const rows = document.createElement('div');
+    rows.className = 'opt-rows';
+    (values || []).forEach((v) => rows.appendChild(buildOptionRow(v)));
+
+    const adder = document.createElement('label');
+    adder.className = 'opt-add';
+    adder.innerHTML = '<span>＋</span>';
+    const addInput = document.createElement('input');
+    addInput.className = 'opt-add-input';
+    addInput.placeholder = 'Add option';
+    const commit = () => {
+      const v = addInput.value.trim();
+      if (!v) return;
+      rows.insertBefore(buildOptionRow(v), adder);
+      addInput.value = '';
+      updateOptCount(group);
+      markDirty(group.closest('.section'));
+    };
+    addInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
+    addInput.addEventListener('blur', commit);
+    adder.appendChild(addInput);
+    rows.appendChild(adder);
+    group.appendChild(rows);
+    updateOptCount(group);
+    return group;
+  }
+
+  // "+ New dropdown list" lives at the end of the card grid.
+  function addNewListTile() {
+    const grid = document.getElementById('options-groups');
+    const old = grid.querySelector('.new-list-tile');
+    if (old) old.remove();
+    const t = document.createElement('button');
+    t.type = 'button';
+    t.className = 'new-list-tile';
+    t.id = 'new-list-tile';
+    t.textContent = '＋ New dropdown list';
+    t.onclick = () => {
+      const g = buildOptionGroup('', []);
+      grid.insertBefore(g, t);
+      g.querySelector('.opt-key-input').focus();
+      markDirty(grid.closest('.section'));
+    };
+    grid.appendChild(t);
+  }
+  document.getElementById('add-option-key-btn').addEventListener('click', () => {
+    document.getElementById('new-list-tile').click();
+  });
+
+  document.getElementById('save-options-btn').addEventListener('click', async () => {
+    const groups = Array.from(document.querySelectorAll('#options-groups .group'));
+    const map = {};
+    groups.forEach((g) => {
+      const key = g.querySelector('.opt-key-input').value.trim();
+      if (!key) return;
+      const values = Array.from(g.querySelectorAll('.opt-row input')).map((i) => i.value.trim()).filter(Boolean);
+      const pending = g.querySelector('.opt-add-input');
+      if (pending && pending.value.trim()) values.push(pending.value.trim());
+      map[key] = values;
+    });
+    await saveSection('save-options-btn', 'options-err', 'options-ok', () => window.statusApp.saveOptions(map));
+    optionsMap = map;
+  });
+
+  // -------------------- Field Types --------------------
+
+  // Grouped by TAB, same add-a-tab / remove-a-tab shape as Landing-Screen
+  // Categories above — pick a tab from the dropdown and every REAL column
+  // already on that sheet tab shows up automatically (fetched via
+  // getColumns), each with just a Type to pick. No more hunting for a
+  // tab's exact column spelling by hand. fsTabSections (which tabs are
+  // currently shown as a card) is deliberately its own state, not derived
+  // from fieldSchemaMap every render — otherwise a tab whose every column
+  // gets set back to "(plain text)" would vanish out from under whoever's
+  // still editing it, instead of just sitting there configured-but-plain
+  // until they remove it on purpose.
+  let fsTabSections = [];
+
+  function renderFieldSchema() {
+    const container = document.getElementById('fs-rows');
+    container.innerHTML = '';
+    if (!fsTabSections.length) fsTabSections = Object.keys(fieldSchemaMap);
+    fsTabSections.forEach((tab) => container.appendChild(buildFsTabGroup(tab)));
+    renderFsAdder();
+  }
+
+  function renderFsAdder() {
+    const adder = document.getElementById('fs-tab-adder');
+    adder.innerHTML = '';
+    const select = document.createElement('select');
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'secondary';
+    addBtn.textContent = '+ Add tab';
+
+    const available = liveTabs.filter((t) => fsTabSections.indexOf(t) === -1);
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = available.length ? 'Choose a tab to configure…' : 'Every tab already has a section';
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    select.appendChild(placeholder);
+    available.forEach((t) => select.appendChild(new Option(t, t)));
+    select.disabled = !available.length;
+    addBtn.disabled = !available.length;
+
+    addBtn.addEventListener('click', () => {
+      if (!select.value) return;
+      fsTabSections.push(select.value);
+      renderFieldSchema();
+    });
+
+    adder.appendChild(select);
+    adder.appendChild(addBtn);
+  }
+
+  // One card per tab. Real columns load asynchronously (getColumns hits
+  // the backend) so the card appears immediately with a loading state,
+  // then fills in — same tolerance for a beat of latency as the rest of
+  // this screen already has elsewhere (e.g. the old per-row column
+  // datalist did the same fetch-then-populate).
+  function buildFsTabGroup(tab) {
+    const group = document.createElement('div');
+    group.className = 'group fs-tab-group';
+    group.dataset.tab = tab;
+
+    const header = document.createElement('div');
+    header.className = 'group-header';
+    const heading = document.createElement('div');
+    heading.className = 'field-label';
+    heading.style.cssText = 'flex:1; font-size:12px;';
+    heading.textContent = tab;
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'icon-btn';
+    del.textContent = '✕ Remove tab';
+    del.title = 'Remove every field type set for ' + tab;
+    del.onclick = () => {
+      fsTabSections = fsTabSections.filter((t) => t !== tab);
+      renderFieldSchema();
+    };
+    header.appendChild(heading);
+    header.appendChild(del);
+    group.appendChild(header);
+
+    const colsWrap = document.createElement('div');
+    colsWrap.className = 'fs-cols';
+    colsWrap.innerHTML = '<p class="hint" style="margin:4px 0;">Loading columns…</p>';
+    group.appendChild(colsWrap);
+
+    const extraWrap = document.createElement('div');
+    group.appendChild(extraWrap);
+
+    const addColBtn = document.createElement('button');
+    addColBtn.type = 'button';
+    addColBtn.className = 'icon-btn';
+    addColBtn.textContent = '+ Add another column';
+    addColBtn.title = "Define a field type for a column that isn't on the sheet yet — it's created there when you save";
+    addColBtn.onclick = () => extraWrap.appendChild(buildFsColumnRow(tab, '', {}, true, false));
+    group.appendChild(addColBtn);
+
+    const savedForTab = fieldSchemaMap[tab] || {};
+    fieldLayoutP.then((L) => (L && L[tab] ? Object.assign({ layout: true }, L[tab]) : window.statusApp.getColumns(tab))).then((res) => {
+      const realCols = (res && res.columns) || [];
+      colsWrap.innerHTML = '';
+      realCols.forEach((col) => {
+        const row = buildFsColumnRow(tab, col, savedForTab[col] || {}, false, false);
+        if (res.layout) addFsLayoutControls(row, group, col, (res.hidden || []).includes(col), (res.keep || []).includes(col), tabTypes[tab]);
+        colsWrap.appendChild(row);
+      });
+      // A saved spec for a column that's no longer actually on the sheet
+      // (renamed/removed directly in Sheets) shows here too, clearly
+      // marked, instead of quietly disappearing — same "don't silently
+      // drop it" reasoning as the orphaned-tab fix above, one level down
+      // at the column level.
+      Object.keys(savedForTab).forEach((col) => {
+        if (realCols.indexOf(col) === -1) {
+          colsWrap.appendChild(buildFsColumnRow(tab, col, savedForTab[col], true, true));
+        }
+      });
+      if (!realCols.length && !Object.keys(savedForTab).length) {
+        colsWrap.innerHTML = '<p class="hint" style="margin:4px 0;">This tab has no columns yet.</p>';
+      }
+    }).catch(() => {
+      colsWrap.innerHTML = '<p class="hint" style="margin:4px 0;">Couldn’t load this tab’s columns — try again from Refresh.</p>';
+    });
+
+    return group;
+  }
+
+  // ↑ ↓ move a field (its column moves in the Sheet too, on Save); Hide takes
+  // it off the form while its column and old entries stay in the Sheet. A
+  // field the tab's kind needs (a Leave tab's Name and Date…) can't be hidden.
+  function addFsLayoutControls(row, group, col, hidden, keep, kind) {
+    row.classList.add('fs-real');
+    row.dataset.col = col;
+    const box = document.createElement('div');
+    box.className = 'fs-layout';
+    box.innerHTML = `<button type="button" class="plain-btn fs-mv fs-up" aria-label="Move ${esc(col)} up" title="Move up">↑</button><button type="button" class="plain-btn fs-mv fs-down" aria-label="Move ${esc(col)} down" title="Move down">↓</button><button type="button" class="plain-btn fs-hide"></button>`;
+    const hideBtn = box.querySelector('.fs-hide');
+    const note = document.createElement('div');
+    note.className = 'fs-hidden-note';
+    note.textContent = 'Hidden from the form. Its column and old entries stay in the Sheet.';
+    const set = (h) => {
+      row.classList.toggle('fs-hidden', h);
+      row.dataset.hidden = h ? '1' : '';
+      hideBtn.textContent = h ? 'Show' : 'Hide';
+      hideBtn.setAttribute('aria-label', (h ? 'Show ' : 'Hide ') + col + (h ? ' on the form again' : ' from the form'));
+      note.hidden = !h;
+    };
+    set(hidden);
+    if (keep && !hidden) {
+      hideBtn.disabled = true;
+      hideBtn.title = kind === 'weekly-meeting' ? 'A Weekly meeting tab has its own form, so its fields can\'t be hidden.' : `Daylens reads this field on a ${(window.TAB_TYPE_LABELS || {})[kind] || ''} tab, so it stays on the form.`;
+    }
+    const changed = () => { group.dataset.layoutDirty = '1'; if (typeof markDirty === 'function') markDirty(group.closest('.section')); };
+    hideBtn.onclick = () => { set(row.dataset.hidden !== '1'); changed(); };
+    const move = (dir) => {
+      const rows = Array.from(row.parentNode.querySelectorAll(':scope > .fs-real'));
+      const i = rows.indexOf(row), j = i + dir;
+      if (j < 0 || j >= rows.length) return;
+      if (dir < 0) rows[j].before(row); else rows[j].after(row);
+      changed();
+      (dir < 0 ? box.querySelector('.fs-up') : box.querySelector('.fs-down')).focus();
+    };
+    box.querySelector('.fs-up').onclick = () => move(-1);
+    box.querySelector('.fs-down').onclick = () => move(1);
+    row.querySelector('.group-header').appendChild(box);
+    row.appendChild(note);
+  }
+
+  // removable: shows a ✕ to drop the row entirely (a speculative
+  // not-yet-real column, or a saved column that's gone missing from the
+  // sheet). missing: labels it as no-longer-on-the-sheet instead of
+  // offering a text input for it (renaming it back into existence isn't
+  // what that ✕ is for — removing the stale entry is).
+  function buildFsColumnRow(tab, column, spec, removable, missing) {
+    spec = spec || {};
+    const row = document.createElement('div');
+    row.className = 'fs-row group';
+    row.style.display = 'block';
+
+    const header = document.createElement('div');
+    header.className = 'group-header';
+
+    function labeled(labelText, el) {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'flex:1 1 120px; min-width:100px;';
+      const label = document.createElement('div');
+      label.className = 'field-label';
+      label.style.marginBottom = '3px';
+      label.textContent = labelText;
+      el.style.width = '100%';
+      wrap.appendChild(label);
+      wrap.appendChild(el);
+      return wrap;
+    }
+
+    let colEl;
+    if (removable && !missing) {
+      colEl = document.createElement('input');
+      colEl.type = 'text';
+      colEl.className = 'fs-col';
+      colEl.placeholder = 'New column name';
+      colEl.value = column || '';
+    } else {
+      colEl = document.createElement('div');
+      colEl.className = 'fs-col';
+      colEl.dataset.value = column;
+      colEl.style.cssText = 'padding:8px 10px; font-size:12.5px; color:var(--on-brand); font-weight:600;';
+      colEl.textContent = column + (missing ? ' (not on the sheet)' : '');
+    }
+
+    const typeSel = document.createElement('select');
+    typeSel.className = 'fs-type';
+    FIELD_TYPES.forEach((t) => {
+      const o = document.createElement('option');
+      o.value = t;
+      o.textContent = FIELD_TYPE_LABELS[t] || t || '(plain text)';
+      typeSel.appendChild(o);
+    });
+    typeSel.value = spec.type || '';
+
+    header.appendChild(labeled('Column', colEl));
+    header.appendChild(labeled('Type', typeSel));
+    if (removable) {
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'icon-btn';
+      del.textContent = '✕';
+      del.title = 'Remove this column';
+      del.onclick = () => row.remove();
+      header.appendChild(del);
+    }
+    row.appendChild(header);
+
+    const optKeyInput = document.createElement('input');
+    optKeyInput.className = 'fs-optkey';
+    optKeyInput.placeholder = 'e.g. SITES';
+    optKeyInput.value = isDirKey(spec.optionsKey) ? '' : (spec.optionsKey || '');
+    // 1.5.1: or names from the team directory's groups.
+    const srcWrap = document.createElement('div');
+    srcWrap.className = 'fs-src-wrap';
+    const srcSel = document.createElement('select');
+    srcSel.className = 'fs-src';
+    srcSel.setAttribute('aria-label', 'Where its choices come from');
+    srcSel.innerHTML = '<option value="list">A list of choices (below)</option><option value="dir">Names from the team directory</option>';
+    srcSel.value = isDirKey(spec.optionsKey) ? 'dir' : 'list';
+    const chooser = dirInfo || isDirKey(spec.optionsKey) ? dirChooser(isDirKey(spec.optionsKey) ? spec.optionsKey : DIR_KEY + '*') : null;
+    if (chooser) { srcWrap.appendChild(srcSel); srcWrap.appendChild(chooser); }
+    srcWrap.appendChild(optKeyInput);
+    const syncSrc = () => { const d = srcSel.value === 'dir'; optKeyInput.hidden = d; if (chooser) chooser.hidden = !d; };
+    srcSel.onchange = syncSrc;
+    syncSrc();
+    row.fsKey = () => (chooser && srcSel.value === 'dir' ? chooser.getKey() : optKeyInput.value.trim());
+    const optKeyWrap = labeled(chooser ? 'Choices' : 'Options list (from "Dropdown & Multiselect Options" above)', srcWrap);
+
+    // Which date the week comes from: a list of this tab's columns, its
+    // date columns first (typed as Date, or named "… Date") — no typing.
+    const basedOnInput = document.createElement('select');
+    basedOnInput.className = 'fs-basedon';
+    basedOnInput.appendChild(new Option(spec.basedOn || 'Loading…', spec.basedOn || ''));
+    basedOnInput.value = spec.basedOn || '';
+    window.statusApp.getColumns(tab).then((res) => {
+      const cols = ((res && res.columns) || []).filter((c) => c !== column);
+      const typed = fieldSchemaMap[tab] || {};
+      const isDate = (c) => (typed[c] && typed[c].type === 'date') || /(^|[\s_-])date$/i.test(c);
+      const dates = cols.filter(isDate);
+      const others = cols.filter((c) => !isDate(c));
+      const keep = spec.basedOn || '';
+      basedOnInput.innerHTML = '';
+      basedOnInput.appendChild(new Option(dates.length ? '— choose the date column —' : '— this tab has no date column yet —', ''));
+      const group = (label, list) => {
+        if (!list.length) return;
+        const g = document.createElement('optgroup');
+        g.label = label;
+        list.forEach((c) => g.appendChild(new Option(c, c)));
+        basedOnInput.appendChild(g);
+      };
+      group('Date columns', dates);
+      group('Other columns', others);
+      if (keep && cols.indexOf(keep) === -1) basedOnInput.appendChild(new Option(keep + ' (not on the sheet)', keep));
+      basedOnInput.value = keep || (dates[0] || '');
+    }).catch(() => {});
+    const basedOnWrap = labeled('Week from which date?', basedOnInput);
+
+    const subRow = document.createElement('div');
+    subRow.className = 'opt-row';
+    subRow.style.marginTop = '8px';
+    subRow.appendChild(optKeyWrap);
+    subRow.appendChild(basedOnWrap);
+    row.appendChild(subRow);
+
+    function updateVisibility() {
+      const t = typeSel.value;
+      optKeyWrap.style.display = (t === 'select' || t === 'multiselect') ? '' : 'none';
+      basedOnWrap.style.display = t === 'week-auto' ? '' : 'none';
+      subRow.style.display = (optKeyWrap.style.display === 'none' && basedOnWrap.style.display === 'none') ? 'none' : 'flex';
+    }
+    typeSel.onchange = updateVisibility;
+    updateVisibility();
+
+    return row;
+  }
+
+  document.getElementById('save-fs-btn').addEventListener('click', async () => {
+    const groups = Array.from(document.querySelectorAll('#fs-rows .fs-tab-group'));
+    const map = {};
+    // A duplicate (same Tab+Column twice) used to save silently — whichever
+    // row happened to build into `map` last just overwrote the other with
+    // no warning. Catch that here instead, before it saves. Can still
+    // happen now if a manually-added "new column" name collides with a
+    // real column already listed above it.
+    const seen = new Set();
+    let duplicate = null;
+    groups.forEach((g) => {
+      const tab = g.dataset.tab;
+      const rows = Array.from(g.querySelectorAll('.fs-row'));
+      rows.forEach((r) => {
+        const colEl = r.querySelector('.fs-col');
+        const column = (colEl.tagName === 'INPUT' ? colEl.value : colEl.dataset.value || '').trim();
+        const type = r.querySelector('.fs-type').value.trim();
+        if (!column || !type) return; // blank Type = plain text, not stored; blank Column = an empty "+ Add another column" row, skip it
+        const key = tab + '::' + column.toLowerCase();
+        if (seen.has(key)) duplicate = `${column}" on "${tab}`;
+        seen.add(key);
+        const optionsKey = r.fsKey ? r.fsKey() : r.querySelector('.fs-optkey').value.trim();
+        const basedOn = r.querySelector('.fs-basedon').value.trim();
+        if (!map[tab]) map[tab] = {};
+        map[tab][column] = { type, optionsKey, basedOn };
+      });
+    });
+    if (duplicate) {
+      document.getElementById('fs-err').textContent = `"${duplicate}" is listed more than once — remove one before saving, or only the last one will actually be kept.`;
+      return;
+    }
+    // 1.5.1: the fields' order and which are hidden, for the tabs changed here.
+    const layout = {};
+    groups.filter((g) => g.dataset.layoutDirty === '1').forEach((g) => {
+      const real = Array.from(g.querySelectorAll('.fs-real'));
+      layout[g.dataset.tab] = { order: real.map((r) => r.dataset.col), hidden: real.filter((r) => r.dataset.hidden === '1').map((r) => r.dataset.col) };
+    });
+    const saved = await saveSection('save-fs-btn', 'fs-err', 'fs-ok', async () => {
+      const r = await window.statusApp.saveFieldSchema(map);
+      if (!r || r.ok === false || !Object.keys(layout).length) return r;
+      return window.statusApp.saveFieldLayout(layout);
+    });
+    fieldSchemaMap = map;
+    if (saved) {
+      if (Object.keys(layout).length) {
+        fieldLayoutP = window.statusApp.getFieldLayout().then((r) => (r && r.ok ? r.layout : null)).catch(() => null);
+        if (window.__appMode) window.__appPost({ type: 'tabs-changed' });
+      }
+      renderFieldSchema();
+    }
+  });
+
+  // -------------------- Categories --------------------
+
+  function renderCategories() {
+    const container = document.getElementById('cat-groups');
+    container.innerHTML = '';
+    Object.keys(categoriesMap).forEach((cat) => container.appendChild(buildCategoryGroup(cat, categoriesMap[cat])));
+  }
+
+  function buildCategoryGroup(name, tabs) {
+    const group = document.createElement('div');
+    group.className = 'group';
+
+    const header = document.createElement('div');
+    header.className = 'group-header';
+    const nameInput = document.createElement('input');
+    nameInput.className = 'cat-name-input';
+    nameInput.value = name || '';
+    nameInput.placeholder = 'Category name';
+    group.dataset.origName = name || '';
+    const catIcon = iconButton('category', () => nameInput.value.trim() || name || '', () => markDirty(group.closest('.section')));
+    catIcon.classList.add('cat-icon-btn');
+    catIcon.dataset.icon = (name && liveIcons['category:' + name]) || '';
+    catIcon.refresh();
+    nameInput.addEventListener('input', () => catIcon.refresh());
+    header.appendChild(catIcon);
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'icon-btn';
+    del.textContent = '✕ Remove category';
+    del.onclick = () => group.remove();
+    header.appendChild(nameInput);
+    header.appendChild(del);
+    group.appendChild(header);
+
+    // Selected tabs for this category, in the order they were added. Kept
+    // in this closure (not derived from checkbox state — there's no
+    // checkbox grid any more) and exposed via group.getSelectedTabs() for
+    // save-categories-btn below. Starts from whatever was already saved,
+    // dropping any tab that no longer exists on the sheet (e.g. renamed
+    // outside the app) so a stale name can't get re-saved untouched.
+    let selectedTabs = (tabs || []).filter((t) => liveTabs.indexOf(t) !== -1);
+
+    const chipsWrap = document.createElement('div');
+    chipsWrap.className = 'cat-tab-chips';
+
+    const adderRow = document.createElement('div');
+    adderRow.className = 'cat-tab-adder';
+    const select = document.createElement('select');
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'icon-btn';
+    addBtn.textContent = '+ Add';
+
+    function renderChips() {
+      chipsWrap.innerHTML = '';
+      selectedTabs.forEach((t) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip selected';
+        chip.textContent = t + ' ✕';
+        chip.title = 'Remove ' + t + ' from this category';
+        chip.onclick = () => {
+          selectedTabs = selectedTabs.filter((x) => x !== t);
+          renderChips();
+          renderSelectOptions();
+        };
+        chipsWrap.appendChild(chip);
+      });
+      if (!selectedTabs.length) {
+        const empty = document.createElement('span');
+        empty.className = 'cat-tab-empty';
+        empty.textContent = 'No tabs added yet.';
+        chipsWrap.appendChild(empty);
+      }
+    }
+
+    function renderSelectOptions() {
+      // Only offers tabs not already added to THIS category — a tab can
+      // still belong to more than one category at once (e.g. the same
+      // tab showing under two different category buttons), this just
+      // stops it being added twice within the same one.
+      const available = liveTabs.filter((t) => selectedTabs.indexOf(t) === -1);
+      select.innerHTML = '';
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = available.length ? 'Add a tab…' : 'All tabs added';
+      placeholder.disabled = true;
+      placeholder.selected = true;
+      select.appendChild(placeholder);
+      available.forEach((t) => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        select.appendChild(opt);
+      });
+      select.disabled = !available.length;
+      addBtn.disabled = !available.length;
+    }
+
+    addBtn.addEventListener('click', () => {
+      const val = select.value;
+      if (!val) return;
+      selectedTabs.push(val);
+      renderChips();
+      renderSelectOptions();
+    });
+
+    renderChips();
+    renderSelectOptions();
+
+    adderRow.appendChild(select);
+    adderRow.appendChild(addBtn);
+    group.appendChild(chipsWrap);
+    group.appendChild(adderRow);
+
+    group.getSelectedTabs = () => selectedTabs.slice();
+
+    return group;
+  }
+
+  document.getElementById('add-category-btn').addEventListener('click', () => {
+    document.getElementById('cat-groups').appendChild(buildCategoryGroup('', []));
+  });
+
+  document.getElementById('save-categories-btn').addEventListener('click', async () => {
+    const groups = Array.from(document.querySelectorAll('#cat-groups .group'));
+    const map = {};
+    groups.forEach((g) => {
+      const name = g.querySelector('.cat-name-input').value.trim();
+      if (!name) return;
+      const tabs = typeof g.getSelectedTabs === 'function' ? g.getSelectedTabs() : [];
+      if (tabs.length) map[name] = tabs;
+    });
+    const saved = await saveSection('save-categories-btn', 'cat-err', 'cat-ok', () => window.statusApp.saveCategories(map));
+    categoriesMap = map;
+    if (!saved) return;
+    // Their icons, under their (possibly new) names.
+    const icons = {}, renames = [];
+    groups.forEach((g) => {
+      const name = g.querySelector('.cat-name-input').value.trim();
+      if (!name) return;
+      const orig = g.dataset.origName || '';
+      if (orig && orig !== name) renames.push({ from: orig, to: name });
+      icons['category:' + name] = g.querySelector('.cat-icon-btn').dataset.icon || '';
+      g.dataset.origName = name;
+    });
+    const r = await window.statusApp.saveIcons(icons, renames).catch((e) => ({ ok: false, error: e.message }));
+    if (r && r.ok) { liveIcons = r.icons || liveIcons; if (window.__appMode) window.__appPost({ type: 'tabs-changed' }); }
+    else document.getElementById('cat-err').textContent = 'Categories saved, but not their icons: ' + ((r && r.error) || 'try again.');
+  });
+
+  // -------------------- Report Settings --------------------
+
+  function buildTabCheckbox(tab, checked) {
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = tab;
+    cb.checked = checked;
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(' ' + tab));
+    return label;
+  }
+
+  function buildEmailRow(value) {
+    const row = document.createElement('div');
+    row.className = 'opt-row';
+    const input = document.createElement('input');
+    input.type = 'email';
+    input.value = value || '';
+    input.placeholder = 'name@example.com';
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'icon-btn';
+    del.textContent = '✕';
+    del.onclick = () => row.remove();
+    row.appendChild(input);
+    row.appendChild(del);
+    return row;
+  }
+
+  function renderReportSettings() {
+    document.getElementById('teams-webhook-url').value = reportSettings.teamsWebhookUrl || '';
+    document.getElementById('gemini-api-key').value = reportSettings.geminiApiKey || '';
+    document.getElementById('gemini-model').value = reportSettings.geminiModel || '';
+    document.getElementById('leave-approval').checked = !!reportSettings.leaveApproval;
+
+    const adminContactContainer = document.getElementById('admin-contact-emails-rows');
+    adminContactContainer.innerHTML = '';
+    if (viewOnly) {
+      document.getElementById('teams-webhook-url').placeholder = settingsHidden.teamsWebhookSet ? '🔒 Set — only admins see the link' : 'Not set';
+      document.getElementById('gemini-api-key').type = 'text';
+      document.getElementById('gemini-api-key').placeholder = settingsHidden.geminiKeySet ? '🔒 Set — only admins see the key' : 'Not set';
+      const n = Number(settingsHidden.adminContactEmails) || 0;
+      adminContactContainer.appendChild(hiddenNote(n ? `${n} email address${n === 1 ? '' : 'es'} — only admins see them` : 'None yet'));
+      return;
+    }
+    (reportSettings.adminContactEmails || []).forEach((e) => adminContactContainer.appendChild(buildEmailRow(e)));
+
+  }
+
+  document.getElementById('add-admin-contact-email-btn').addEventListener('click', () => {
+    document.getElementById('admin-contact-emails-rows').appendChild(buildEmailRow(''));
+  });
+
+  document.getElementById('save-report-settings-btn').addEventListener('click', async () => {
+    // Only what this screen shows — the backend leaves every other setting
+    // (hidden tabs, older keys) exactly as it is.
+    const settings = {
+      teamsWebhookUrl: document.getElementById('teams-webhook-url').value.trim(),
+      geminiApiKey: document.getElementById('gemini-api-key').value.trim(),
+      geminiModel: document.getElementById('gemini-model').value.trim(),
+      adminContactEmails: Array.from(document.querySelectorAll('#admin-contact-emails-rows input')).map((i) => i.value.trim()).filter(Boolean),
+      leaveApproval: document.getElementById('leave-approval').checked,
+    };
+    const saved = await saveSection('save-report-settings-btn', 'report-settings-err', 'report-settings-ok', () => window.statusApp.saveReportSettings(settings));
+    reportSettings = Object.assign({}, reportSettings, settings);
+    if (saved && window.__appMode) window.__appPost({ type: 'approvals-changed' }); // the Approvals item may appear or go
+  });
+
+  // -------------------- Report Configs --------------------
+  //
+  // Each config is its own card: a name, one or more Tab+Fields rows (a
+  // tab picked from a real dropdown, its columns offered as chips fetched
+  // live via getColumns — same "real picker, not free text" pattern
+  // Field Types already uses for Column, so a typo can't silently exclude
+  // a field), a recipients list, and an optional schedule. Saving sends
+  // the whole set back (same "replace everything" shape as every other
+  // section here) — writeReportConfigs on the backend handles turning
+  // this back into flat (ConfigName, Tab) rows.
+
+  function buildScheduleDaySelect(selected) {
+    const sel = document.createElement('select');
+    sel.className = 'rc-schedule-day';
+    sel.setAttribute('aria-label', 'Day of the week');
+    window.ReportSchedule.WEEK.forEach((d) => sel.appendChild(new Option(d, d)));
+    sel.value = window.ReportSchedule.WEEK.includes(selected) ? selected : 'Friday';
+    return sel;
+  }
+
+  function buildScheduleHourSelect(selected) {
+    const sel = document.createElement('select');
+    sel.className = 'rc-schedule-hour';
+    sel.setAttribute('aria-label', 'Time');
+    for (let h = 0; h < 24; h++) sel.appendChild(new Option('at ' + window.ReportSchedule.hourLabel(h), h));
+    sel.value = selected === null || selected === undefined || selected === '' || isNaN(selected) ? '18' : String(selected);
+    return sel;
+  }
+
+  // One Tab+Fields row within a config card. Fields are chips fetched
+  // live from that tab's real columns (getColumns) — selecting the tab
+  // populates them; switching tabs mid-edit resets the selection rather
+  // than trying to carry over columns that may not even exist on the
+  // newly picked tab.
+  function buildReportConfigTabRow(tab, fields) {
+    const row = document.createElement('div');
+    row.className = 'group rc-tab-row';
+    row.style.cssText = 'background:rgba(255,255,255,0.1); margin-bottom:8px;';
+
+    const header = document.createElement('div');
+    header.className = 'group-header';
+    const tabSel = document.createElement('select');
+    tabSel.className = 'rc-tab-select';
+    tabSel.style.flex = '1';
+    tabSel.appendChild(new Option('— tab —', ''));
+    allTabs.forEach((t) => tabSel.appendChild(new Option(t, t)));
+    // Same reasoning as Field Types' tabSel above — keep a deleted tab's
+    // stored value selectable rather than letting it silently fall back to
+    // blank (Save Report Configs drops any tab row with no tab selected,
+    // same as Field Types does).
+    if (tab && allTabs.indexOf(tab) === -1) {
+      tabSel.appendChild(new Option(tab + ' (tab no longer exists)', tab));
+    }
+    tabSel.value = tab || '';
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'icon-btn';
+    removeBtn.textContent = '✕';
+    removeBtn.title = 'Remove this tab from the report';
+    removeBtn.onclick = () => row.remove();
+    header.appendChild(tabSel);
+    header.appendChild(removeBtn);
+    row.appendChild(header);
+
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-size:10.5px; color:var(--on-brand-dim); margin:6px 0 4px;';
+    hint.textContent = 'Columns to include — none selected means every column on this tab.';
+    row.appendChild(hint);
+
+    const chipGroup = document.createElement('div');
+    chipGroup.className = 'chip-group rc-fields-chips';
+    row.appendChild(chipGroup);
+
+    async function populateFieldChips(selectedTab, selectedFields) {
+      chipGroup.innerHTML = '';
+      if (!selectedTab) return;
+      let cols = [];
+      try {
+        const res = await window.statusApp.getColumns(selectedTab);
+        cols = (res && res.columns) || [];
+      } catch {
+        cols = [];
+      }
+      const selectedSet = new Set(selectedFields || []);
+      cols.forEach((col) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip' + (selectedSet.has(col) ? ' selected' : '');
+        chip.textContent = col;
+        chip.dataset.field = col;
+        chip.onclick = () => chip.classList.toggle('selected');
+        chipGroup.appendChild(chip);
+      });
+    }
+    populateFieldChips(tab, fields);
+    tabSel.onchange = () => populateFieldChips(tabSel.value, []);
+
+    return row;
+  }
+
+  function buildReportConfigCard(config) {
+    config = config || { name: '', tabs: [], recipients: [], repeat: '', scheduleDay: '', scheduleHour: null, enabled: true, reminderHours: 0, reminderRecipients: [], reminderMessage: '' };
+    const card = document.createElement('div');
+    card.className = 'group rc-config-card';
+
+    const header = document.createElement('div');
+    header.className = 'group-header';
+    const nameInput = document.createElement('input');
+    nameInput.className = 'rc-name';
+    nameInput.placeholder = 'Report name (e.g. Status Report)';
+    nameInput.value = config.name || '';
+    nameInput.style.flex = '2';
+    const enabledLabel = document.createElement('label');
+    enabledLabel.style.cssText = 'display:flex; align-items:center; gap:4px; font-size:11px; white-space:nowrap;';
+    const enabledCb = document.createElement('input');
+    enabledCb.type = 'checkbox';
+    enabledCb.className = 'rc-enabled';
+    enabledCb.checked = config.enabled !== false;
+    enabledLabel.appendChild(enabledCb);
+    enabledLabel.appendChild(document.createTextNode(' Enabled'));
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'icon-btn';
+    deleteBtn.textContent = '✕ Remove';
+    deleteBtn.onclick = () => card.remove();
+    header.appendChild(nameInput);
+    header.appendChild(enabledLabel);
+    header.appendChild(deleteBtn);
+    card.appendChild(header);
+
+    const tabsLabel = document.createElement('div');
+    tabsLabel.className = 'field-label';
+    tabsLabel.style.marginTop = '10px';
+    tabsLabel.textContent = 'Tabs & columns included';
+    card.appendChild(tabsLabel);
+    const tabsContainer = document.createElement('div');
+    tabsContainer.className = 'rc-tabs';
+    (config.tabs && config.tabs.length ? config.tabs : [{ tab: '', fields: [] }]).forEach((t) => {
+      tabsContainer.appendChild(buildReportConfigTabRow(t.tab, t.fields));
+    });
+    card.appendChild(tabsContainer);
+    const addTabBtn = document.createElement('button');
+    addTabBtn.type = 'button';
+    addTabBtn.className = 'icon-btn';
+    addTabBtn.textContent = '+ Add tab';
+    addTabBtn.onclick = () => tabsContainer.appendChild(buildReportConfigTabRow('', []));
+    card.appendChild(addTabBtn);
+
+    const recipLabel = document.createElement('div');
+    recipLabel.className = 'field-label';
+    recipLabel.style.marginTop = '10px';
+    recipLabel.textContent = 'Recipients';
+    card.appendChild(recipLabel);
+    const recipContainer = document.createElement('div');
+    recipContainer.className = 'rc-recipients';
+    if (viewOnly) {
+      const n = Number(config.recipientCount) || 0;
+      recipContainer.appendChild(hiddenNote(n ? `${people(n)} — only admins see who` : 'Nobody yet'));
+    } else (config.recipients && config.recipients.length ? config.recipients : ['']).forEach((e) => {
+      recipContainer.appendChild(buildEmailRow(e));
+    });
+    card.appendChild(recipContainer);
+    const addRecipBtn = document.createElement('button');
+    addRecipBtn.type = 'button';
+    addRecipBtn.className = 'icon-btn';
+    addRecipBtn.textContent = '+ Add email';
+    addRecipBtn.onclick = () => recipContainer.appendChild(buildEmailRow(''));
+    card.appendChild(addRecipBtn);
+
+    // When it goes out: Repeat, then only the controls that repeat needs.
+    const RS = window.ReportSchedule;
+    const scheduleLabel = document.createElement('div');
+    scheduleLabel.className = 'field-label';
+    scheduleLabel.style.marginTop = '10px';
+    scheduleLabel.textContent = 'When it goes out';
+    card.appendChild(scheduleLabel);
+    const scheduleRow = document.createElement('div');
+    scheduleRow.className = 'rc-when-row';
+    const repeatSel = document.createElement('select');
+    repeatSel.className = 'rc-repeat';
+    repeatSel.setAttribute('aria-label', 'How often');
+    RS.REPEATS.forEach(([v, l]) => {
+      if (needsBackendUpdate && v && v !== 'weekly') return; // the team's Sheet can't send these yet
+      repeatSel.appendChild(new Option(l, v));
+    });
+    const savedRepeat = RS.repeatOf(config);
+    repeatSel.value = Array.from(repeatSel.options).some((o) => o.value === savedRepeat) ? savedRepeat : '';
+    const daySel = buildScheduleDaySelect(savedRepeat === 'weekly' ? String(config.scheduleDay).trim() : '');
+    const monthSel = document.createElement('select');
+    monthSel.className = 'rc-month-day';
+    monthSel.setAttribute('aria-label', 'Day of the month');
+    for (let d = 1; d <= 28; d++) monthSel.appendChild(new Option('on the ' + RS.ordinal(d), String(d)));
+    monthSel.appendChild(new Option('on the last day', 'Last'));
+    monthSel.value = savedRepeat === 'monthly' ? (/^last$/i.test(String(config.scheduleDay)) ? 'Last' : String(Number(config.scheduleDay) || 1)) : '1';
+    const hourSel = buildScheduleHourSelect(config.scheduleHour);
+    scheduleRow.appendChild(repeatSel);
+    scheduleRow.appendChild(daySel);
+    scheduleRow.appendChild(monthSel);
+    scheduleRow.appendChild(hourSel);
+    card.appendChild(scheduleRow);
+    const daysWrap = document.createElement('div');
+    daysWrap.className = 'rc-days';
+    daysWrap.setAttribute('role', 'group');
+    daysWrap.setAttribute('aria-label', 'Days it goes out');
+    const pickedDays = savedRepeat === 'custom' ? RS.customDays(config) : [];
+    RS.WEEK.forEach((d) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip' + (pickedDays.includes(d) ? ' selected' : '');
+      b.dataset.day = d;
+      b.textContent = d.slice(0, 3);
+      b.title = d;
+      b.setAttribute('aria-pressed', pickedDays.includes(d) ? 'true' : 'false');
+      b.onclick = () => { b.classList.toggle('selected'); b.setAttribute('aria-pressed', b.classList.contains('selected') ? 'true' : 'false'); syncSchedule(); markDirty(card.closest('.section')); };
+      daysWrap.appendChild(b);
+    });
+    daysWrap.style.marginTop = '8px';
+    card.appendChild(daysWrap);
+    const whenLine = document.createElement('p');
+    whenLine.className = 'rc-when';
+    card.appendChild(whenLine);
+    // The schedule as the backend will read it.
+    const readSchedule = () => {
+      const repeat = repeatSel.value;
+      let scheduleDay = '';
+      if (repeat === 'weekly') scheduleDay = daySel.value;
+      else if (repeat === 'monthly') scheduleDay = monthSel.value;
+      else if (repeat === 'custom') scheduleDay = Array.from(daysWrap.querySelectorAll('.chip.selected')).map((b) => b.dataset.day).join(', ');
+      else if (repeat === 'daily') scheduleDay = 'Every day';
+      else if (repeat === 'weekdays') scheduleDay = 'Weekdays';
+      return { repeat, scheduleDay, scheduleHour: repeat ? Number(hourSel.value) : null };
+    };
+    card.readSchedule = readSchedule;
+    function syncSchedule() {
+      const r = repeatSel.value;
+      daySel.hidden = r !== 'weekly';
+      monthSel.hidden = r !== 'monthly';
+      hourSel.hidden = !r;
+      daysWrap.hidden = r !== 'custom';
+      const sch = readSchedule();
+      const lead = Number((card.querySelector('.rc-reminder-hours') || {}).value) || 0;
+      const reminder = RS.scheduled(sch) && lead ? ` A reminder goes to the team ${lead >= 24 && lead % 24 === 0 ? (lead === 24 ? '1 day' : lead / 24 + ' days') : lead + (lead === 1 ? ' hour' : ' hours')} before.` : '';
+      whenLine.innerHTML = '';
+      whenLine.append(r === 'custom' && !RS.customDays(sch).length ? 'Pick the days it goes out.' : RS.when(sch) + '.');
+      const cov = document.createElement('span');
+      cov.className = 'rc-covers';
+      cov.textContent = RS.covers(sch) + reminder + (RS.scheduled(sch) ? " Times are your team's time zone, checked about once an hour." : '');
+      whenLine.appendChild(cov);
+    }
+    card.syncSchedule = syncSchedule;
+    scheduleRow.addEventListener('change', syncSchedule);
+    syncSchedule();
+
+    // This report's own reminder: "please add your updates", N hours
+    // before it goes out (needs a schedule above).
+    const remLabel = document.createElement('div');
+    remLabel.className = 'field-label';
+    remLabel.style.marginTop = '10px';
+    remLabel.textContent = 'Remind people before it goes out';
+    card.appendChild(remLabel);
+    const remSel = document.createElement('select');
+    remSel.className = 'rc-reminder-hours';
+    [[0, 'No reminder'], [1, '1 hour before'], [2, '2 hours before'], [3, '3 hours before'], [4, '4 hours before'],
+     [6, '6 hours before'], [8, '8 hours before'], [24, '1 day before'], [48, '2 days before']]
+      .forEach(([v, l]) => remSel.appendChild(new Option(l, v)));
+    const savedHours = Number(config.reminderHours) || 0;
+    if (savedHours && !Array.from(remSel.options).some((o) => Number(o.value) === savedHours)) remSel.appendChild(new Option(`${savedHours} hours before`, savedHours));
+    remSel.value = String(savedHours);
+    card.appendChild(remSel);
+    const remWho = document.createElement('div');
+    remWho.className = 'rc-reminder-who';
+    const remHint = document.createElement('p');
+    remHint.className = 'hint';
+    remHint.style.cssText = 'margin:6px 0 6px;';
+    remHint.textContent = 'Who to remind: the people who add the updates. Leave empty to remind this report\'s recipients. It also posts to your Teams channel, if one is set in App Settings.';
+    remWho.appendChild(remHint);
+    const remList = document.createElement('div');
+    remList.className = 'rc-reminder-recipients';
+    if (viewOnly) {
+      const n = Number(config.reminderRecipientCount) || 0;
+      remList.appendChild(hiddenNote(n ? `${people(n)} — only admins see who` : 'This report\'s recipients'));
+    } else (config.reminderRecipients || []).forEach((e) => remList.appendChild(buildEmailRow(e)));
+    remWho.appendChild(remList);
+    const addRemBtn = document.createElement('button');
+    addRemBtn.type = 'button';
+    addRemBtn.className = 'icon-btn';
+    addRemBtn.textContent = '+ Add email';
+    addRemBtn.onclick = () => remList.appendChild(buildEmailRow(''));
+    remWho.appendChild(addRemBtn);
+    // What the reminder says — your own words, with formatting.
+    const msgLabel = document.createElement('div');
+    msgLabel.className = 'field-label';
+    msgLabel.style.marginTop = '10px';
+    msgLabel.textContent = 'Reminder message';
+    remWho.appendChild(msgLabel);
+    const msgHint = document.createElement('p');
+    msgHint.className = 'hint';
+    msgHint.style.cssText = 'margin:4px 0 0;';
+    msgHint.textContent = 'What the reminder email says. {report} becomes the report\'s name and {when} when it goes out (e.g. "today at 5 pm"). Leave it empty for the standard message.';
+    remWho.appendChild(msgHint);
+    const msgBox = window.DaylensRichText.editor(config.reminderMessage || '', {
+      className: 'rc-reminder-message', rows: 4, maxLength: 4000, label: 'Reminder message',
+      placeholder: 'e.g. Hi team — please add today\'s tickets and any blockers before {when}, so they make it into the {report}. Thanks!',
+      emptyPreview: 'Standard message: "Please add your updates in Daylens before then, so they make it into the report."',
+    });
+    remWho.appendChild(msgBox);
+    card.reminderMessageBox = msgBox;
+    if (sheetBefore12) {
+      msgBox.setDisabled(true, "Needs your team's Sheet update");
+      const n = document.createElement('p');
+      n.className = 'hint rc-msg-needs-update';
+      n.style.cssText = 'margin:4px 0 0;';
+      n.textContent = "Your own message needs the latest update of your team's Sheet — an admin can install it in Settings → About Daylens → Update. Until then, the standard message is sent.";
+      remWho.appendChild(n);
+    }
+    card.appendChild(remWho);
+    const syncReminder = () => {
+      const noSchedule = !window.ReportSchedule.scheduled(readSchedule());
+      remSel.disabled = noSchedule;
+      remWho.hidden = noSchedule || remSel.value === '0';
+      remLabel.title = noSchedule ? 'Choose when it goes out first' : '';
+      syncSchedule();
+    };
+    remSel.onchange = syncReminder;
+    scheduleRow.addEventListener('change', syncReminder);
+    daysWrap.addEventListener('click', syncReminder);
+    syncReminder();
+
+    return card;
+  }
+
+  function renderReportConfigs() {
+    const container = document.getElementById('report-configs');
+    container.innerHTML = '';
+    reportConfigs.forEach((c) => container.appendChild(buildReportConfigCard(c)));
+  }
+
+  document.getElementById('add-report-config-btn').addEventListener('click', () => {
+    document.getElementById('report-configs').appendChild(buildReportConfigCard(null));
+  });
+
+  document.getElementById('save-report-configs-btn').addEventListener('click', async () => {
+    const cards = Array.from(document.querySelectorAll('#report-configs .rc-config-card'));
+    const configs = cards.map((card) => {
+      const name = card.querySelector('.rc-name').value.trim();
+      const enabled = card.querySelector('.rc-enabled').checked;
+      const tabs = Array.from(card.querySelectorAll('.rc-tab-row')).map((row) => {
+        const tab = row.querySelector('.rc-tab-select').value.trim();
+        const fields = Array.from(row.querySelectorAll('.rc-fields-chips .chip.selected')).map((c) => c.dataset.field);
+        return { tab, fields };
+      }).filter((t) => t.tab);
+      const recipients = Array.from(card.querySelectorAll('.rc-recipients input')).map((i) => i.value.trim()).filter(Boolean);
+      const { repeat, scheduleDay, scheduleHour } = card.readSchedule();
+      const reminderHours = window.ReportSchedule.scheduled({ repeat, scheduleDay, scheduleHour }) ? Number(card.querySelector('.rc-reminder-hours').value) || 0 : 0;
+      const reminderRecipients = Array.from(card.querySelectorAll('.rc-reminder-recipients input')).map((i) => i.value.trim()).filter(Boolean);
+      const out = { name, tabs, recipients, repeat, scheduleDay, scheduleHour, enabled, reminderHours, reminderRecipients };
+      if (card.reminderMessageBox && !sheetBefore12) out.reminderMessage = card.reminderMessageBox.value.trim();
+      return out;
+    }).filter((c) => c.name && c.tabs.length);
+    const noDays = configs.find((c) => c.repeat === 'custom' && !scheduleDayCount(c));
+    if (noDays) {
+      document.getElementById('report-configs-ok').textContent = '';
+      document.getElementById('report-configs-err').textContent = `Pick at least one day for "${noDays.name}", or choose another option under "When it goes out".`;
+      return;
+    }
+    const saved = await saveSection('save-report-configs-btn', 'report-configs-err', 'report-configs-ok', () => window.statusApp.saveReportConfigs(configs));
+    reportConfigs = configs;
+    if (saved) renderReportConfigs(); // same "re-group after a successful save" reasoning as Field Types
+  });
+
+  function scheduleDayCount(c) { return window.ReportSchedule.customDays(c).length; }
+
+  // -------------------- Connect Groups --------------------
+
+  function buildConnectGroupRow(name, webhookUrl, hasWebhook) {
+    const row = document.createElement('div');
+    row.className = 'group';
+    const header = document.createElement('div');
+    header.className = 'group-header';
+    const nameInput = document.createElement('input');
+    nameInput.className = 'cg-name-input';
+    nameInput.value = name || '';
+    nameInput.placeholder = 'Group name (e.g. Support team)';
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'icon-btn';
+    del.textContent = '✕ Remove group';
+    del.onclick = () => row.remove();
+    header.appendChild(nameInput);
+    header.appendChild(del);
+    row.appendChild(header);
+
+    const urlInput = document.createElement('input');
+    urlInput.className = 'cg-webhook-input';
+    urlInput.placeholder = viewOnly ? (hasWebhook ? '🔒 Webhook link set — only admins see it' : 'No webhook link') : 'Teams webhook URL for this group';
+    urlInput.value = webhookUrl || '';
+    urlInput.style.width = '100%';
+    row.appendChild(urlInput);
+
+    return row;
+  }
+
+  function renderConnectGroups() {
+    const container = document.getElementById('connect-groups');
+    container.innerHTML = '';
+    connectGroups.forEach((g) => container.appendChild(buildConnectGroupRow(g.name, g.webhookUrl, g.hasWebhook)));
+  }
+
+  document.getElementById('add-connect-group-btn').addEventListener('click', () => {
+    document.getElementById('connect-groups').appendChild(buildConnectGroupRow('', ''));
+  });
+
+  document.getElementById('save-connect-groups-btn').addEventListener('click', async () => {
+    const rows = Array.from(document.querySelectorAll('#connect-groups .group'));
+    const groups = rows
+      .map((r) => ({
+        name: r.querySelector('.cg-name-input').value.trim(),
+        webhookUrl: r.querySelector('.cg-webhook-input').value.trim(),
+      }))
+      .filter((g) => g.name);
+    await saveSection('save-connect-groups-btn', 'connect-groups-err', 'connect-groups-ok', () => window.statusApp.saveConnectGroups(groups));
+    connectGroups = groups;
+  });
+
+  // -------------------- Data Sources --------------------
+  // Which backend a tab's new entries actually go to — Google Sheet
+  // (the default, and the only option until this existed) or Excel (via
+  // a Power Automate webhook — see postRowToExcelWebhook_ in Code.gs).
+  // Tab is a <select> off the real tab list rather than free text, same
+  // reasoning as everywhere else a value has to exactly match a real tab
+  // name: a typo here would silently misroute or drop entries instead of
+  // erroring anywhere obvious.
+
+  function buildDataSourceRow(tab, sourceType, webhookUrl, hasWebhook) {
+    const row = document.createElement('div');
+    row.className = 'group';
+    const header = document.createElement('div');
+    header.className = 'group-header';
+
+    const tabSelect = document.createElement('select');
+    tabSelect.className = 'ds-tab-select';
+    tabSelect.style.flex = '1'; // .group-header's `input { flex: 1 }` rule doesn't reach <select>
+    const blankOpt = document.createElement('option');
+    blankOpt.value = '';
+    blankOpt.textContent = '— choose a tab —';
+    tabSelect.appendChild(blankOpt);
+    liveTabs.forEach((t) => {
+      const o = document.createElement('option');
+      o.value = t;
+      o.textContent = t;
+      if (t === tab) o.selected = true;
+      tabSelect.appendChild(o);
+    });
+
+    const typeSelect = document.createElement('select');
+    typeSelect.className = 'ds-type-select';
+    typeSelect.style.flex = '1';
+    [['GoogleSheet', 'Google Sheet'], ['Excel', 'Excel (via Power Automate)']].forEach(([val, label]) => {
+      const o = document.createElement('option');
+      o.value = val;
+      o.textContent = label;
+      if (val === (sourceType || 'GoogleSheet')) o.selected = true;
+      typeSelect.appendChild(o);
+    });
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'icon-btn';
+    del.textContent = '✕ Remove';
+    del.onclick = () => row.remove();
+
+    header.appendChild(tabSelect);
+    header.appendChild(typeSelect);
+    header.appendChild(del);
+    row.appendChild(header);
+
+    const urlInput = document.createElement('input');
+    urlInput.className = 'ds-webhook-input';
+    urlInput.placeholder = viewOnly ? (hasWebhook ? '🔒 Webhook link set — only admins see it' : 'No webhook link') : 'Power Automate webhook URL (only used when Source Type is Excel)';
+    urlInput.value = webhookUrl || '';
+    urlInput.style.width = '100%';
+    row.appendChild(urlInput);
+
+    return row;
+  }
+
+  function renderDataSources() {
+    const container = document.getElementById('data-sources');
+    container.innerHTML = '';
+    dataSources.forEach((d) => container.appendChild(buildDataSourceRow(d.tab, d.sourceType, d.webhookUrl, d.hasWebhook)));
+  }
+
+  document.getElementById('add-data-source-btn').addEventListener('click', () => {
+    document.getElementById('data-sources').appendChild(buildDataSourceRow('', 'Excel', ''));
+  });
+
+  document.getElementById('save-data-sources-btn').addEventListener('click', async () => {
+    const rows = Array.from(document.querySelectorAll('#data-sources .group'));
+    const sources = rows
+      .map((r) => ({
+        tab: r.querySelector('.ds-tab-select').value,
+        sourceType: r.querySelector('.ds-type-select').value,
+        webhookUrl: r.querySelector('.ds-webhook-input').value.trim(),
+      }))
+      .filter((d) => d.tab);
+    await saveSection('save-data-sources-btn', 'data-sources-err', 'data-sources-ok', () => window.statusApp.saveDataSources(sources));
+    dataSources = sources;
+  });
+
+
+  // Team Accounts moved to Settings → Users & roles (index.html showUsers).
+
+  // -------------------- unsaved-changes indicator --------------------
+  // Each section's sticky save bar says "Unsaved changes" as soon as you
+  // edit anything in it, and "All changes saved" after its Save succeeds
+  // (saveSection writes "Saved." into the section's .ok element).
+  function saveStateEl(section) {
+    if (!section) return null;
+    const bar = section.querySelector('.row-actions');
+    if (!bar) return null;
+    let st = bar.querySelector('.save-state');
+    if (!st) {
+      st = document.createElement('span');
+      st.className = 'save-state';
+      st.innerHTML = '<span class="dot"></span><span class="txt">No changes yet</span>';
+      bar.prepend(st);
+    }
+    return st;
+  }
+  function markDirty(section) {
+    const st = saveStateEl(section);
+    if (!st) return;
+    st.className = 'save-state dirty';
+    st.querySelector('.txt').textContent = 'Unsaved changes';
+  }
+  function wireSaveStates() {
+    document.querySelectorAll('#content > .section').forEach((section) => {
+      if (!section.querySelector('.row-actions') || section.id === 'tabs-section' || section.id === 'import-section') return; // these save per action
+      saveStateEl(section);
+      const dirty = (e) => {
+        if (e.target.closest('.row-actions')) return; // the Save/Add buttons themselves
+        markDirty(section);
+      };
+      section.addEventListener('input', dirty);
+      section.addEventListener('change', dirty);
+      const ok = section.querySelector('.row-actions ~ .ok') || section.querySelector('.ok'); // the Save button's own message
+      if (ok) new MutationObserver(() => {
+        if (/saved/i.test(ok.textContent)) {
+          const st = saveStateEl(section);
+          st.className = 'save-state saved';
+          st.querySelector('.txt').textContent = 'All changes saved';
+        }
+      }).observe(ok, { childList: true, characterData: true, subtree: true });
+    });
+    // "+ Add …" helper buttons inside editors aren't destructive — style them as add buttons.
+    document.querySelectorAll('#content button.icon-btn').forEach((b) => { if (/^\s*\+/.test(b.textContent)) b.classList.add('add-btn'); });
+    new MutationObserver(() => {
+      document.querySelectorAll('#content button.icon-btn:not(.add-btn)').forEach((b) => { if (/^\s*\+/.test(b.textContent)) b.classList.add('add-btn'); });
+    }).observe(document.getElementById('content'), { childList: true, subtree: true });
+  }
+
+  // -------------------- tile navigation --------------------
+  // One tile per section; clicking opens just that editor, with a link
+  // back to the tiles. Every section keeps its own fields, Save button and
+  // messages exactly as before — this only changes how you get to them.
+  const SECTION_ICONS = [
+    [/where can i/i, '❓'], [/dropdown|option/i, '🔽'], [/field type/i, '🧩'], [/categor/i, '🗂️'],
+    [/app settings/i, '⚙️'], [/^tabs$/i, '📑'], [/report config/i, '📊'], [/ticket group/i, '🤝'], [/data source/i, '🔌'], [/clean-up/i, '🧹'], [/import/i, '📥'],
+  ];
+  function buildSectionTiles() {
+    const content = document.getElementById('content');
+    const all = Array.from(content.querySelectorAll(':scope > .section')).filter((sec) => sec.id !== 'load-error-section');
+    // Sections that live elsewhere in the app (Scheduled reports → Reports):
+    // no tile here; opened straight from their own screen, with a way back.
+    const elsewhere = all.filter((sec) => sec.dataset.home);
+    const sections = all.filter((sec) => !sec.dataset.home);
+    const grid = document.createElement('div');
+    grid.className = 'm-tile-grid';
+    grid.id = 'section-tiles';
+    const backBar = document.createElement('div');
+    backBar.className = 'm-backbar hidden';
+    backBar.innerHTML = '<button type="button" id="sections-back">← All settings</button><span id="section-crumb"></span>';
+    const lead = content.querySelector(':scope > p.hint');
+    lead.insertAdjacentElement('afterend', grid);
+    grid.insertAdjacentElement('beforebegin', backBar);
+    const showTiles = () => {
+      all.forEach((sec) => sec.classList.add('hidden'));
+      grid.classList.remove('hidden');
+      backBar.classList.add('hidden');
+      lead.classList.remove('hidden');
+      document.querySelector('.scroll-area').scrollTop = 0;
+    };
+    sections.forEach((sec, i) => {
+      sec.id = sec.id || 'section-' + i;
+      const title = (sec.querySelector('h3') || {}).textContent || 'Section';
+      const hintEl = sec.querySelector('p.hint');
+      // First sentence of the section's own description; the tile clamps
+      // it to 3 lines with an ellipsis rather than cutting mid-word.
+      // (Written without look-behind, which older Safari can't read — the website runs this page too.)
+      const hint = (() => {
+        if (!hintEl) return '';
+        const cut = hintEl.textContent.trim().replace(/e\.g\./g, 'e\u0000g\u0000').split(/\s—\s/)[0];
+        const m = /^.*?\.(?=\s+[A-Z])/.exec(cut);
+        return ((m ? m[0] : cut) || '').replace(/\u0000/g, '.').trim();
+      })();
+      const icon = (SECTION_ICONS.find(([re]) => re.test(title)) || [null, '•'])[1];
+      const t = document.createElement('button');
+      t.type = 'button';
+      t.className = 'm-tile';
+      t.dataset.section = sec.id;
+      t.innerHTML = `<span class="m-tile-icon">${icon}</span><span class="m-tile-text"><span class="m-tile-title"></span><span class="m-tile-hint"></span></span>`;
+      t.querySelector('.m-tile-title').textContent = title;
+      t.querySelector('.m-tile-hint').textContent = hint;
+      t.onclick = () => {
+        if (typeof sec.onOpen === 'function') sec.onOpen();
+        sections.forEach((x) => x.classList.toggle('hidden', x !== sec));
+        grid.classList.add('hidden');
+        lead.classList.add('hidden');
+        backBar.classList.remove('hidden');
+        document.getElementById('section-crumb').textContent = title;
+        document.querySelector('.scroll-area').scrollTop = 0;
+      };
+      grid.appendChild(t);
+    });
+    let backTo = '';
+    document.getElementById('sections-back').onclick = () => {
+      if (backTo && window.__appMode) { window.__appPost({ type: 'open-section', name: backTo }); return; }
+      showTiles();
+    };
+    const openElsewhere = (sec) => {
+      if (typeof sec.onOpen === 'function') sec.onOpen();
+      all.forEach((x) => x.classList.toggle('hidden', x !== sec));
+      grid.classList.add('hidden');
+      lead.classList.add('hidden');
+      backBar.classList.remove('hidden');
+      backTo = sec.dataset.home === 'reports' ? 'report' : '';
+      document.getElementById('sections-back').textContent = backTo ? '← Reports' : '← All settings';
+      document.getElementById('section-crumb').textContent = (sec.querySelector('h3') || {}).textContent || '';
+      document.querySelector('.scroll-area').scrollTop = 0;
+    };
+    window.__openSection = (id) => {
+      const t = grid.querySelector(`.m-tile[data-section="${id}"]`);
+      if (t) { backTo = ''; document.getElementById('sections-back').textContent = '← All settings'; t.click(); return; }
+      const sec = elsewhere.find((x) => x.id === id);
+      if (sec) openElsewhere(sec);
+    };
+    showTiles();
+  }
+
+  // ---------------- Clean-up & backups ----------------
+  const CU_LABEL = (m) => (m ? `Keep ${m} months, back up older` : 'Keep everything');
+  const KIND_LABEL = { log: 'Activity log', 'daily-status': 'Daily status', 'ticket-tracker': 'Ticket tracker', 'weekly-meeting': 'Weekly meeting', leave: 'Leave', custom: 'Custom' };
+  const nf = (n) => Number(n || 0).toLocaleString();
+  function cuPreviewText(tabs) {
+    const total = tabs.reduce((a, t) => a + t.rows, 0);
+    if (!total) return 'Right now nothing is old enough to back up.';
+    return `Right now <b>${nf(total)} row${total === 1 ? '' : 's'}</b> would be backed up and removed: ${tabs.map((t) => `${esc(t.label)} ${nf(t.rows)}`).join(' · ')}.`;
+  }
+  async function refreshCleanupPreview() {
+    const box = document.getElementById('cleanup-preview');
+    box.textContent = 'Checking what would be backed up…';
+    const r = await window.statusApp.previewCleanup().catch((e) => ({ ok: false, error: e.message }));
+    box.innerHTML = r && r.ok ? cuPreviewText(r.tabs || []) : esc((r && r.error) || 'Couldn\'t check just now.');
+  }
+  function cuLastText(last) {
+    if (!last) return 'No backup has been made yet.';
+    const when = last.at ? new Date(last.at).toLocaleString() : '';
+    if (!last.ok) return `Last try${when ? ' (' + esc(when) + ')' : ''}: ${esc(last.error || 'it didn\'t finish')}`;
+    if (!last.total) return `Last check${when ? ' (' + esc(when) + ')' : ''}: nothing was old enough.`;
+    const to = (last.emailedTo || []).length ? esc(last.emailedTo.join(', ')) : 'the admins';
+    return `Last backup${when ? ' (' + esc(when) + ')' : ''}: ${nf(last.total)} rows emailed to ${to} and removed.`;
+  }
+  async function loadCleanup() {
+    const note = document.getElementById('cleanup-update-note');
+    const body = document.getElementById('cleanup-body');
+    note.hidden = !sheetBefore13;
+    body.hidden = sheetBefore13;
+    if (sheetBefore13) return;
+    const host = document.getElementById('cleanup-rows');
+    host.innerHTML = '<p class="hint">Loading…</p>';
+    const r = await window.statusApp.getCleanup().catch((e) => ({ ok: false, error: e.message }));
+    if (!r || !r.ok) { host.innerHTML = `<p class="err">${esc((r && r.error) || 'Couldn\'t load the clean-up settings.')}</p>`; return; }
+    host.innerHTML = '';
+    (r.tabs || []).forEach((t) => {
+      const row = document.createElement('div');
+      row.className = 'cu-row' + (t.allowed ? '' : ' off');
+      row.dataset.tab = t.tab;
+      row.innerHTML = `<div><span class="cu-name"></span><span class="cu-kind"></span></div>`;
+      row.querySelector('.cu-name').textContent = t.label;
+      row.querySelector('.cu-kind').textContent = KIND_LABEL[t.kind] || 'Custom';
+      const sel = document.createElement('select');
+      sel.className = 'cu-months';
+      sel.setAttribute('aria-label', 'How much of ' + t.label + ' to keep');
+      (r.periods || [0, 3, 6, 12, 24]).forEach((m) => sel.appendChild(new Option(CU_LABEL(m), m)));
+      sel.value = String(t.months || 0);
+      sel.disabled = !t.allowed;
+      row.appendChild(sel);
+      const why = t.why || (t.closedOnly ? 'Only closed tickets are backed up and removed.' : '');
+      if (why) { const w = document.createElement('div'); w.className = 'cu-why'; w.textContent = why; row.appendChild(w); }
+      host.appendChild(row);
+    });
+    const cuCount = Number(r.recipientCount) || 0;
+    document.getElementById('cleanup-to').innerHTML = viewOnly
+      ? (cuCount ? `Backups are emailed to <b>${cuCount}</b> admin address${cuCount === 1 ? '' : 'es'} (only admins see them).` : 'No one to send backups to yet — an admin adds that in App Settings.')
+      : (r.recipients || []).length
+        ? `Backups go to <b>${esc(r.recipients.join(', '))}</b> (change it in App Settings → Admin contact emails).`
+        : 'No one to send backups to yet — add an admin contact email in App Settings.';
+    document.getElementById('cleanup-last').innerHTML = cuLastText(r.lastResult);
+    renderCopies(r.copies);
+    refreshCleanupPreview();
+  }
+  // Monthly full copy (1.4): the switch, the copies kept and how the last one went.
+  const COPY_URL = /^https:\/\/docs\.google\.com\//;
+  function copyWhen(iso) {
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  function copyLastText(c) {
+    if (c.pending) return `A copy is being made — ${nf(c.pending.tabsDone)} tab${c.pending.tabsDone === 1 ? '' : 's'} so far. A big Sheet finishes over the next hour or two.`;
+    const last = c.last;
+    if (!last) return c.list.length ? '' : (c.on ? 'No copy yet — the first one is made within the hour.' : 'No copies.');
+    if (!last.ok) return `Last try (${esc(new Date(last.at).toLocaleString())}): ${esc(last.error || 'it didn\'t finish')}`;
+    return '';
+  }
+  function renderCopies(c) {
+    const box = document.getElementById('copy-box');
+    document.getElementById('copy-update-note').hidden = !!c;
+    box.hidden = !c;
+    if (!c) return;
+    document.getElementById('copy-on').checked = !!c.on;
+    if (c.owner) document.getElementById('copy-owner').innerHTML = `the Google Drive of <b>${esc(c.owner)}</b> (the account that runs your team's Sheet)`;
+    const host = document.getElementById('copy-list');
+    host.innerHTML = '';
+    (c.list || []).forEach((x) => {
+      const row = document.createElement('div');
+      row.className = 'imp-rec copy-item';
+      row.innerHTML = `<span class="grow"><b></b> · ${esc(copyWhen(x.at))}${x.tabs ? ' · ' + nf(x.tabs) + ' tabs' : ''}</span>`;
+      row.querySelector('b').textContent = x.name;
+      if (x.url && COPY_URL.test(x.url)) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'secondary copy-open'; b.textContent = 'Open';
+        b.addEventListener('click', () => window.statusApp.openExternal(x.url));
+        row.appendChild(b);
+      }
+      host.appendChild(row);
+    });
+    document.getElementById('copy-last').innerHTML = copyLastText(c);
+  }
+  document.getElementById('copy-now-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('copy-now-btn');
+    const err = document.getElementById('copy-err'), ok = document.getElementById('copy-ok');
+    err.textContent = ''; ok.textContent = '';
+    btn.disabled = true; btn.textContent = 'Copying…';
+    try {
+      const r = await window.statusApp.makeSheetCopy().catch((e) => ({ ok: false, error: e.message }));
+      if (!r || !r.ok) err.textContent = /update/i.test((r && r.error) || '') ? 'This needs the latest update of your team\'s Sheet (Settings → About Daylens → Update).' : ((r && r.error) || 'That didn\'t work.');
+      else ok.textContent = r.partial ? `Started — ${nf(r.tabsDone)} of ${nf(r.tabs)} tabs copied. The rest follow within the next hour or two.` : `Done: “${r.name}” (${nf(r.tabs)} tabs)${r.removed ? '. The oldest copy went to Drive\'s trash.' : '.'}`;
+      const fresh = await window.statusApp.getCleanup().catch(() => null);
+      if (fresh && fresh.ok) renderCopies(fresh.copies);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Make a copy now';
+    }
+  });
+  document.getElementById('cleanup-section').onOpen = () => { loadCleanup(); };
+  document.getElementById('save-cleanup-btn').addEventListener('click', async () => {
+    const settings = {};
+    document.querySelectorAll('#cleanup-rows .cu-row').forEach((row) => {
+      const sel = row.querySelector('.cu-months');
+      if (!sel.disabled) settings[row.dataset.tab] = Number(sel.value) || 0;
+    });
+    const copyBox = document.getElementById('copy-box');
+    const copies = copyBox.hidden ? undefined : document.getElementById('copy-on').checked;
+    const ok = await saveSection('save-cleanup-btn', 'cleanup-err', 'cleanup-ok', () => window.statusApp.saveCleanup(settings, copies));
+    if (ok) refreshCleanupPreview();
+  });
+  // Two clicks, no pop-up: "Back up now" → "Yes — email and remove them".
+  function twoStep(btn, confirmLabel, run) {
+    let armed = false, timer = null;
+    const label = btn.textContent;
+    btn.addEventListener('click', async () => {
+      if (!armed) {
+        armed = true; btn.textContent = confirmLabel; btn.classList.add('confirming');
+        timer = setTimeout(() => { armed = false; btn.textContent = label; btn.classList.remove('confirming'); }, 6000);
+        return;
+      }
+      clearTimeout(timer); armed = false; btn.classList.remove('confirming');
+      btn.disabled = true; btn.textContent = 'Working…';
+      try { await run(); } finally { btn.disabled = false; btn.textContent = label; }
+    });
+  }
+  twoStep(document.getElementById('cleanup-run-btn'), 'Yes — email and remove them', async () => {
+    const err = document.getElementById('cleanup-err'), ok = document.getElementById('cleanup-ok');
+    err.textContent = ''; ok.textContent = '';
+    const r = await window.statusApp.runCleanupNow().catch((e) => ({ ok: false, error: e.message }));
+    if (!r || !r.ok) err.textContent = (r && r.error) || 'That didn\'t work.';
+    else ok.textContent = r.total ? `Done: ${nf(r.total)} rows emailed to ${(r.emailedTo || []).join(', ')} and removed.` : 'Nothing was old enough to back up.';
+    document.getElementById('cleanup-last').innerHTML = cuLastText(r && (r.ok || r.error) ? Object.assign({ at: new Date().toISOString() }, r) : null);
+    refreshCleanupPreview();
+  });
+
+  // ---------------- Friday check-in ----------------
+  (function () {
+    const day = document.getElementById('wc-day'), hour = document.getElementById('wc-hour');
+    ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].forEach((d) => day.appendChild(new Option(d, d)));
+    for (let h = 6; h <= 22; h++) hour.appendChild(new Option(window.ReportSchedule.hourLabel(h), h));
+  })();
+  function wcPreviewText(p) {
+    if (!p || !p.ok) return esc((p && p.error) || '');
+    const who = p.reminded || [];
+    return who.length
+      ? `This week so far (${esc(p.weekLabel || '')}), it would remind <b>${who.length}</b>: ${who.map(esc).join(', ')}.`
+      : `This week so far (${esc(p.weekLabel || '')}), everyone has added something or is on leave.`;
+  }
+  async function loadWeeklyCheck() {
+    document.getElementById('wc-update-note').hidden = !sheetBefore13;
+    document.getElementById('wc-body').hidden = sheetBefore13;
+    if (sheetBefore13) return;
+    const pv = document.getElementById('wc-preview');
+    pv.textContent = 'Checking this week…';
+    const r = await window.statusApp.getWeeklyCheck().catch((e) => ({ ok: false, error: e.message }));
+    if (!r || !r.ok) { pv.textContent = (r && r.error) || 'Couldn\'t load the check-in settings.'; return; }
+    document.getElementById('wc-enabled').checked = !!r.settings.enabled;
+    document.getElementById('wc-day').value = r.settings.day || 'Friday';
+    document.getElementById('wc-hour').value = String(r.settings.hour == null ? 15 : r.settings.hour);
+    document.getElementById('wc-summary').checked = r.settings.summary !== false;
+    pv.innerHTML = wcPreviewText(r.preview);
+  }
+  document.getElementById('weekly-check-section').onOpen = () => { loadWeeklyCheck(); };
+  document.getElementById('save-wc-btn').addEventListener('click', async () => {
+    const settings = {
+      enabled: document.getElementById('wc-enabled').checked,
+      day: document.getElementById('wc-day').value,
+      hour: Number(document.getElementById('wc-hour').value),
+      summary: document.getElementById('wc-summary').checked,
+    };
+    await saveSection('save-wc-btn', 'wc-err', 'wc-ok', () => window.statusApp.saveWeeklyCheck(settings));
+  });
+  twoStep(document.getElementById('wc-run-btn'), 'Yes — remind them now', async () => {
+    const err = document.getElementById('wc-err'), ok = document.getElementById('wc-ok');
+    err.textContent = ''; ok.textContent = '';
+    const r = await window.statusApp.runWeeklyCheckNow().catch((e) => ({ ok: false, error: e.message }));
+    if (!r || !r.ok) { err.textContent = (r && r.error) || 'That didn\'t work.'; return; }
+    ok.textContent = r.reminded.length ? `Reminded ${r.reminded.join(', ')}${r.emailed ? ` (${r.emailed} by email too)` : ''}.` : 'Nobody to remind — everyone has added something this week.';
+  });
+
+  // -------------------- Import from Excel / CSV --------------------
+  // The file is read on this computer; columns and names are matched here
+  // with the admin; rows go to the team's Sheet in batches of 500.
+  const imp = { file: null, sheet: 0, people: [] };
+  const normKey = (v) => String(v == null ? '' : v).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+  const PERSON_RE = /^(name|user ?name|person|employee|team ?member|member|resource|owner|assignee|assigned to|requester|submitted by|added by|engineer|analyst|(resource|employee|member|person|user|owner) ?name)$/i;
+  function impTable() {
+    const sh = imp.file && imp.file.sheets[imp.sheet];
+    const rows = (sh && sh.rows) || [];
+    const hi = rows.findIndex((r) => r.some((c) => String(c).trim()));
+    if (hi === -1) return { headers: [], rows: [] };
+    const headers = rows[hi].map((h, i) => String(h).trim() || `Column ${i + 1}`);
+    const body = rows.slice(hi + 1).filter((r) => r.some((c) => String(c).trim()));
+    return { headers, rows: body, truncated: sh.truncated };
+  }
+  // Best source column for a tab column: same name, then one containing the
+  // other, then the usual words for who and when.
+  function impGuess(target, headers, used) {
+    const t = normKey(target);
+    const free = headers.map((h, i) => ({ h, i })).filter((x) => !used.has(x.i));
+    const by = (fn) => (free.find(fn) || {}).i;
+    let i = by((x) => normKey(x.h) === t);
+    if (i == null && t.length > 2) i = by((x) => { const k = normKey(x.h); return k.length > 2 && (k.includes(t) || t.includes(k)); });
+    if (i == null && PERSON_RE.test(String(target).trim())) i = by((x) => PERSON_RE.test(String(x.h).trim()));
+    if (i == null && /date/i.test(target)) i = by((x) => /date|\bon$|\bday\b|when/i.test(x.h));
+    return i;
+  }
+  const impPersonCol = (cols) => cols.find((c) => /^name$/i.test(c.trim())) || cols.find((c) => PERSON_RE.test(c.trim()));
+  const impIsDateCol = (tab, col) => (fieldSchemaMap[tab] && fieldSchemaMap[tab][col] && fieldSchemaMap[tab][col].type === 'date') || /(^|\s)date$|^date\b/i.test(col.trim());
+  const MON = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  // A date the way the Sheet stores dates (yyyy-mm-dd), or the text as it was.
+  function impDate(v, order) {
+    const s = String(v == null ? '' : v).trim();
+    if (!s) return '';
+    let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    const two = (n) => String(n).padStart(2, '0');
+    const ok = (y, mo, d) => (mo >= 1 && mo <= 12 && d >= 1 && d <= 31 ? `${y}-${two(mo)}-${two(d)}` : s);
+    m = /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/.exec(s);
+    if (m) {
+      let a = +m[1], b = +m[2], y = +m[3];
+      if (y < 100) y += 2000;
+      if (a > 12) return ok(y, b, a);
+      if (b > 12) return ok(y, a, b);
+      return order === 'mdy' ? ok(y, a, b) : ok(y, b, a);
+    }
+    m = /^(\d{1,2})[\s-]([a-z]{3})[a-z]*[\s,-]+(\d{4})$/i.exec(s);
+    if (m && MON.indexOf(m[2].toLowerCase()) !== -1) return ok(+m[3], MON.indexOf(m[2].toLowerCase()) + 1, +m[1]);
+    m = /^([a-z]{3})[a-z]*\s+(\d{1,2}),?\s+(\d{4})$/i.exec(s);
+    if (m && MON.indexOf(m[1].toLowerCase()) !== -1) return ok(+m[3], MON.indexOf(m[1].toLowerCase()) + 1, +m[2]);
+    return s;
+  }
+  function impPersonGuess(name) {
+    const k = normKey(name);
+    if (!k) return '';
+    const exact = imp.people.find((p) => normKey(p) === k);
+    if (exact) return exact;
+    const first = normKey(String(name).trim().split(/[\s._-]+/)[0]);
+    const pre = imp.people.filter((p) => { const pk = normKey(p); return first.length >= 3 && (pk === first || pk.startsWith(first) || first.startsWith(pk)); });
+    return pre.length === 1 ? pre[0] : '';
+  }
+  async function impRender() {
+    const { headers, rows, truncated } = impTable();
+    const tab = document.getElementById('imp-tab').value;
+    const cols = ((await window.statusApp.getColumns(tab).catch(() => ({ columns: [] }))).columns || []);
+    const colsHost = document.getElementById('imp-cols');
+    colsHost.innerHTML = '';
+    const used = new Set();
+    const sample = (i) => rows.slice(0, 3).map((r) => r[i]).filter((v) => String(v || '').trim()).join(' · ');
+    cols.forEach((c) => {
+      const guess = c === 'Timestamp' ? headers.findIndex((h) => /^timestamp$/i.test(h)) : impGuess(c, headers, used);
+      const g = guess == null || guess === -1 ? -1 : guess;
+      if (g !== -1) used.add(g);
+      const label = document.createElement('div');
+      label.className = 'imp-to';
+      label.textContent = c;
+      const sel = document.createElement('select');
+      sel.className = 'imp-map';
+      sel.dataset.col = c;
+      sel.setAttribute('aria-label', 'File column for ' + c);
+      sel.appendChild(new Option(c === 'Timestamp' ? '— when it\'s imported —' : '— leave empty —', ''));
+      headers.forEach((h, i) => sel.appendChild(new Option(h, String(i))));
+      sel.value = g === -1 ? '' : String(g);
+      const smp = document.createElement('div');
+      smp.className = 'imp-sample';
+      const showSample = () => { smp.textContent = sel.value === '' ? '' : 'e.g. ' + sample(Number(sel.value)); };
+      sel.onchange = () => { showSample(); impNamesAndPreview(); };
+      showSample();
+      colsHost.append(label, sel, smp);
+    });
+    const extra = document.getElementById('imp-extra');
+    const rest = headers.map((h, i) => ({ h, i })).filter((x) => !used.has(x.i) && !cols.some((c) => normKey(c) === normKey(x.h)));
+    extra.innerHTML = rest.length ? `<div class="field-label" style="margin-top:12px;">Columns only the file has</div>
+      <p class="hint" style="margin:-2px 0 6px;">Tick one to add it to the tab as a new column (it's created when you import).</p>
+      ${rest.map((x) => `<label class="wc-check"><input type="checkbox" class="imp-add" data-i="${x.i}" data-h="${esc(x.h)}" /> <span>${esc(x.h)} <span class="hint-inline">${esc(sample(x.i))}</span></span></label>`).join('')}` : '';
+    extra.querySelectorAll('.imp-add').forEach((cb) => { cb.onchange = () => impNamesAndPreview(); });
+    document.getElementById('imp-file').textContent = `${imp.file.fileName} — ${rows.length.toLocaleString()} ${rows.length === 1 ? 'row' : 'rows'}${truncated ? ' (the first 20,000)' : ''}`;
+    impNamesAndPreview();
+  }
+  function impMapping() {
+    const map = {};
+    document.querySelectorAll('#imp-cols .imp-map').forEach((sel) => { if (sel.value !== '') map[sel.dataset.col] = Number(sel.value); });
+    document.querySelectorAll('#imp-extra .imp-add:checked').forEach((cb) => { map[cb.dataset.h] = Number(cb.dataset.i); });
+    return map;
+  }
+  let impNameChoice = {};
+  function impNamesAndPreview() {
+    const { headers, rows } = impTable();
+    const tab = document.getElementById('imp-tab').value;
+    const map = impMapping();
+    const cols = Object.keys(map);
+    const personCol = impPersonCol(cols);
+    // names: each distinct value once
+    const wrap = document.getElementById('imp-names-wrap');
+    const host = document.getElementById('imp-names');
+    host.innerHTML = '';
+    const names = personCol ? Array.from(new Set(rows.map((r) => String(r[map[personCol]] || '').trim()).filter(Boolean))).slice(0, 200) : [];
+    wrap.hidden = !names.length;
+    names.forEach((nm) => {
+      if (!(nm in impNameChoice)) impNameChoice[nm] = impPersonGuess(nm);
+      const label = document.createElement('div');
+      label.className = 'imp-to';
+      label.textContent = nm;
+      const sel = document.createElement('select');
+      sel.className = 'imp-name';
+      sel.setAttribute('aria-label', 'Who "' + nm + '" is');
+      sel.appendChild(new Option('Keep "' + nm + '" as written', ''));
+      imp.people.forEach((p) => sel.appendChild(new Option(p, p)));
+      sel.value = impNameChoice[nm] || '';
+      sel.onchange = () => { impNameChoice[nm] = sel.value; impPreview(); };
+      host.append(label, sel);
+    });
+    // dates: ask only when some date could be read either way
+    const dateCols = cols.filter((c) => impIsDateCol(tab, c));
+    const ambiguous = dateCols.some((c) => rows.some((r) => { const m = /^(\d{1,2})[\/.-](\d{1,2})[\/.-]\d{2,4}$/.exec(String(r[map[c]] || '').trim()); return m && +m[1] <= 12 && +m[2] <= 12 && m[1] !== m[2]; }));
+    document.getElementById('imp-dates-wrap').hidden = !ambiguous;
+    impPreview();
+  }
+  function impConverted() {
+    const { rows } = impTable();
+    const tab = document.getElementById('imp-tab').value;
+    const map = impMapping();
+    const cols = Object.keys(map);
+    const personCol = impPersonCol(cols);
+    const order = document.getElementById('imp-datefmt').value;
+    const dateCols = new Set(cols.filter((c) => impIsDateCol(tab, c)));
+    let unread = 0, renamed = 0;
+    const out = rows.map((r) => {
+      const v = {};
+      cols.forEach((c) => {
+        let x = r[map[c]] == null ? '' : String(r[map[c]]);
+        if (dateCols.has(c) && x.trim()) { const d = impDate(x, order); if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) unread++; x = d; }
+        if (c === personCol && x.trim() && impNameChoice[x.trim()]) { if (impNameChoice[x.trim()] !== x.trim()) renamed++; x = impNameChoice[x.trim()]; }
+        v[c] = x;
+      });
+      return v;
+    });
+    return { rows: out, cols, unread, renamed };
+  }
+  function impPreview() {
+    const c = impConverted();
+    const box = document.getElementById('imp-preview');
+    box.innerHTML = c.cols.length
+      ? `<table><thead><tr>${c.cols.map((x) => `<th>${esc(x)}</th>`).join('')}</tr></thead><tbody>${c.rows.slice(0, 5).map((r) => `<tr>${c.cols.map((x) => `<td>${esc(r[x])}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+      : '<p class="hint" style="padding:10px;">Pick at least one column above.</p>';
+    const sum = document.createElement('p');
+    sum.className = 'imp-sum';
+    sum.textContent = `${c.rows.length.toLocaleString()} rows will be added to "${document.getElementById('imp-tab').value}".`
+      + (c.renamed ? ` Names changed on ${c.renamed.toLocaleString()} of them.` : '')
+      + (c.unread ? ` ${c.unread.toLocaleString()} dates couldn't be read and stay as written.` : '');
+    box.after(sum);
+    const old = box.parentElement.querySelectorAll('.imp-sum');
+    old.forEach((x, i) => { if (i < old.length - 1) x.remove(); });
+    const go = document.getElementById('imp-go');
+    go.textContent = `Import ${c.rows.length.toLocaleString()} rows`;
+    go.disabled = !c.rows.length || !c.cols.length;
+  }
+  async function loadImports() {
+    const host = document.getElementById('imp-recent');
+    const r = await window.statusApp.getRecentImports().catch((e) => ({ ok: false, error: e.message }));
+    if (!r || !r.ok) { host.innerHTML = `<p class="hint">${esc(/update/i.test((r && r.error) || '') ? 'Importing needs the latest update of your team\'s Sheet (Settings → About Daylens → Update).' : (r && r.error) || 'Couldn\'t load them.')}</p>`; return; }
+    if (!r.imports.length) { host.innerHTML = '<p class="hint">Nothing imported yet.</p>'; return; }
+    host.innerHTML = '';
+    r.imports.forEach((x) => {
+      const row = document.createElement('div');
+      row.className = 'imp-rec';
+      row.dataset.id = x.id;
+      row.innerHTML = `<span class="grow"><b>${esc(x.rows.toLocaleString())} rows</b> into ${esc(x.tab)}${x.file ? ' from ' + esc(x.file) : ''} · ${esc(new Date(x.at).toLocaleString())} by ${esc(x.by)}</span>`;
+      if (x.undone) row.insertAdjacentHTML('beforeend', '<span class="hint-inline">undone</span>');
+      else {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'secondary imp-undo'; b.textContent = 'Undo';
+        twoStep(b, 'Yes — remove these rows', async () => {
+          const out = await window.statusApp.undoImport(x.id).catch((e) => ({ ok: false, error: e.message }));
+          const ok = document.getElementById('imp-ok'), err = document.getElementById('imp-err');
+          if (!out || !out.ok) { err.textContent = (out && out.error) || 'That didn\'t work.'; return; }
+          ok.textContent = `Removed ${out.removed.toLocaleString()} imported rows from ${out.tab}.` + (out.kept ? ` ${out.kept.toLocaleString()} were changed since and were kept.` : '');
+          if (window.__appMode) window.__appPost({ type: 'tabs-changed' });
+          loadImports();
+        });
+        row.appendChild(b);
+      }
+      host.appendChild(row);
+    });
+  }
+  document.getElementById('import-section').onOpen = async () => {
+    const tabSel = document.getElementById('imp-tab');
+    tabSel.innerHTML = '';
+    liveTabs.filter((t) => !(dataSources || []).some((d) => d.tab === t && d.sourceType === 'Excel')).forEach((t) => tabSel.appendChild(new Option(t, t)));
+    loadImports();
+    if (!imp.people.length) {
+      const u = await window.statusApp.listUsers().catch(() => null);
+      imp.people = ((u && u.users) || []).filter((x) => x.active !== false).map((x) => x.username);
+    }
+  };
+  document.getElementById('imp-pick').addEventListener('click', async () => {
+    const err = document.getElementById('imp-err'), ok = document.getElementById('imp-ok');
+    err.textContent = ''; ok.textContent = '';
+    const r = await window.statusApp.pickImportFile().catch((e) => ({ ok: false, error: e.message }));
+    if (!r || r.canceled) return;
+    if (!r.ok) { document.getElementById('imp-file').textContent = r.error || 'Couldn\'t read that file.'; return; }
+    imp.file = r;
+    imp.sheet = Math.max(0, r.sheets.findIndex((sh) => sh.rows.some((row) => row.some((c) => String(c).trim()))));
+    impNameChoice = {};
+    const sheetSel = document.getElementById('imp-sheet');
+    sheetSel.innerHTML = '';
+    r.sheets.forEach((sh, i) => sheetSel.appendChild(new Option(`${sh.name} (${Math.max(0, sh.rows.length - 1)} rows)`, String(i))));
+    sheetSel.value = String(imp.sheet);
+    document.getElementById('imp-sheet-wrap').hidden = r.sheets.length < 2;
+    // the tab with the most matching column names
+    const { headers } = impTable();
+    const tabSel = document.getElementById('imp-tab');
+    let best = tabSel.value, bestScore = -1;
+    for (const t of Array.from(tabSel.options).map((o) => o.value)) {
+      const cols = ((await window.statusApp.getColumns(t).catch(() => ({ columns: [] }))).columns || []);
+      const score = cols.filter((c) => headers.some((h) => normKey(h) === normKey(c))).length;
+      if (score > bestScore) { best = t; bestScore = score; }
+    }
+    tabSel.value = best;
+    document.getElementById('imp-body').hidden = false;
+    impRender();
+  });
+  document.getElementById('imp-sheet').addEventListener('change', (e) => { imp.sheet = Number(e.target.value); impNameChoice = {}; impRender(); });
+  document.getElementById('imp-tab').addEventListener('change', () => { if (imp.file) impRender(); });
+  document.getElementById('imp-datefmt').addEventListener('change', () => impPreview());
+  document.getElementById('imp-go').addEventListener('click', async () => {
+    const go = document.getElementById('imp-go'), err = document.getElementById('imp-err'), ok = document.getElementById('imp-ok');
+    err.textContent = ''; ok.textContent = '';
+    const tab = document.getElementById('imp-tab').value;
+    const c = impConverted();
+    const cols = ((await window.statusApp.getColumns(tab).catch(() => ({ columns: [] }))).columns || []);
+    const addColumns = c.cols.filter((x) => !cols.includes(x));
+    const importId = 'imp' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    go.disabled = true;
+    let done = 0;
+    for (let b = 0; b * 500 < c.rows.length; b++) {
+      go.textContent = `Importing… ${done.toLocaleString()} of ${c.rows.length.toLocaleString()}`;
+      const out = await window.statusApp.importRows({ tab, rows: c.rows.slice(b * 500, b * 500 + 500), importId, batch: b, total: c.rows.length, fileName: imp.file.fileName, addColumns: b === 0 ? addColumns : [] })
+        .catch((e) => ({ ok: false, error: e.message }));
+      if (!out || !out.ok) {
+        err.textContent = `Stopped after ${done.toLocaleString()} rows: ${(out && out.error) || 'it didn\'t work'}. ${done ? 'Undo it below, or import the rest again.' : ''}`;
+        go.disabled = false; impPreview(); loadImports();
+        return;
+      }
+      done += out.added || 0;
+    }
+    ok.textContent = `Imported ${done.toLocaleString()} rows into "${tab}". Changed your mind? Undo it below.`;
+    document.getElementById('imp-body').hidden = true;
+    document.getElementById('imp-file').textContent = '';
+    imp.file = null;
+    go.disabled = false;
+    if (window.__appMode) window.__appPost({ type: 'tabs-changed' });
+    loadImports();
+  });
+
+  // -------------------- view only --------------------
+  // Tiles, Back, Retry and links still work; every other control is
+  // switched off (and kept off as editors are rebuilt), add/remove buttons
+  // and Save rows are hidden, and any edit that slips through is stopped
+  // before it reaches the page. The server refuses changes regardless.
+  const VO_ALLOW = '.m-tile, #sections-back, #load-retry-btn, #titlebar-close-btn';
+  function voLock() {
+    document.querySelectorAll('#content input, #content select, #content textarea, #content button').forEach((el) => {
+      if (el.matches(VO_ALLOW)) return;
+      if (!el.disabled) el.disabled = true;
+      if (el.tagName === 'BUTTON' && (/^\s*[+✕]/.test(el.textContent) || el.matches('.danger, .tm-rename, .tm-delete, .opt-x'))) el.classList.add('vo-gone');
+    });
+    document.querySelectorAll('#content [contenteditable]:not([contenteditable="false"])').forEach((el) => el.setAttribute('contenteditable', 'false'));
+  }
+  function enterViewOnly() {
+    viewOnly = true;
+    document.body.classList.add('view-only');
+    const content = document.getElementById('content');
+    const banner = document.createElement('div');
+    banner.className = 'vo-banner';
+    banner.id = 'vo-banner';
+    banner.setAttribute('role', 'note');
+    banner.innerHTML = '<span class="vo-ic" aria-hidden="true">👁</span><span><b>View only.</b> This is how your team\'s Daylens is set up. Only an admin can change it — passwords, keys, webhook links and email addresses stay hidden.</span>';
+    content.querySelector(':scope > h2').insertAdjacentElement('afterend', banner);
+    const lead = content.querySelector(':scope > p.hint');
+    if (lead) lead.textContent = 'Pick a section to look inside.';
+    voLock();
+    let queued = false;
+    new MutationObserver(() => {
+      if (queued) return;
+      queued = true;
+      queueMicrotask(() => { queued = false; voLock(); });
+    }).observe(content, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'contenteditable'] });
+    const stop = (e) => {
+      const t = e.target;
+      if (!(t instanceof Element) || !t.closest('#content')) return;
+      if (t.closest(VO_ALLOW + ', a[href], summary')) return;
+      if (e.type === 'keydown' && (['Tab', 'Escape'].includes(e.key) || !t.matches('input, select, textarea, button, [contenteditable]'))) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+    ['click', 'dblclick', 'beforeinput', 'input', 'change', 'paste', 'drop', 'keydown'].forEach((ev) => document.addEventListener(ev, stop, true));
+  }
+
+  // Ctrl+K: the search box at the top of the window.
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && String(e.key).toLowerCase() === 'k' && window.parent !== window) {
+      e.preventDefault();
+      window.parent.postMessage({ __statusApp: true, type: 'focus-search' }, '*');
+    }
+  });
+  buildSectionTiles();
+  wireSaveStates();
+  init();
+</script>
+</body>
+</html>

@@ -1,0 +1,972 @@
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'none'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<script src="../preload-web.js"></script>
+<script src="../web-ui.js" defer></script>
+<link rel="stylesheet" href="../web.css" />
+
+<meta charset="utf-8" />
+<script src="theme.js"></script>
+<link rel="stylesheet" href="today.css" />
+<script src="today.js"></script>
+<script src="setup-guide.js"></script>
+<script src="richtext-lite.js"></script>
+<script src="features.js"></script>
+<script src="assistant.js"></script>
+<script src="search.js"></script>
+<title>Daylens</title>
+<!--
+  The main desktop-app window. A thin shell only: a themed title strip,
+  a left sidebar, and the app's EXISTING screens embedded as live iframes
+  in "app mode" (see app-mode.js) — index.html (everything the popup
+  does), manage.html (Manage Fields & Options) and connect.html
+  (organization connection). No feature is re-implemented here, so the
+  popup and the main window can never drift apart: both run the very
+  same screen code against the very same backend calls.
+-->
+<style>
+  :root {
+    --side-hover: rgba(255,255,255,0.06);
+    --side-active: var(--accent-soft);
+    --line: rgba(255,255,255,0.07);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--brand); color: var(--on-brand); overflow: hidden; user-select: none; }
+  body { display: grid; grid-template-rows: 40px 1fr; grid-template-columns: 252px 1fr; }
+
+  /* Title strip — the draggable area that replaces a native title bar.
+     Native min/max/close are drawn over its right end by the OS
+     (titleBarOverlay in main.js), so keep that corner clear. */
+  .titlestrip {
+    grid-column: 1 / -1; display: flex; align-items: center; gap: 10px;
+    background: var(--strip-bg); color: var(--strip-text); padding: 0 150px 0 14px;
+    border-bottom: 1px solid var(--line);
+    -webkit-app-region: drag;
+  }
+  body.platform-darwin .titlestrip { padding-left: 84px; padding-right: 14px; }
+  .titlestrip .mark { width: 20px; height: 20px; flex: 0 0 auto; }
+  .titlestrip .name { font-size: 12.5px; font-weight: 700; letter-spacing: 0.2px; }
+  .titlestrip .ver { font-size: 10px; font-weight: 700; color: var(--on-brand-dim); background: rgba(255,255,255,0.10); padding: 2px 7px; border-radius: 8px; }
+
+  /* Sidebar — team card on top, then a short fixed menu (your tabs live
+     on Home, grouped by category, so the menu never grows with them),
+     admin tools in their own group, Settings + you at the bottom. Quiet
+     styling everywhere except the team monogram. */
+  nav {
+    background: var(--chrome); border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  nav .scroll { flex: 1 1 auto; overflow-y: auto; padding: 4px 10px 10px; }
+  nav .scroll, nav .bottom { transition: opacity 0.15s ease; }
+  nav .scroll::-webkit-scrollbar { width: 6px; }
+  nav .scroll::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+  nav .scroll::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+  nav .scroll::-webkit-scrollbar-button { display: none; }
+  /* Signed out / updating: the menu waits — but the team card still
+     works, so you can switch to another team from the sign-in screen. */
+  nav.locked .scroll, nav.locked .bottom { opacity: 0.4; pointer-events: none; }
+
+  .team-card {
+    display: flex; align-items: center; gap: 10px; margin: 10px 10px 6px; padding: 8px;
+    background: none; border: 1px solid transparent; border-radius: 12px; color: var(--on-brand);
+    font: inherit; text-align: left; cursor: pointer; width: calc(100% - 20px);
+  }
+  .team-card:hover { background: var(--side-hover); }
+  .team-card.active { background: var(--side-active); border-color: var(--accent-soft); }
+  .team-card:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+  .team-mono {
+    position: relative;
+    width: 34px; height: 34px; flex: 0 0 auto; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    background: var(--accent-grad); color: var(--on-accent); font-size: 13px; font-weight: 800; letter-spacing: 0.3px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+  }
+  /* A reminder is due in one of your OTHER teams. */
+  .team-alert {
+    position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 50%;
+    background: #e5484d; box-shadow: 0 0 0 2px var(--chrome);
+  }
+
+  /* Team switcher — opens from the team card. */
+  .team-pop {
+    position: fixed; z-index: 40; top: 92px; left: 10px; width: 300px; max-height: calc(100vh - 110px); overflow-y: auto;
+    background: var(--chrome); color: var(--on-brand); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.38); padding: 6px;
+  }
+  html[data-mode="light"] .team-pop { background: #fff; box-shadow: 0 18px 50px rgba(30,45,90,0.18); }
+  .tp-head { font-size: 11.5px; font-weight: 650; color: var(--muted); padding: 8px 10px 4px; }
+  .tp-team, .tp-action {
+    width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: none; border-radius: 10px;
+    background: none; color: var(--on-brand); font: inherit; text-align: left; cursor: pointer;
+  }
+  .tp-team:hover, .tp-action:hover { background: var(--side-hover); }
+  .tp-team:focus-visible, .tp-action:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+  .tp-team .team-mono { width: 30px; height: 30px; border-radius: 9px; font-size: 12px; box-shadow: none; }
+  /* Only the open team wears the accent; the others stay quiet. */
+  .tp-team:not(.open) .team-mono { background: var(--side-hover); color: var(--on-brand); box-shadow: inset 0 0 0 1px var(--line); }
+  .tp-team .tp-text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+  .tp-team .tp-name { font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tp-team .tp-sub { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+  .tp-team.open { background: var(--side-active); cursor: default; }
+  .tp-check { width: 18px; height: 18px; stroke: var(--gold-bright); flex: 0 0 auto; }
+  .tp-due { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: #e5484d; color: #fff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+  .tp-sep { height: 1px; background: var(--line); margin: 6px 4px; }
+  .tp-action { font-size: 13px; font-weight: 600; color: var(--on-brand-dim); }
+  .tp-action:hover { color: var(--on-brand); }
+  .tp-action svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.8; flex: 0 0 auto; }
+  .tp-err { font-size: 12px; color: #ff8f8f; padding: 4px 10px; }
+  html[data-mode="light"] .tp-err { color: #c62828; }
+  .team-text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+  .team-name { font-size: 13.5px; font-weight: 750; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .team-sub { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+  .team-card .chev { width: 16px; height: 16px; stroke: var(--muted); flex: 0 0 auto; }
+
+  .section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11.5px; font-weight: 650; color: var(--muted); padding: 16px 10px 5px;
+  }
+  .vo-tag {
+    font-size: 10px; font-weight: 700; letter-spacing: .02em; color: var(--muted);
+    border: 1px solid var(--line, rgba(127,127,127,.35)); border-radius: 999px; padding: 1px 7px;
+  }
+  .badge-count {
+    margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+    background: #e5484d; color: #fff; font-size: 11px; font-weight: 800;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .nav-item {
+    width: 100%; display: flex; align-items: center; gap: 10px;
+    background: none; border: none; color: var(--on-brand-dim); text-align: left;
+    font: inherit; font-size: 13.5px; font-weight: 600; line-height: 1.2;
+    padding: 7px 10px; min-height: 34px; border-radius: 9px; cursor: pointer;
+  }
+  .nav-item svg { width: 18px; height: 18px; flex: 0 0 auto; stroke: currentColor; stroke-width: 1.8; }
+  .nav-item:hover { background: var(--side-hover); color: var(--on-brand); }
+  .nav-item.active { background: var(--side-active); color: var(--on-brand); font-weight: 750; }
+  .nav-item.active svg { stroke: var(--gold-bright); }
+  .nav-item:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+  .nav-item .ext { margin-left: auto; width: 14px; height: 14px; opacity: 0.6; }
+
+  nav .bottom { border-top: 1px solid var(--line); padding: 8px 10px 10px; }
+  html[data-mode="light"] { --line: #e6e9f2; --side-hover: rgba(20,30,60,0.05); }
+  html[data-mode="light"] .titlestrip .ver { background: rgba(255,255,255,0.18); color: #fff; }
+  .user-chip { display: flex; align-items: center; gap: 10px; padding: 8px 8px 2px; margin-top: 4px; border-top: 1px solid var(--line); }
+  .user-chip[hidden], [hidden] { display: none !important; } /* author display:flex would otherwise beat the hidden attribute */
+  .user-chip .avatar {
+    width: 30px; height: 30px; border-radius: 50%; background: var(--gold); color: var(--on-gold);
+    display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex: 0 0 auto;
+  }
+  .user-chip .who { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+  .user-chip .uname { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-chip .urole { align-self: flex-start; font-size: 10.5px; font-weight: 700; color: var(--gold-bright); background: var(--accent-soft); padding: 1px 7px; border-radius: 999px; }
+  .signin-chip { width: 100%; margin-top: 6px; background: transparent; border: 1px dashed var(--line); color: var(--on-brand-dim); border-radius: 10px; padding: 8px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .signin-chip:hover { color: var(--on-brand); border-color: var(--gold); }
+  /* The bell: Today (your due reminders, who's on leave, holiday, team
+     message) — on every screen. */
+  /* Ask Daylens (assistant.js): a round lens button, bottom right. It moves
+     up while a Save / Submit bar is showing at the bottom, so it never
+     covers those buttons. */
+  .ask-fab {
+    position: fixed; z-index: 44; right: 24px; bottom: 48px; height: 50px; min-width: 50px; padding: 0 18px 0 14px;
+    display: inline-flex; align-items: center; gap: 8px; border: none; border-radius: 999px; cursor: pointer;
+    background: var(--accent-grad); color: var(--on-accent); font: inherit; font-size: 14px; font-weight: 800;
+    box-shadow: var(--accent-glow), 0 10px 28px rgba(0,0,0,0.35); transition: bottom 0.18s ease, transform 0.12s ease;
+  }
+  .ask-fab svg { width: 22px; height: 22px; stroke: currentColor; }
+  .ask-fab:hover { transform: translateY(-1px); }
+  .ask-fab:focus-visible { outline: 3px solid var(--gold-bright); outline-offset: 2px; }
+  .ask-fab[aria-expanded="true"] { filter: brightness(0.95); }
+  .ask-fab[hidden] { display: none; }
+  body.bar-up .ask-fab { bottom: var(--bar-lift, 112px); }
+  body.bar-up .ask-panel { bottom: calc(var(--bar-lift, 112px) + 60px); }
+  .ask-panel {
+    position: fixed; z-index: 46; top: 46px; right: 24px; bottom: 108px; width: min(420px, calc(100vw - 48px)); display: flex; flex-direction: column;
+    background: var(--chrome); color: var(--on-brand); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 18px 50px rgba(0,0,0,0.42); overflow: hidden;
+  }
+  html[data-mode="light"] .ask-panel { background: #fff; color: #1d2433; box-shadow: 0 18px 50px rgba(30,45,90,0.2); }
+  .ask-head { display: flex; align-items: baseline; gap: 8px; padding: 12px 12px 8px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .ask-head b { font-size: 15px; }
+  .ask-sub { font-size: 11.5px; color: var(--muted); flex: 1; }
+  .ask-x { border: none; background: none; color: inherit; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+  .ask-x:hover, .ask-x:focus-visible { background: var(--side-hover); outline: none; }
+  .ask-log { flex: 1 1 auto; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .ask-msg { display: flex; flex-direction: column; gap: 6px; max-width: 92%; }
+  .ask-msg.me { align-self: flex-end; align-items: flex-end; }
+  .ask-bubble { padding: 9px 12px; border-radius: 14px; font-size: 13px; line-height: 1.5; background: var(--side-hover); overflow-wrap: anywhere; }
+  .ask-msg.me .ask-bubble { background: var(--accent-grad); color: var(--on-accent); }
+  .ask-bubble.err { background: rgba(229,72,77,0.18); }
+  .ask-bubble ul, .ask-bubble ol { margin: 4px 0; padding-left: 20px; }
+  .ask-bubble a { color: var(--gold-bright); }
+  .ask-typing { opacity: 0.7; font-style: italic; }
+  .ask-go { align-self: flex-start; border: 1px solid var(--gold); background: transparent; color: inherit; border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+  .ask-go:hover, .ask-go:focus-visible { background: var(--side-hover); outline: none; }
+  .ask-suggest { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 8px; }
+  .ask-chip { border: 1px dashed var(--line); background: transparent; color: inherit; border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+  .ask-chip:hover, .ask-chip:focus-visible { border-color: var(--gold); outline: none; }
+  .ask-form { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); }
+  .ask-form textarea { flex: 1; resize: none; font: inherit; font-size: 13px; border-radius: 10px; border: 1px solid var(--line); background: var(--side-hover); color: inherit; padding: 8px 10px; }
+  .ask-form button { border: none; border-radius: 10px; padding: 0 16px; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; background: var(--accent-grad); color: var(--on-accent); }
+  .ask-foot { font-size: 10.5px; color: var(--muted); padding: 0 12px 10px; line-height: 1.4; }
+  .ask-draft { border: 1px solid var(--gold); border-radius: 12px; padding: 10px; background: var(--side-hover); font-size: 12.5px; min-width: 260px; }
+  .ask-draft.done { border-color: #1f9d55; }
+  .ask-draft.dismissed { opacity: 0.5; }
+  .ask-draft.dismissed .ad-actions { display: none; }
+  .ad-title { margin-bottom: 8px; }
+  .ad-fields { display: grid; gap: 6px; }
+  .ad-field { display: grid; grid-template-columns: 110px 1fr; gap: 8px; align-items: center; }
+  .ad-field span { font-weight: 700; }
+  .ad-field em { font-style: normal; font-size: 10.5px; color: var(--gold-bright); font-weight: 800; }
+  .ad-input { font: inherit; font-size: 12.5px; border-radius: 8px; border: 1px solid var(--line); background: var(--chrome); color: inherit; padding: 5px 8px; min-width: 0; }
+  html[data-mode="light"] .ad-input { background: #fff; }
+  .ad-input option { background: var(--chrome); color: var(--on-brand); }
+  .ad-missing { margin-top: 8px; color: var(--gold-bright); font-weight: 700; }
+  .ad-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 10px; }
+  .ad-actions button { border: none; border-radius: 9px; padding: 6px 12px; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; background: transparent; color: inherit; }
+  .ad-actions .ad-ok { background: var(--accent-grad); color: var(--on-accent); }
+  .ad-actions .ad-ok:disabled { opacity: 0.5; cursor: default; }
+  .ad-msg { margin-top: 6px; }
+  .ad-msg.err { color: #ff8f8f; }
+  /* Search everything (search.js): the box in the top strip. */
+  .srch {
+    -webkit-app-region: no-drag; margin: 0 auto; position: relative; display: flex; align-items: center; gap: 8px;
+    width: min(440px, 40vw); height: 28px; padding: 0 8px 0 10px; border-radius: 9px;
+    background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.14); color: var(--strip-text);
+  }
+  .srch:focus-within { background: rgba(255,255,255,0.16); border-color: var(--gold); }
+  .srch svg { width: 15px; height: 15px; stroke: currentColor; opacity: 0.75; flex: none; }
+  .srch input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; font-size: 12.5px; }
+  .srch input::placeholder { color: currentColor; opacity: 0.62; }
+  .srch kbd { font: inherit; font-size: 10.5px; font-weight: 700; opacity: 0.7; border: 1px solid rgba(255,255,255,0.25); border-radius: 5px; padding: 0 5px; }
+  .srch-panel {
+    position: fixed; z-index: 47; top: 38px; left: 50%; transform: translateX(-50%); width: min(600px, calc(100vw - 40px)); max-height: min(70vh, 620px); overflow-y: auto;
+    background: var(--chrome); color: var(--on-brand); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 18px 50px rgba(0,0,0,0.42); padding: 6px;
+  }
+  html[data-mode="light"] .srch-panel { background: #fff; color: #1d2433; box-shadow: 0 18px 50px rgba(30,45,90,0.2); }
+  .srch-group { font-size: 11.5px; font-weight: 800; color: var(--muted); padding: 10px 10px 4px; }
+  .srch-item { display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left; border: 0; background: transparent; color: inherit; font: inherit; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
+  .srch-item.on, .srch-item:focus-visible { background: var(--side-hover); outline: none; }
+  .si-top { display: flex; gap: 8px; align-items: baseline; font-size: 13.5px; }
+  .si-top b { font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .si-id { flex: none; font-size: 11.5px; font-weight: 800; padding: 1px 7px; border-radius: 6px; background: var(--side-hover); }
+  .si-exact { flex: none; margin-left: auto; font-size: 10.5px; font-weight: 800; color: var(--on-gold); background: var(--gold); border-radius: 999px; padding: 1px 7px; }
+  .si-text { font-size: 12.5px; opacity: 0.9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .si-hit { font-size: 12px; opacity: 0.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .si-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; opacity: 0.85; }
+  .si-meta em, .si-hit em { font-style: normal; color: var(--muted); font-weight: 700; }
+  .srch-panel mark { background: var(--accent-soft); color: inherit; border-radius: 3px; padding: 0 1px; box-shadow: inset 0 -2px 0 var(--gold); }
+  .srch-note { padding: 14px 12px; font-size: 13px; line-height: 1.45; }
+  .srch-foot { font-size: 11.5px; color: var(--muted); padding: 8px 10px 4px; border-top: 1px solid var(--line); margin-top: 4px; }
+  .srch[hidden] + .bell, .titlestrip .srch[hidden] ~ .bell { margin-left: auto; }
+  .bell {
+    margin-left: 0; -webkit-app-region: no-drag; position: relative; width: 30px; height: 28px; border: none; border-radius: 8px;
+    background: transparent; color: var(--strip-text); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .bell:hover, .bell[aria-expanded="true"] { background: rgba(255,255,255,0.14); }
+  .bell:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+  .bell svg { width: 18px; height: 18px; stroke: currentColor; }
+  .bell-count {
+    position: absolute; top: 0; right: -2px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
+    background: #e5484d; color: #fff; font-size: 10.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 2px var(--chrome);
+  }
+  .today-panel {
+    position: fixed; z-index: 45; top: 46px; right: 14px; width: 380px; max-height: calc(100vh - 70px); overflow-y: auto;
+    background: var(--chrome); color: var(--on-brand); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.38); padding: 8px;
+  }
+  html[data-mode="light"] .today-panel { background: #fff; box-shadow: 0 18px 50px rgba(30,45,90,0.18); }
+  .today-head { display: flex; align-items: baseline; gap: 8px; padding: 6px 8px 8px; }
+  .today-head h2 { margin: 0; font-size: 15px; font-weight: 800; }
+  .today-head .today-date { font-size: 12px; color: var(--muted); font-weight: 600; flex: 1; }
+  .today-head .today-clear { border: none; background: none; color: var(--gold-bright); font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+  .update-pill { margin-left: 8px; -webkit-app-region: no-drag; background: var(--accent-grad); color: var(--on-accent); border: none; border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; box-shadow: var(--accent-glow); }
+  /* "Update ready" prompt — the app never restarts without asking. */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 50; }
+  .modal {
+    width: min(520px, calc(100vw - 48px)); max-height: calc(100vh - 80px); display: flex; flex-direction: column;
+    background: var(--chrome); color: var(--on-brand); border: 1px solid var(--line); border-radius: 20px; box-shadow: 0 30px 80px rgba(0,0,0,0.45); padding: 22px;
+  }
+  html[data-mode="light"] .modal { background: #fff; color: #1d2433; }
+  .modal h2 { margin: 0 0 4px; font-size: 20px; font-weight: 800; }
+  .modal .sub { font-size: 12.5px; color: var(--on-brand-dim); margin-bottom: 12px; }
+  .modal .notes { white-space: pre-wrap; font-size: 13px; line-height: 1.5; overflow: auto; background: var(--side-hover); border-radius: 12px; padding: 12px 14px; flex: 1 1 auto; min-height: 60px; }
+  .modal .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+  .modal button { border: none; border-radius: 12px; padding: 10px 18px; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+  .modal .later { background: var(--side-hover); color: var(--on-brand); }
+  .modal .restart { background: var(--accent-grad); color: var(--on-accent); box-shadow: var(--accent-glow); }
+  .lock-note { display: none; font-size: 11px; color: var(--on-brand-dim); padding: 2px 6px 0; line-height: 1.4; }
+
+  /* Content area — one live iframe per embedded page, only one visible. */
+  .content { position: relative; min-width: 0; min-height: 0; }
+  .content iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: var(--brand); display: none; }
+  .content iframe.visible { display: block; }
+</style>
+</head>
+<body>
+  <div class="titlestrip">
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="8" fill="var(--gold)"/>
+      <rect x="8" y="6" width="13" height="17" rx="2" fill="#ffffff"/>
+      <rect x="10.5" y="10" width="8" height="1.6" rx="0.8" fill="var(--brand)" opacity="0.55"/>
+      <rect x="10.5" y="13.4" width="8" height="1.6" rx="0.8" fill="var(--brand)" opacity="0.55"/>
+      <rect x="10.5" y="16.8" width="5" height="1.6" rx="0.8" fill="var(--brand)" opacity="0.55"/>
+      <circle cx="23" cy="23" r="6.5" fill="var(--brand)" stroke="var(--gold)" stroke-width="1"/>
+      <path d="M20.2 23.2l1.8 1.8 3.4-3.6" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="name" title="Daylens — Work &amp; Status Reports">Daylens</span>
+    <span class="ver" id="ver"></span>
+    <button type="button" class="bell" id="bell" aria-haspopup="dialog" aria-expanded="false" title="Today">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      <span class="bell-count" id="bell-count" hidden></span>
+    </button>
+  </div>
+
+  <nav id="nav" aria-label="Sections">
+    <button type="button" class="team-card" id="team-card" aria-haspopup="menu" aria-expanded="false">
+      <span class="team-mono" id="team-mono" aria-hidden="true"></span>
+      <span class="team-text"><span class="team-name" id="team-name">Your team</span><span class="team-sub" id="team-sub">Team info</span></span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 9 4-4 4 4M8 15l4 4 4-4"/></svg>
+    </button>
+    <div class="scroll">
+      <button class="nav-item" data-section="home">
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.2 12 3.5l8.5 6.7"/><path d="M5.5 8.8V20h4.5v-5.5h4V20h4.5V8.8"/></svg>
+        Home
+      </button>
+      <button class="nav-item" data-section="reminders">
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        Reminders <span class="badge-count" id="reminders-badge" hidden></span>
+      </button>
+      <button class="nav-item" data-section="approvals" id="approvals-item" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5 11.2 14 16 9"/><rect x="3.5" y="4" width="17" height="16.5" rx="2.5"/><path d="M8 2.5v3M16 2.5v3"/></svg>
+        Approvals <span class="badge-count" id="approvals-badge" hidden></span>
+      </button>
+      <button class="nav-item" data-section="documents" id="documents-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M8 13.5h8M8 16.5h5"/></svg>
+        Document Centre
+      </button>
+
+      <div class="section-head"><span>Insights</span></div>
+      <button class="nav-item" data-section="report">
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+        Reports
+      </button>
+      <button class="nav-item" data-section="digest">
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
+        AI digest
+      </button>
+
+      <div id="admin-group" hidden>
+      <div class="section-head"><span>Admin</span><span class="vo-tag" id="admin-view-only" hidden title="Only an admin can change these">View only</span></div>
+      <button class="nav-item" data-section="users">
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.8c1.7.7 2.8 2.4 3 5.2"/></svg>
+        People
+      </button>
+      <button class="nav-item" data-section="manage">
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+        Tabs &amp; fields
+      </button>
+      <button class="nav-item" data-section="logs">
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
+        Activity log
+      </button>
+      </div>
+    </div>
+    <div class="bottom">
+      <button class="nav-item" data-section="features" id="features-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M9 8h7M9 12h5"/></svg>
+        Features
+      </button>
+      <button class="nav-item" data-action="open-sheet" id="open-sheet-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M10 3v18"/></svg>
+        Google Sheet
+        <svg class="ext" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
+      </button>
+      <button class="nav-item" data-section="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        Settings
+      </button>
+      <div class="user-chip" id="user-chip" hidden>
+        <span class="avatar" id="user-avatar"></span>
+        <span class="who"><span class="uname" id="user-name"></span><span class="urole" id="user-role"></span></span>
+      </div>
+      <button type="button" class="signin-chip" id="signin-chip" hidden>🔐 Log in to your team</button>
+      <div class="lock-note" id="lock-note">Log in (or finish the update) on the right — the menu unlocks after.</div>
+    </div>
+  </nav>
+  <!-- Ask Daylens: always at hand, bottom right (above any Save / Submit bar). -->
+  <button type="button" class="ask-fab" id="ask-btn" aria-haspopup="dialog" aria-expanded="false" title="Ask Daylens — find things, get help, fill in an entry">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/><path d="M10.5 7.2v1.6M10.5 12.2v1.6M7.2 10.5h1.6M12.2 10.5h1.6" stroke-width="1.6"/></svg>
+    <span>Ask</span>
+  </button>
+
+  <div class="content" id="content">
+    <iframe id="frame-index" title="Daylens" class="visible"></iframe>
+    <iframe id="frame-manage" title="Tabs &amp; fields"></iframe>
+    <iframe id="frame-connect" title="Switch team"></iframe>
+  </div>
+
+<script>
+  // Which iframe owns which sidebar section. Everything not listed here
+  // lives inside index.html and is reached by posting it a 'nav' message.
+  const FRAME_SECTIONS = { manage: 'frame-manage', connect: 'frame-connect' };
+  const FRAME_SRC = {
+    'frame-index': 'index.html?mode=app',
+    'frame-manage': 'manage.html?mode=app',
+    'frame-connect': 'connect.html?mode=app',
+  };
+
+  const frames = {
+    'frame-index': document.getElementById('frame-index'),
+    'frame-manage': document.getElementById('frame-manage'),
+    'frame-connect': document.getElementById('frame-connect'),
+  };
+  const nav = document.getElementById('nav');
+  const lockNote = document.getElementById('lock-note');
+
+  // The index frame's own current section (it navigates internally too —
+  // e.g. Settings → Log Analyser via its own buttons — and reports back).
+  let indexSection = 'home';
+
+  let visibleFrame = 'frame-index';
+  // Which menu item the Tabs & fields page stands for right now: its own,
+  // or Reports while it shows Scheduled reports (opened from Reports).
+  let manageNav = 'manage';
+  let locked = false;
+
+  frames['frame-index'].src = FRAME_SRC['frame-index'];
+  // manage/connect load lazily on first visit — they're admin-only and
+  // password-gated, no reason to load them for every launch.
+
+  function showFrame(id) {
+    if (!frames[id].getAttribute('src')) frames[id].src = FRAME_SRC[id];
+    Object.keys(frames).forEach((k) => frames[k].classList.toggle('visible', k === id));
+    visibleFrame = id;
+    renderActive();
+    liftAskButton();
+  }
+  // The Ask button sits above any Save / Submit bar at the bottom (Tabs &
+  // fields always has one; a form in Home has one while it's open).
+  let indexActionBar = false;
+  let indexBarHeight = 0; // how tall Home's bar is (it can wrap)
+  function liftAskButton() {
+    document.body.classList.toggle('bar-up', visibleFrame !== 'frame-index' || indexActionBar);
+    let lift = 112; // Tabs & fields: clears its Save row
+    if (visibleFrame === 'frame-index' && indexActionBar && indexBarHeight) {
+      const below = Math.max(0, window.innerHeight - frames['frame-index'].getBoundingClientRect().bottom);
+      lift = Math.max(64, indexBarHeight + below + 14);
+    }
+    document.body.style.setProperty('--bar-lift', lift + 'px');
+  }
+  window.addEventListener('resize', liftAskButton);
+
+  // Home stays lit on every Home screen: categories, a category's tabs,
+  // and any tab's own screens.
+  function renderActive() {
+    let active = indexSection;
+    if (visibleFrame !== 'frame-index') active = visibleFrame === 'frame-manage' ? manageNav : 'connect';
+    const mark = (el, on) => {
+      el.classList.toggle('active', on);
+      if (on) el.setAttribute('aria-current', 'page'); else el.removeAttribute('aria-current');
+    };
+    document.querySelectorAll('nav .nav-item[data-section]').forEach((b) => mark(b, b.dataset.section === active));
+    mark(document.getElementById('team-card'), active === 'team');
+  }
+
+  // Admin sections. Anyone signed in may look (view only: the server
+  // leaves the secrets out and refuses every change from a non-admin);
+  // only admins can change anything. (Join/Create another team — the
+  // 'connect' page — is for everyone.)
+  const ADMIN_SECTIONS = ['manage', 'logs', 'users'];
+  let isAdmin = false;
+  let signedIn = false;
+  // The Google Sheet button: admins only. Teammates work through Daylens
+  // (the Sheet isn't shared with them — Google would only ask for access).
+  let teamHasSheet = false;
+  function updateSheetItem() {
+    const item = document.getElementById('open-sheet-item');
+    if (item) item.hidden = !(teamHasSheet && isAdmin);
+  }
+
+  function goSection(section, extra, force) {
+    if (locked && !force) return;
+    if (ADMIN_SECTIONS.includes(section) && !signedIn && !force) return;
+    if (FRAME_SECTIONS[section]) {
+      if (section === 'manage' && manageNav !== 'manage') {
+        manageNav = 'manage'; // was showing Scheduled reports — back to the Tabs & fields tiles
+        frames['frame-manage'].src = FRAME_SRC['frame-manage'];
+      }
+      showFrame(FRAME_SECTIONS[section]);
+      return;
+    }
+    showFrame('frame-index');
+    frames['frame-index'].contentWindow.postMessage(Object.assign({ __statusApp: true, type: 'nav', screen: section }, extra || {}), '*');
+  }
+
+  nav.addEventListener('click', (e) => {
+    if (e.target.closest('#team-card')) { toggleTeamSwitcher(); return; }
+    const btn = e.target.closest('.nav-item');
+    if (!btn) return;
+    if (btn.dataset.action === 'open-sheet') { window.statusApp.openSheet(); return; }
+    goSection(btn.dataset.section);
+  });
+  function openManageSection(sub) {
+    if (!signedIn || locked) return;
+    manageNav = sub === 'report-configs-section' || sub === 'weekly-check-section' ? 'report' : 'manage';
+    frames['frame-manage'].src = FRAME_SRC['frame-manage'] + '&section=' + encodeURIComponent(sub);
+    showFrame('frame-manage');
+  }
+
+  // The team card: which team this window is signed in to. Click it to
+  // switch to another team on this PC, join one, or create one.
+  const teamCard = document.getElementById('team-card');
+  let otherTeams = 0;
+  function monogram(name) {
+    const words = String(name || '').replace(/[^\p{L}\p{N} ]+/gu, ' ').trim().split(/\s+/).filter(Boolean);
+    return ((words[0] || 'T')[0] + (words[1] ? words[1][0] : (words[0] || '')[1] || '')).toUpperCase();
+  }
+  async function refreshTeam() {
+    const t = await window.statusApp.getTeamInfo().catch(() => ({}));
+    const name = (t && t.teamName) || 'Your team';
+    otherTeams = (t && t.otherTeams) || 0;
+    document.getElementById('team-name').textContent = name;
+    document.getElementById('team-mono').textContent = monogram(name);
+    teamCard.title = name;
+    teamHasSheet = !!(t && t.hasSheet); // this team's own Sheet
+    updateSheetItem();
+    refreshTeamSub();
+    renderTeamAlert();
+  }
+  function refreshTeamSub() {
+    document.getElementById('team-sub').textContent = otherTeams ? 'Switch team' : (isAdmin ? 'Invite & team setup' : 'Team info');
+  }
+
+  // Reminders due in your OTHER teams: a dot on the card, counts inside.
+  let teamsDue = {};
+  function renderTeamAlert() {
+    const any = Object.values(teamsDue).some((n) => n > 0);
+    let dot = document.getElementById('team-alert');
+    if (any && !dot) {
+      dot = document.createElement('span');
+      dot.className = 'team-alert';
+      dot.id = 'team-alert';
+      dot.title = 'A reminder is due in another team';
+      document.getElementById('team-mono').appendChild(dot);
+    } else if (!any && dot) dot.remove();
+  }
+  window.statusApp.onTeamsReminders((counts) => { teamsDue = counts || {}; renderTeamAlert(); if (teamPop) renderTeamSwitcher(); });
+
+  let teamPop = null;
+  function closeTeamSwitcher() {
+    if (!teamPop) return;
+    teamPop.remove();
+    teamPop = null;
+    teamCard.setAttribute('aria-expanded', 'false');
+  }
+  function toggleTeamSwitcher() {
+    if (teamPop) { closeTeamSwitcher(); return; }
+    if (typeof closeTodayPanel === 'function') closeTodayPanel();
+    teamPop = document.createElement('div');
+    teamPop.className = 'team-pop';
+    teamPop.id = 'team-pop';
+    teamPop.setAttribute('role', 'menu');
+    teamPop.setAttribute('aria-label', 'Your teams');
+    teamPop.style.top = Math.round(teamCard.getBoundingClientRect().bottom + 6) + 'px';
+    document.body.appendChild(teamPop);
+    teamCard.setAttribute('aria-expanded', 'true');
+    renderTeamSwitcher(true);
+  }
+  const POP_ICONS = {
+    setup: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+    join: '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5M15 12H3"/>',
+    create: '<path d="M12 5v14M5 12h14"/>',
+  };
+  async function renderTeamSwitcher(focusFirst) {
+    const res = await window.statusApp.listTeams().catch(() => ({ teams: [] }));
+    if (!teamPop) return;
+    const teams = (res && res.teams) || [];
+    teamPop.innerHTML = '';
+    const head = document.createElement('div');
+    head.className = 'tp-head';
+    head.textContent = teams.length > 1 ? 'Your teams on this PC' : 'Your team';
+    teamPop.appendChild(head);
+    teams.forEach((t) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tp-team' + (t.open ? ' open' : '');
+      b.dataset.key = t.key;
+      b.setAttribute('role', 'menuitem');
+      if (t.open) b.setAttribute('aria-current', 'true');
+      const mono = document.createElement('span'); mono.className = 'team-mono'; mono.textContent = monogram(t.teamName);
+      const text = document.createElement('span'); text.className = 'tp-text';
+      const nm = document.createElement('span'); nm.className = 'tp-name'; nm.textContent = t.teamName;
+      const sub = document.createElement('span'); sub.className = 'tp-sub';
+      sub.textContent = t.signedIn ? `Signed in as ${t.username}` : 'Not signed in';
+      text.append(nm, sub);
+      b.append(mono, text);
+      const due = t.open ? 0 : (teamsDue[t.key] || t.due || 0);
+      if (t.open) {
+        b.insertAdjacentHTML('beforeend', '<svg class="tp-check" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-label="Open now"><path d="m5 12 5 5 9-10"/></svg>');
+      } else if (due) {
+        const d = document.createElement('span'); d.className = 'tp-due'; d.textContent = due > 99 ? '99+' : String(due);
+        d.title = `${due} reminder${due === 1 ? '' : 's'} due`;
+        b.appendChild(d);
+      }
+      b.onclick = () => (t.open ? closeTeamSwitcher() : switchTo(t.key));
+      teamPop.appendChild(b);
+    });
+    const sep = document.createElement('div'); sep.className = 'tp-sep'; teamPop.appendChild(sep);
+    const action = (id, icon, label, fn) => {
+      const a = document.createElement('button');
+      a.type = 'button'; a.className = 'tp-action'; a.id = id; a.setAttribute('role', 'menuitem');
+      a.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">${POP_ICONS[icon]}</svg>`;
+      a.appendChild(document.createTextNode(label));
+      a.onclick = () => { closeTeamSwitcher(); fn(); };
+      teamPop.appendChild(a);
+    };
+    if (!locked) action('tp-setup', 'setup', isAdmin ? 'Team setup & invite' : 'Team info', () => goSection('team'));
+    action('tp-join', 'join', 'Join another team', () => openConnect('join'));
+    action('tp-create', 'create', 'Create a new team', () => openConnect('create'));
+    if (focusFirst) { const f = teamPop.querySelector('button'); if (f) f.focus(); }
+  }
+  async function switchTo(key) {
+    const r = await window.statusApp.switchTeam(key).catch((e) => ({ ok: false, error: e.message }));
+    if (!r || !r.ok) {
+      if (!teamPop) return;
+      const err = document.createElement('div'); err.className = 'tp-err'; err.textContent = (r && r.error) || 'Could not switch.';
+      teamPop.appendChild(err);
+      renderTeamSwitcher();
+      return;
+    }
+    closeTeamSwitcher();
+    reloadForTeam();
+  }
+  // Join/Create another team: the first-run screens, inside the window.
+  function openConnect(view) {
+    frames['frame-connect'].src = FRAME_SRC['frame-connect'] + '&view=' + encodeURIComponent(view);
+    showFrame('frame-connect');
+  }
+  // A different team is open now: reload every screen against it.
+  function reloadForTeam(after) {
+    if (window.DaylensSearch) window.DaylensSearch.reset();
+    ['frame-manage', 'frame-connect'].forEach((id) => frames[id].removeAttribute('src'));
+    if (after) frames['frame-index'].addEventListener('load', () => setTimeout(after, 300), { once: true });
+    frames['frame-index'].src = FRAME_SRC['frame-index'];
+    showFrame('frame-index');
+    refreshSession();
+    refreshTeam();
+  }
+  // From a reminder notification of another team (main.js switched).
+  window.statusApp.onTeamSwitched((info) => {
+    closeTeamSwitcher();
+    reloadForTeam(info.openReminders ? () => goSection('reminders') : null);
+  });
+  document.addEventListener('mousedown', (e) => {
+    if (teamPop && !teamPop.contains(e.target) && !teamCard.contains(e.target)) closeTeamSwitcher();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && teamPop) { closeTeamSwitcher(); teamCard.focus(); }
+  });
+
+  async function refreshSession() {
+    const s = await window.statusApp.getSessionStatus().catch(() => null);
+    const chip = document.getElementById('user-chip');
+    if (s && s.loggedIn) {
+      chip.hidden = false;
+      document.getElementById('user-name').textContent = s.username;
+      document.getElementById('user-role').textContent = s.role || 'User';
+      document.getElementById('user-avatar').textContent = (s.username || '?').slice(0, 2).toUpperCase();
+      isAdmin = s.role === 'Admin';
+      signedIn = true;
+      mustChange = !!s.mustChangePassword;
+    } else {
+      chip.hidden = true;
+      isAdmin = false;
+      signedIn = false;
+      mustChange = false;
+    }
+    document.getElementById('signin-chip').hidden = !!(s && s.loggedIn) || locked;
+    // Everyone signed in sees the Admin screens; only admins can change them.
+    document.getElementById('admin-group').hidden = !signedIn;
+    document.getElementById('admin-view-only').hidden = isAdmin;
+    updateSheetItem();
+    document.getElementById('team-sub').textContent = isAdmin ? 'Invite & team setup' : 'Team info';
+    if (!signedIn && visibleFrame === 'frame-manage') showFrame('frame-index');
+    refreshApprovals();
+    refreshTeamSub();
+    refreshSearch();
+  }
+
+  function setLocked(v) {
+    locked = v;
+    if (typeof refreshSearch === 'function') refreshSearch();
+    // Ask Daylens needs you signed in (and past any update screen).
+    const ask = document.getElementById('ask-btn');
+    if (ask) ask.hidden = !!v;
+    if (v && typeof assistant !== 'undefined') assistant.reset();
+    nav.classList.toggle('locked', v);
+    lockNote.style.display = v ? 'block' : 'none';
+    // Locked = login/update screen showing in the main frame. Keep it in
+    // view — unless the person was sent to fix the connection from there.
+    if (v && visibleFrame !== 'frame-connect') showFrame('frame-index');
+    if (!v) refreshSession();
+  }
+
+  window.addEventListener('message', (e) => {
+    const msg = e.data;
+    if (!msg || !msg.__statusApp) return;
+    const fromId = Object.keys(frames).find((k) => frames[k].contentWindow === e.source);
+    if (!fromId) return; // only our own embedded pages
+    switch (msg.type) {
+      case 'section':
+        if (fromId !== 'frame-index') return;
+        indexSection = msg.name;
+        renderActive();
+        break;
+      case 'gate':
+        if (fromId === 'frame-index') setLocked(!!msg.locked);
+        break;
+      case 'actionbar':
+        if (fromId === 'frame-index') { indexActionBar = !!msg.visible; indexBarHeight = Number(msg.height) || 0; liftAskButton(); }
+        break;
+      case 'open-section':
+        // force: only ever for 'connect' from the login screen when the
+        // backend rejects our token (nobody can log in until it's fixed).
+        // Straight to one Manage section (e.g. Home's "Add your first tab").
+        if (msg.name === 'manage' && msg.sub) { openManageSection(msg.sub); break; }
+        goSection(msg.name, null, !!msg.force && msg.name === 'connect');
+        break;
+      case 'tabs-changed':
+        // A tab was added/renamed/deleted in Manage: refresh Home + sidebar.
+        frames['frame-index'].contentWindow.postMessage({ __statusApp: true, type: 'nav', screen: 'refresh-data' }, '*');
+        break;
+      case 'session-changed':
+        if (typeof assistant !== 'undefined') assistant.reset(); // a different person may have just signed in
+        if (window.DaylensSearch) window.DaylensSearch.reset();
+        refreshSession();
+        refreshTeam();
+        // A different person may have just signed in on this PC — reset
+        // the admin pages so nothing from the previous session lingers.
+        ['frame-manage', 'frame-connect'].forEach((id) => { if (frames[id].getAttribute('src')) frames[id].src = FRAME_SRC[id]; });
+        break;
+      case 'connection-changed':
+        // Joined or created a team: reload everything against it, at Home.
+        reloadForTeam();
+        break;
+      case 'open-today':
+        openTodayPanel();
+        break;
+      case 'approvals-changed': // a request was decided, or a setting changed
+        refreshApprovals();
+        break;
+      case 'go': // Features → "Take me there"
+        if (fromId === 'frame-index') assistantNavigate(msg.target);
+        break;
+      case 'focus-search': // Ctrl+K pressed inside a screen
+        if (window.DaylensSearch) window.DaylensSearch.focus();
+        break;
+      case 'open-team-switcher':
+        // "Other teams" on the sign-in screen.
+        if (!teamPop) toggleTeamSwitcher();
+        break;
+      case 'theme':
+        // Re-broadcast so every embedded screen (and this shell) switches at once.
+        window.__theme.apply(msg.name);
+        Object.keys(frames).forEach((k) => { try { frames[k].contentWindow.postMessage({ __statusApp: true, type: 'theme', name: msg.name }, '*'); } catch {} });
+        break;
+      case 'reminders-due':
+        setRemindersBadge(msg.count);
+        break;
+      case 'close-section':
+        // A Manage/Connect "close" (✕, Close, Cancel, or after saving a
+        // connection): back to wherever the main screens were, and reset
+        // that admin page so it asks for the password again next time —
+        // same as the standalone window did by actually closing.
+        if (fromId !== 'frame-index') {
+          frames[fromId].src = FRAME_SRC[fromId];
+          showFrame('frame-index');
+        }
+        break;
+      default:
+        break;
+    }
+  });
+
+  // ---- The bell: Today ----
+  const bell = document.getElementById('bell');
+  let todayPanel = null;
+  function setBellCount(n) {
+    const c = document.getElementById('bell-count');
+    c.hidden = !n;
+    c.textContent = n > 99 ? '99+' : String(n || '');
+    bell.title = n ? `Today: ${n} item${n === 1 ? '' : 's'} need${n === 1 ? 's' : ''} your attention` : 'Today';
+  }
+  async function renderTodayPanel() {
+    if (!todayPanel) return;
+    const res = await window.statusApp.getToday().catch(() => ({ items: [] }));
+    if (!todayPanel) return;
+    const items = (res && res.items) || [];
+    setBellCount(items.length);
+    const dateLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+    todayPanel.innerHTML = `<div class="today-head"><h2>Today</h2><span class="today-date">${dateLabel}</span>${items.length ? '<button type="button" class="today-clear" id="today-clear">Dismiss all</button>' : ''}</div><div id="today-list"></div>`;
+    const list = todayPanel.querySelector('#today-list');
+    if (!items.length) list.innerHTML = '<div class="today-empty">Nothing needs your attention right now.</div>';
+    else window.TodayList.render(list, items);
+    const clear = todayPanel.querySelector('#today-clear');
+    if (clear) clear.onclick = () => window.statusApp.dismissAllToday().catch(() => {});
+  }
+  function closeTodayPanel() {
+    if (!todayPanel) return;
+    todayPanel.remove();
+    todayPanel = null;
+    bell.setAttribute('aria-expanded', 'false');
+  }
+  function openTodayPanel() {
+    if (todayPanel) return;
+    closeTeamSwitcher();
+    todayPanel = document.createElement('div');
+    todayPanel.className = 'today-panel';
+    todayPanel.id = 'today-panel';
+    todayPanel.setAttribute('role', 'dialog');
+    todayPanel.setAttribute('aria-label', 'Today');
+    document.body.appendChild(todayPanel);
+    bell.setAttribute('aria-expanded', 'true');
+    renderTodayPanel();
+  }
+  bell.onclick = () => (todayPanel ? closeTodayPanel() : openTodayPanel());
+  window.statusApp.onTodayChanged((n) => { setBellCount(n); renderTodayPanel(); });
+  window.statusApp.getToday().then((r) => setBellCount(((r && r.items) || []).length)).catch(() => {});
+  document.addEventListener('mousedown', (e) => {
+    if (todayPanel && !todayPanel.contains(e.target) && !bell.contains(e.target)) closeTodayPanel();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && todayPanel) { closeTodayPanel(); bell.focus(); } });
+
+  window.statusApp.getShellInfo().then((info) => {
+    document.getElementById('ver').textContent = 'v' + info.version;
+    document.body.classList.add('platform-' + info.platform);
+  });
+
+  // Counts a main-window open in the Log Analyser the same way a popup
+  // open already is (main.js fires this on every show, including the
+  // first one after launch).
+  window.statusApp.onAppShown(() => {
+    window.statusApp.logAppOpened().catch(() => {});
+  });
+
+  // Leave approval: the Approvals item shows for approvers (and admins)
+  // once an admin switches it on, with how many requests are waiting.
+  let mustChange = false; // a temporary password still to replace: ask nothing yet
+  async function refreshApprovals() {
+    const item = document.getElementById('approvals-item');
+    if (!signedIn || locked || mustChange) { item.hidden = true; return; }
+    const r = await window.statusApp.getLeaveRequests().catch(() => null);
+    const show = !!(r && r.ok && r.on && (r.approver || isAdmin));
+    item.hidden = !show;
+    const n = show ? (r.toDecide || []).length : 0;
+    const b = document.getElementById('approvals-badge');
+    b.hidden = !n;
+    b.textContent = n > 99 ? '99+' : String(n || '');
+  }
+  setInterval(() => { refreshApprovals(); }, 5 * 60 * 1000);
+  function setRemindersBadge(n) {
+    const b = document.getElementById('reminders-badge');
+    b.hidden = !n;
+    b.textContent = n > 99 ? '99+' : String(n || '');
+  }
+  // Main process polls reminders and tells us how many are due for the
+  // signed-in person; a desktop notification click lands on Reminders.
+  window.statusApp.onRemindersDue((n) => setRemindersBadge(n));
+  window.statusApp.onOpenReminders(() => goSection('reminders'));
+
+  document.getElementById('signin-chip').onclick = () => {
+    showFrame('frame-index');
+    frames['frame-index'].contentWindow.postMessage({ __statusApp: true, type: 'nav', screen: 'login' }, '*');
+  };
+
+  // ---- Update ready: ask before restarting, show what's new ----
+  let shownUpdateVersion = null;
+  function showUpdatePrompt(info) {
+    if (!info) return;
+    // persistent pill in the title strip (after "Later")
+    let pill = document.getElementById('update-pill');
+    if (!pill) {
+      pill = document.createElement('button');
+      pill.id = 'update-pill';
+      pill.className = 'update-pill';
+      pill.onclick = () => openUpdateModal(info);
+      document.querySelector('.titlestrip').appendChild(pill);
+    }
+    pill.textContent = `✨ Update ready${info.version ? ' · v' + info.version : ''}`;
+    if (shownUpdateVersion !== info.version) {
+      shownUpdateVersion = info.version;
+      openUpdateModal(info);
+    }
+  }
+  function openUpdateModal(info) {
+    const old = document.getElementById('update-modal');
+    if (old) old.remove();
+    const wrap = document.createElement('div');
+    wrap.className = 'modal-backdrop';
+    wrap.id = 'update-modal';
+    wrap.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="upd-title">
+        <h2 id="upd-title">Version ${info.version ? 'v' + info.version : ''} is ready</h2>
+        <div class="sub">It has already downloaded. Restart now to start using it — or keep working and it installs the next time you close the app.</div>
+        <div class="notes" id="upd-notes"></div>
+        <div class="actions">
+          <button type="button" class="later" id="upd-later">Later</button>
+          <button type="button" class="restart" id="upd-restart">Restart now</button>
+        </div>
+      </div>`;
+    wrap.querySelector('#upd-notes').textContent = (info.notes && info.notes.trim()) || 'Improvements and fixes.';
+    document.body.appendChild(wrap);
+    wrap.querySelector('#upd-later').onclick = () => wrap.remove();
+    wrap.querySelector('#upd-restart').onclick = () => { wrap.querySelector('#upd-restart').textContent = 'Restarting…'; window.statusApp.quitAndInstall(); };
+    wrap.querySelector('#upd-restart').focus();
+  }
+  // ---- Ask Daylens: "→ open" buttons land on the right screen ----
+  // Ask Daylens' "→ open" buttons and the Features screen's "Take me there".
+  function assistantNavigate(target) {
+    const t = String(target || '');
+    if (t === 'today') { if (!locked) openTodayPanel(); return undefined; }
+    if (t === 'ask') { if (!locked) assistant.open(); return undefined; }
+    if (t === 'teams') { if (!teamPop) toggleTeamSwitcher(); return undefined; }
+    if (t === 'search') { if (!locked && window.DaylensSearch) window.DaylensSearch.focus(); return undefined; }
+    if (t.startsWith('tab:')) return goSection('open-tab', { tab: t.slice(4) });
+    if (t.startsWith('board:')) return goSection('ticket-board', { tab: t.slice(6) });
+    if (t.startsWith('doc:')) { if (!locked) window.statusApp.openDocument(t.slice(4)); return undefined; } // a document from the Document Centre
+    if (t.startsWith('new:')) return goSection('new-entry', { tab: t.slice(4) });
+    if (t.startsWith('manage:')) return openManageSection(t.slice(7));
+    return goSection(t);
+  }
+  var assistant = window.DaylensAssistant ? window.DaylensAssistant.init({ navigate: assistantNavigate, isAdmin: () => isAdmin }) : { reset() {} };
+  // Search everything (search.js): a result opens its row in the main screens.
+  if (window.DaylensSearch) {
+    window.DaylensSearch.init({
+      onOpen: (r) => {
+        showFrame('frame-index');
+        frames['frame-index'].contentWindow.postMessage({ __statusApp: true, type: 'nav', screen: 'open-hit', tab: r.tab, rowIndex: r.rowIndex, title: r.title || '' }, '*');
+      },
+    });
+  }
+  function refreshSearch() {
+    if (window.DaylensSearch) window.DaylensSearch.setEnabled(signedIn && !locked && !mustChange);
+  }
+
+  window.statusApp.onUpdateReady((info) => showUpdatePrompt(info));
+  // Clicked the desktop notification: show the update itself.
+  if (window.statusApp.onUpdateNudge) window.statusApp.onUpdateNudge(async (n) => {
+    const info = await window.statusApp.getPendingUpdate().catch(() => null);
+    if (info) { showUpdatePrompt(info); openUpdateModal(info); return; }
+    showFrame('frame-index');
+    frames['frame-index'].contentWindow.postMessage({ __statusApp: true, type: 'nav', screen: 'about' }, '*');
+  });
+  window.statusApp.getPendingUpdate().then((info) => { if (info) showUpdatePrompt(info); }).catch(() => {});
+
+  refreshSession();
+  refreshTeam();
+  renderActive();
+</script>
+</body>
+</html>
