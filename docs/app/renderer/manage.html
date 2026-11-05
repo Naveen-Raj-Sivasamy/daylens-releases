@@ -463,6 +463,9 @@
   .tpl-check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; margin: 12px 0 4px; cursor: pointer; }
   .tpl-check input { width: auto; margin: 0; }
   .hint-inline { font-weight: 500; text-transform: none; letter-spacing: 0; }
+  .opt-quick { margin-top: 10px; border: 1px dashed var(--gold); background: transparent; color: inherit; border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  .opt-quick:hover { background: var(--accent-soft); }
+  .opt-quick:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   .old-link-warn { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: rgba(229,154,40,0.14); border: 1px solid rgba(229,154,40,0.5); font-weight: 600; }
   .old-link-warn[hidden] { display: none; }
 </style>
@@ -1285,6 +1288,7 @@
   function buildOptionGroup(key, values) {
     const group = document.createElement('div');
     group.className = 'group opt-card';
+    group.dataset.key = key || '';
 
     const header = document.createElement('div');
     header.className = 'opt-card-head';
@@ -1338,8 +1342,34 @@
     adder.appendChild(addInput);
     rows.appendChild(adder);
     group.appendChild(rows);
+    // 1.9: a status list can have "Waiting for Requested Date" — choosing
+    // it in an entry offers a reminder for that date. One click adds it.
+    if (/status/i.test(key || '') && !(values || []).some((v) => WAITING_DATE_RE.test(v))) {
+      const quick = document.createElement('button');
+      quick.type = 'button';
+      quick.className = 'opt-quick';
+      quick.textContent = '＋ ' + WAITING_DATE_OPTION;
+      quick.title = 'Choosing it in an entry opens a reminder for the requested date';
+      quick.onclick = () => {
+        rows.insertBefore(buildOptionRow(WAITING_DATE_OPTION), adder);
+        quick.remove();
+        updateOptCount(group);
+        markDirty(group.closest('.section'));
+      };
+      group.appendChild(quick);
+    }
     updateOptCount(group);
     return group;
+  }
+  const WAITING_DATE_OPTION = 'Waiting for Requested Date';
+  const WAITING_DATE_RE = /^waiting for (the )?requested date$/i;
+
+  // The option lists to pick from in Field Types (a <datalist>, kept fresh).
+  function ensureOptKeyList() {
+    let dl = document.getElementById('fs-optkey-lists');
+    if (!dl) { dl = document.createElement('datalist'); dl.id = 'fs-optkey-lists'; document.body.appendChild(dl); }
+    const keys = Object.keys(optionsMap || {}).filter((k) => !isDirKey(k)).sort((a, b) => a.localeCompare(b));
+    dl.innerHTML = keys.map((k) => `<option value="${esc(k)}">${esc((optionsMap[k] || []).slice(0, 4).join(', '))}${(optionsMap[k] || []).length > 4 ? '…' : ''}</option>`).join('');
   }
 
   // "+ New dropdown list" lives at the end of the card grid.
@@ -1626,6 +1656,11 @@
     const chooser = dirInfo || isDirKey(spec.optionsKey) ? dirChooser(isDirKey(spec.optionsKey) ? spec.optionsKey : DIR_KEY + '*') : null;
     if (chooser) { srcWrap.appendChild(srcSel); srcWrap.appendChild(chooser); }
     srcWrap.appendChild(optKeyInput);
+    // 1.9: the lists that exist already, to pick from — the same list on two
+    // tabs (e.g. Daily Status's Status choices for Adhoc Mails too).
+    optKeyInput.setAttribute('list', 'fs-optkey-lists');
+    optKeyInput.title = 'Pick a list from "Dropdown & Multiselect Options", or type a new name. The same list on two fields gives them the same choices.';
+    ensureOptKeyList();
     const syncSrc = () => { const d = srcSel.value === 'dir'; optKeyInput.hidden = d; if (chooser) chooser.hidden = !d; };
     srcSel.onchange = syncSrc;
     syncSrc();

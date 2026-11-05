@@ -77,14 +77,18 @@
   function notesHtml(n, open) {
     n = n || {};
     const un = n.unmatched || [], tabs = n.tabs || [];
+    const unLeave = n.unmatchedLeave || [], leaveTabs = n.leaveTabs || []; // 1.9
     const ig = n.ignored || { names: [], tabs: [] };
     const nIgnored = (ig.names || []).length + (ig.tabs || []).length;
-    if (!un.length && !tabs.length && !nIgnored) return '';
+    if (!un.length && !tabs.length && !unLeave.length && !leaveTabs.length && !nIgnored) return '';
     const lines = [];
+    // 1.9: leave that "Who's off" can't show — a tab that isn't set as the leave tab, or a name nobody has.
+    leaveTabs.forEach((t) => lines.push(`<li><b>${esc(t)}</b> looks like your leave tab, but it isn't set as one, so its rows count as work entries and nobody shows as off. <button type="button" class="dn-btn dn-leave-tab" data-v="${esc(t)}">It's our leave tab</button></li>`));
+    unLeave.forEach((u) => lines.push(`<li><b>${esc(u.name)}</b>: ${u.days} ${u.days === 1 ? 'day' : 'days'} of leave this week or next, but nobody in People has that name, so it isn't in "Who's off". <button type="button" class="dn-btn dn-ignore-name" data-v="${esc(u.name)}">Ignore</button></li>`));
     un.forEach((u) => lines.push(`<li><b>${esc(u.name)}</b>: ${u.entries} ${u.entries === 1 ? 'entry' : 'entries'} this week, but nobody in People has that name. <button type="button" class="dn-btn dn-ignore-name" data-v="${esc(u.name)}">Ignore</button></li>`));
     // 1.8: a holiday list isn't anyone's entries: one click makes it the team's holiday list.
     tabs.forEach((x) => lines.push(`<li><b>${esc(x.tab)}</b>: ${esc(x.why)}. ${/holiday/i.test(x.tab) ? `<button type="button" class="dn-btn dn-holiday-tab" data-v="${esc(x.tab)}">It's our holiday list</button> ` : ''}<button type="button" class="dn-btn dn-ignore-tab" data-v="${esc(x.tab)}">Don't count this tab</button></li>`));
-    const hint = (un.length ? '<p class="dn-hint">For a name: rename the person in People to match (or fix the Name on those rows) and the entries count.</p>' : '') +
+    const hint = (un.length || unLeave.length ? '<p class="dn-hint">For a name: rename the person in People to match (or fix the Name on those rows) and the entries count.</p>' : '') +
       (tabs.length ? '<p class="dn-hint">For a tab: if people log their own work there, add a Name field to it in Tabs &amp; fields and it counts. If it\'s a list (a project\'s pages, holidays), it doesn\'t need counting.</p>' : '');
     const ignored = nIgnored ? `<details class="dn-ignored" id="dash-ignored"><summary>Ignored (${nIgnored})</summary><ul>${(ig.names || []).map((v) => `<li>${esc(v)} <button type="button" class="dn-btn dn-unignore-name" data-v="${esc(v)}">Stop ignoring</button></li>`).join('')}${(ig.tabs || []).map((v) => `<li>${esc(v)} (tab) <button type="button" class="dn-btn dn-unignore-tab" data-v="${esc(v)}">Count it again</button></li>`).join('')}</ul></details>` : '';
     const title = lines.length ? `Something missing? (${lines.length})` : 'Nothing missing';
@@ -410,14 +414,15 @@
         const without = (list, v) => list.filter((x) => String(x).toLowerCase() !== String(v).toLowerCase());
         notes.querySelectorAll('.dn-ignore-name').forEach((b) => { b.onclick = () => change({ names: ig.names.concat([b.dataset.v]), tabs: ig.tabs }); });
         notes.querySelectorAll('.dn-ignore-tab').forEach((b) => { b.onclick = () => change({ names: ig.names, tabs: ig.tabs.concat([b.dataset.v]) }); });
-        notes.querySelectorAll('.dn-holiday-tab').forEach((b) => {
+        notes.querySelectorAll('.dn-holiday-tab, .dn-leave-tab').forEach((b) => {
           b.onclick = async () => {
             const m = notes.querySelector('#dn-msg');
             m.textContent = 'Saving…';
-            const r = await window.statusApp.setTabType(b.dataset.v, 'holiday').catch((e) => ({ ok: false, error: e.message }));
+            const r = await window.statusApp.setTabType(b.dataset.v, b.classList.contains('dn-leave-tab') ? 'leave' : 'holiday').catch((e) => ({ ok: false, error: e.message }));
             if (!r || !r.ok) { m.textContent = (r && r.error) || 'Couldn\'t save that.'; return; }
             notesOpen = true;
-            load(offset, { fresh: true });
+            if (opts.onTabTypesChanged) opts.onTabTypesChanged(); // Home redraws with the new leave / holiday tab
+            else load(offset, { fresh: true });
           };
         });
         notes.querySelectorAll('.dn-unignore-name').forEach((b) => { b.onclick = () => change({ names: without(ig.names, b.dataset.v), tabs: ig.tabs }); });

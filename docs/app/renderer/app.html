@@ -169,6 +169,8 @@
   /* Ask Daylens (assistant.js): a round lens button, bottom right. It moves
      up while a Save / Submit bar is showing at the bottom, so it never
      covers those buttons. */
+  /* A pop-up is open in the screen (1.9): everything around it waits, dimmed like the pop-up's backdrop. */
+  body.modal-open #nav, body.modal-open .titlestrip, body.modal-open .fab-dock { pointer-events: none; opacity: 0.45; transition: opacity 0.15s ease; }
   .fab-dock { position: fixed; z-index: 44; right: 24px; bottom: 48px; display: flex; align-items: center; gap: 10px; transition: bottom 0.18s ease; }
   .fab-dock[hidden], .fab-dock > [hidden] { display: none !important; }
   .round-fab {
@@ -788,6 +790,9 @@
         break;
       case 'refreshed':
         if (fromId === visibleFrame) refreshDone(msg.note);
+        break;
+      case 'modal': // a pop-up is open in the screen (1.9): the menu, title strip and buttons wait
+        if (fromId === visibleFrame) document.body.classList.toggle('modal-open', !!msg.open);
         break;
       case 'actionbar':
         if (fromId === 'frame-index') { indexActionBar = !!msg.visible; indexBarHeight = Number(msg.height) || 0; liftAskButton(); }

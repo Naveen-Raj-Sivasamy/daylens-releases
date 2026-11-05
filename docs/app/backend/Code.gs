@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.8.0'; // always the same as the app's version (package.json) — a test keeps them equal
+var BACKEND_VERSION = '1.9.0'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -1075,6 +1075,8 @@ function doPostInner_(e) {
     if (body.action === 'takeOver') return jsonOut(takeOver_(callerSession, body));
     /** The leave calendar (everyone) and the year's holidays (admins). */
     if (body.action === 'leaveCalendar') return jsonOut(leaveCalendar_(body.year, new Date()));
+    /** 1.9: before a leave entry is saved — who else is off that day (and is it a holiday)? */
+    if (body.action === 'leaveClashes') return jsonOut(leaveClashes_(body.tab, body.values || {}, new Date()));
     if (body.action === 'saveHolidays') return jsonOut(saveHolidays_(callerSession, body));
     /** Weekly meeting form: actions still open from earlier meetings (everyone). */
     if (body.action === 'meetingOpenActions') return jsonOut({ ok: true, actions: meetingOpenActions_(body.tab) });
@@ -6254,6 +6256,35 @@ function holidaysOfYear_(year, monthFirst) {
   return out.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
 }
 
+/** 1.9: someone booking leave on a day another person is already off
+ * (or a holiday) is told before it's saved — the app asks "Change my plan
+ * or submit anyway?". The day's leave is read from the leave calendar (the
+ * same people, types and approvals it shows); the person's own entries
+ * and "from home" days don't count. */
+function leaveClashes_(tab, values, now) {
+  var none = { ok: true, clashes: [], holiday: '' };
+  if (getTabTypes()[tab] !== 'leave') return none;
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(String(tab || ''));
+  if (!sheet) return none;
+  var h = getHeaderRow(sheet);
+  var ni = activityPersonColumn_(h, 'leave'), di = activityDateColumn_(h, getFieldSchemaMap()[tab] || {}, 'leave');
+  if (ni === -1 || di === -1) return none;
+  var d = activityCellDate_(values[h[di]], sheetMonthFirst_());
+  if (!d) return none;
+  var who = String(values[h[ni]] == null ? '' : values[h[ni]]).trim();
+  var renamed = cached('renamedUsers', getRenamedUsers_);
+  var me = personKey_(renamed[who.toLowerCase()] || who);
+  var cal = leaveCalendar_(d.getFullYear(), now);
+  var k = dayKey_(d);
+  var others = (cal.days[k] || []).filter(function (x) { return !x.w && personKey_(x.n) !== me; });
+  var hol = (cal.holidays || []).filter(function (x) { return x.date === k; })[0];
+  return {
+    ok: true, date: k,
+    clashes: others.map(function (x) { return { name: x.n, type: x.t, half: x.h ? 1 : 0, pending: x.k === 'pending' ? 1 : 0 }; }),
+    holiday: hol ? String(hol.name || 'Holiday') : '',
+  };
+}
+
 function leaveCalendar_(year, now) {
   year = Math.round(Number(year)) || now.getFullYear();
   if (year < 2000 || year > 2100) year = now.getFullYear();
@@ -6815,6 +6846,8 @@ function dayKey_(d) {
  * week. Leave = rows in Leave tabs. Holidays don't count as working days. */
 // Which column says who a row is by: "Name" first, then the usual other
 // words for it (Resource, Owner, Employee name…), and Requester for tickets.
+// A tab whose name says it's leave (1.9: suggested as the leave tab when none is set).
+var LEAVE_LIKE_TAB_RE_ = /\b(leaves?|vacations?|time[ -]?off|absences?|pto|out of office|ooo)\b/i;
 var PERSON_COLUMN_RES_ = [
   /^name$/i,
   /^(user ?name|person|employee|team ?member|member|resource|owner|assignee|assigned to|submitted by|added by|logged by|updated by|done by|engineer|analyst)$/i,
@@ -6909,11 +6942,12 @@ function weekActivity_(now) {
   var people = {};
   var order = [];
   var byKey = {}; // personKey_ → the account it belongs to (active or not)
+  var demoKeys = {}; // Demo accounts: not the team — and not "a name nobody has" either (1.9)
   users.rows.forEach(function (row) {
     var rec = rowToUserRecord_(users.headers, row);
     var name = String(rec['Username']).trim();
     if (!name) return;
-    if (isDemoRole_(rec['Role'])) return; // a Demo account isn't in the team (nor "quiet" this week)
+    if (isDemoRole_(rec['Role'])) { demoKeys[personKey_(name)] = true; return; } // a Demo account isn't in the team (nor "quiet" this week)
     var active = isActiveValue_(rec['Active']);
     byKey[personKey_(name)] = { name: name, active: active };
     if (!active) return;
@@ -6977,7 +7011,9 @@ function weekActivity_(now) {
   var entriesTotal = 0;
   var byTab = {};
   var unmatched = {};
+  var unmatchedLeave = {}; // 1.9: leave coming up under a name nobody in People has (it isn't in "Who's off")
   var tabNotes = [];
+  var leaveLike = []; // 1.9: no tab is For: Leave, but one looks like it
   var tz = Session.getScriptTimeZone();
   var lastByPerson = {};
   // Only the tabs people see in Daylens: a hidden tab (an archive, a chart)
@@ -7025,7 +7061,8 @@ function weekActivity_(now) {
       }
     }
     var nameIdx = activityPersonColumn_(headers, type);
-    if (nameIdx === -1) { tabNotes.push({ tab: tab, why: 'no Name column, so its entries can\'t be counted for anyone' }); return; }
+    if (nameIdx === -1) { tabNotes.push({ tab: tab, why: type === 'leave' ? 'no Name column, so Daylens can\'t tell whose leave it is' : 'no Name column, so its entries can\'t be counted for anyone' }); return; }
+    if (type !== 'leave' && LEAVE_LIKE_TAB_RE_.test(tab)) leaveLike.push(tab);
     var dIdx = activityDateColumn_(headers, schema[tab] || {}, type);
     if (dIdx === -1) { tabNotes.push({ tab: tab, why: 'no date column, so its entries can\'t be placed in a week' }); return; }
     // Leave is read whole (leave booked months ahead sits among older
@@ -7047,6 +7084,10 @@ function weekActivity_(now) {
       var key = acct ? acct.name.toLowerCase() : '';
       var p = acct && acct.active ? people[key] : null;
       if (type === 'leave') {
+        if (!acct && !ignoredNames[personKey_(who)] && !demoKeys[personKey_(who)]) {
+          var uk = dayKey_(d);
+          if (nextSet[uk] || (d >= week.start && d < week.end)) unmatchedLeave[who] = (unmatchedLeave[who] || 0) + 1;
+        }
         if (!p) return;
         // Leave approval: only approved leave is leave; a request still
         // waiting shows as pending; a rejected one doesn't count at all.
@@ -7074,7 +7115,7 @@ function weekActivity_(now) {
       var tdow = (d.getDay() + 6) % 7;
       if (tdow < 5) dayTotals[tdow]++;
       byTab[tab] = (byTab[tab] || 0) + 1;
-      if (!acct) { if (!ignoredNames[personKey_(who)]) unmatched[who] = (unmatched[who] || 0) + 1; return; }
+      if (!acct) { if (!ignoredNames[personKey_(who)] && !demoKeys[personKey_(who)]) unmatched[who] = (unmatched[who] || 0) + 1; return; }
       if (!p) return; // a deactivated account
       p.entries++;
       p.tabs[tab] = (p.tabs[tab] || 0) + 1;
@@ -7118,6 +7159,8 @@ function weekActivity_(now) {
     // Why something might be missing — shown to admins on the dashboard.
     notes: {
       unmatched: Object.keys(unmatched).map(function (n) { return { name: n, entries: unmatched[n] }; }).sort(function (a, b) { return b.entries - a.entries; }).slice(0, 8),
+      unmatchedLeave: Object.keys(unmatchedLeave).map(function (n) { return { name: n, days: unmatchedLeave[n] }; }).sort(function (a, b) { return b.days - a.days; }).slice(0, 8),
+      leaveTabs: Object.keys(types).some(function (t) { return types[t] === 'leave'; }) ? [] : leaveLike.slice(0, 3),
       tabs: tabNotes,
       ignored: ignored,
     },

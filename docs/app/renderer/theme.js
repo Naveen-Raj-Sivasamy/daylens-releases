@@ -137,12 +137,12 @@
       chip: '#eef1f8', 'chip-hover': '#e3e8f4', border: '#e3e7f0',
       text: '#1d2433', 'text-dim': '#5f6b85',
       'on-brand': '#1d2433', 'on-brand-dim': '#5f6b85', muted: '#8a93a8',
-      gold: '#18a965', 'gold-bright': '#1fc078', 'on-gold': '#ffffff', 'accent-soft': 'rgba(24,169,101,0.12)',
+      gold: '#118452', 'gold-bright': '#0e7d4d', 'on-gold': '#ffffff', 'accent-soft': 'rgba(17,132,82,0.12)', // 1.9: deeper, so white text on it reads well (it's the default now)
       mode: 'light', 'page-bg': '#f4f6fb',
       'card-bg': '#ffffff', 'card-bg-2': '#f8f9fd', 'card-border': '#e7eaf3', 'card-shadow': '0 8px 24px rgba(30,45,90,0.08)',
       'card-text': '#1d2433', 'card-text-dim': '#5f6b85',
       'input-bg': '#ffffff', 'input-border': '#d9deea', 'input-text': '#1d2433',
-      'accent-grad': 'linear-gradient(135deg, #1fc078, #12804f)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(24,169,101,0.30)',
+      'accent-grad': 'linear-gradient(135deg, #139158, #0e7d4d)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(17,132,82,0.30)',
       'strip-bg': 'linear-gradient(90deg, #12372b, #1f5a45)', 'strip-text': '#ffffff', 'overlay-color': '#1f5a45', 'overlay-symbol': '#ffffff',
     },
     cloud: {
@@ -175,9 +175,22 @@
       'accent-grad': 'linear-gradient(135deg, #f97316, #c2410c)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(194,65,12,0.25)',
       'strip-bg': 'linear-gradient(90deg, #3b2a1d, #5a3e28)', 'strip-text': '#ffffff', 'overlay-color': '#5a3e28', 'overlay-symbol': '#ffffff'
     },
+    // 1.9: four more light themes.
+    mint: {
+      label: 'Mint', hint: 'Fresh mint white with deep green accents', 'brand': '#eef8f4', 'brand-hover': '#e1f2ea', 'chrome': '#ffffff', 'surface': '#ffffff', 'surface-hover': '#f2faf6', 'tile-hover': '#ffffff', 'chip': '#e3f4ec', 'chip-hover': '#d4ede1', 'border': '#d5eadf', 'text': '#123b2f', 'text-dim': '#4e6b61', 'on-brand': '#123b2f', 'on-brand-dim': '#4e6b61', 'muted': '#7f978d', 'gold': '#0f7f63', 'gold-bright': '#0b6e55', 'on-gold': '#ffffff', 'accent-soft': 'rgba(15,127,99,0.12)', mode: 'light', 'page-bg': 'linear-gradient(180deg, #f1faf6, #e4f3ec)', 'card-bg': '#ffffff', 'card-bg-2': '#f5fbf8', 'card-border': '#dcefe6', 'card-shadow': '0 8px 24px rgba(18,59,47,0.08)', 'card-text': '#123b2f', 'card-text-dim': '#4e6b61', 'input-bg': '#ffffff', 'input-border': '#c9e2d6', 'input-text': '#123b2f', 'accent-grad': 'linear-gradient(135deg, #14b48a, #0b6e55)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(15,127,99,0.26)', 'strip-bg': 'linear-gradient(90deg, #0c4a3b, #13715a)', 'overlay-color': '#13715a', 'strip-text': '#ffffff', 'overlay-symbol': '#ffffff'
+    },
+    blossom: {
+      label: 'Blossom', hint: 'Soft blush white with rose accents', 'brand': '#fbf1f4', 'brand-hover': '#f6e3ea', 'chrome': '#ffffff', 'surface': '#ffffff', 'surface-hover': '#fdf4f7', 'tile-hover': '#ffffff', 'chip': '#f8e6ed', 'chip-hover': '#f2d6e1', 'border': '#f0dbe4', 'text': '#3d1426', 'text-dim': '#7a5464', 'on-brand': '#3d1426', 'on-brand-dim': '#7a5464', 'muted': '#a3808e', 'gold': '#c2185b', 'gold-bright': '#ad1457', 'on-gold': '#ffffff', 'accent-soft': 'rgba(194,24,91,0.10)', mode: 'light', 'page-bg': 'linear-gradient(180deg, #fdf5f8, #f8e9ef)', 'card-bg': '#ffffff', 'card-bg-2': '#fdf7f9', 'card-border': '#f3dfe7', 'card-shadow': '0 8px 24px rgba(61,20,38,0.08)', 'card-text': '#3d1426', 'card-text-dim': '#7a5464', 'input-bg': '#ffffff', 'input-border': '#ebcfdb', 'input-text': '#3d1426', 'accent-grad': 'linear-gradient(135deg, #ec4899, #be185d)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(194,24,91,0.25)', 'strip-bg': 'linear-gradient(90deg, #5c1631, #8e2450)', 'overlay-color': '#8e2450', 'strip-text': '#ffffff', 'overlay-symbol': '#ffffff'
+    },
+    lilac: {
+      label: 'Lilac', hint: 'Pale lavender with violet accents', 'brand': '#f4f2fc', 'brand-hover': '#e9e5f8', 'chrome': '#ffffff', 'surface': '#ffffff', 'surface-hover': '#f7f5fd', 'tile-hover': '#ffffff', 'chip': '#ece8fa', 'chip-hover': '#dfd8f5', 'border': '#e2ddf3', 'text': '#231a45', 'text-dim': '#5f5880', 'on-brand': '#231a45', 'on-brand-dim': '#5f5880', 'muted': '#8c86a6', 'gold': '#6d3fd6', 'gold-bright': '#5b30c2', 'on-gold': '#ffffff', 'accent-soft': 'rgba(109,63,214,0.11)', mode: 'light', 'page-bg': 'linear-gradient(180deg, #f6f4fd, #ece8f9)', 'card-bg': '#ffffff', 'card-bg-2': '#f8f7fd', 'card-border': '#e6e1f5', 'card-shadow': '0 8px 24px rgba(35,26,69,0.08)', 'card-text': '#231a45', 'card-text-dim': '#5f5880', 'input-bg': '#ffffff', 'input-border': '#d6cfee', 'input-text': '#231a45', 'accent-grad': 'linear-gradient(135deg, #8b5cf6, #5b30c2)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(109,63,214,0.26)', 'strip-bg': 'linear-gradient(90deg, #2e1f66, #4a33a0)', 'overlay-color': '#4a33a0', 'strip-text': '#ffffff', 'overlay-symbol': '#ffffff'
+    },
+    paper: {
+      label: 'Paper', hint: 'Plain white and grey, black accents — no colour', 'brand': '#f5f5f4', 'brand-hover': '#ebebea', 'chrome': '#ffffff', 'surface': '#ffffff', 'surface-hover': '#f7f7f6', 'tile-hover': '#ffffff', 'chip': '#eeeeec', 'chip-hover': '#e3e3e0', 'border': '#e2e2df', 'text': '#1c1c1a', 'text-dim': '#5f5f5a', 'on-brand': '#1c1c1a', 'on-brand-dim': '#5f5f5a', 'muted': '#8f8f89', 'gold': '#1c1c1a', 'gold-bright': '#000000', 'on-gold': '#ffffff', 'accent-soft': 'rgba(28,28,26,0.08)', mode: 'light', 'page-bg': '#f5f5f4', 'card-bg': '#ffffff', 'card-bg-2': '#fafaf9', 'card-border': '#e7e7e4', 'card-shadow': '0 8px 24px rgba(0,0,0,0.06)', 'card-text': '#1c1c1a', 'card-text-dim': '#5f5f5a', 'input-bg': '#ffffff', 'input-border': '#d6d6d2', 'input-text': '#1c1c1a', 'accent-grad': 'linear-gradient(135deg, #3a3a36, #111110)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(0,0,0,0.18)', 'strip-bg': 'linear-gradient(90deg, #1c1c1a, #3a3a36)', 'overlay-color': '#3a3a36', 'strip-text': '#ffffff', 'overlay-symbol': '#ffffff'
+    },
   };
   var KEY = 'statusApp.theme';
-  var DEFAULT = 'forest';
+  var DEFAULT = 'light'; // 1.9: light unless the person picks another (Settings → Theme)
 
   var styleEl = document.createElement('style');
   styleEl.id = 'theme-vars';
@@ -208,7 +221,8 @@
     // buttons to sit on this theme's title strip.
     try {
       if (window.top === window && window.statusApp && window.statusApp.setTitleBarColors) {
-        window.statusApp.setTitleBarColors(t['overlay-color'], t['overlay-symbol']);
+        // (and the window's own colour, so the next start opens in this theme — no flash of another)
+        window.statusApp.setTitleBarColors(t['overlay-color'], t['overlay-symbol'], t.mode === 'light' ? t.brand : t.chrome);
       }
     } catch (e) { /* not available on this page */ }
   }
