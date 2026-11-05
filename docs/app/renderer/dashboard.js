@@ -46,7 +46,7 @@
     if (p.pendingDays && p.pendingDays[i]) return '<span class="dd pending" title="Leave requested — waiting for approval">⏳</span>';
     if (d.week.holidays && d.week.holidays[i]) return '<span class="dd hol" title="Holiday">✦</span>';
     if (d.weekOffset === 0 && d.week.today >= 0 && i > d.week.today) return '<span class="dd later" title="Later this week"></span>';
-    return '<span class="dd off" title="Nothing logged"></span>';
+    return '<span class="dd off" title="No entries"></span>';
   }
 
   // A plain, printable page of the same numbers (for the PDF / picture).
@@ -65,7 +65,7 @@
       ul{margin:6px 0 0 18px;padding:0;font-size:13px} .foot{margin-top:22px;color:#8a92a3;font-size:11px}
     </style></head><body>
       <h1>${esc(d.teamName || 'Team')} — ${esc(offsetLabel(d.weekOffset || 0).toLowerCase())}</h1><p class="sub">${esc(weekLabel(d))}</p>
-      <div class="stats"><div class="st"><b>${t.entries || 0}</b><span>entries</span></div><div class="st"><b>${t.logged || 0} of ${t.people || 0}</b><span>people logged</span></div><div class="st"><b>${t.onLeaveToday || 0}</b><span>on leave today</span></div><div class="st"><b>${t.openTickets || 0}</b><span>open tickets</span></div></div>
+      <div class="stats"><div class="st"><b>${t.entries || 0}</b><span>entries</span></div><div class="st"><b>${t.logged || 0} of ${t.people || 0}</b><span>people with entries</span></div><div class="st"><b>${t.onLeaveToday || 0}</b><span>on leave today</span></div><div class="st"><b>${t.openTickets || 0}</b><span>open tickets</span></div></div>
       <table><thead><tr><th>Person</th>${DAYS.map((x) => `<th class="c">${x}</th>`).join('')}<th class="c">Entries</th><th>Last entry</th></tr></thead><tbody>${rows}</tbody></table>
       ${byTab ? `<p class="sub" style="margin-top:16px">Entries by tab</p><ul>${byTab}</ul>` : ''}${stuck}
       <p class="foot">Made with Daylens · ${esc(new Date().toLocaleString())}</p></body></html>`;
@@ -82,8 +82,10 @@
     if (!un.length && !tabs.length && !nIgnored) return '';
     const lines = [];
     un.forEach((u) => lines.push(`<li><b>${esc(u.name)}</b>: ${u.entries} ${u.entries === 1 ? 'entry' : 'entries'} this week, but nobody in People has that name. <button type="button" class="dn-btn dn-ignore-name" data-v="${esc(u.name)}">Ignore</button></li>`));
-    tabs.forEach((x) => lines.push(`<li><b>${esc(x.tab)}</b>: ${esc(x.why)}. <button type="button" class="dn-btn dn-ignore-tab" data-v="${esc(x.tab)}">Don't count this tab</button></li>`));
-    const hint = un.length ? '<p class="dn-hint">For a name: rename the person in People to match (or fix the Name on those rows) and the entries count.</p>' : '';
+    // 1.8: a holiday list isn't anyone's entries: one click makes it the team's holiday list.
+    tabs.forEach((x) => lines.push(`<li><b>${esc(x.tab)}</b>: ${esc(x.why)}. ${/holiday/i.test(x.tab) ? `<button type="button" class="dn-btn dn-holiday-tab" data-v="${esc(x.tab)}">It's our holiday list</button> ` : ''}<button type="button" class="dn-btn dn-ignore-tab" data-v="${esc(x.tab)}">Don't count this tab</button></li>`));
+    const hint = (un.length ? '<p class="dn-hint">For a name: rename the person in People to match (or fix the Name on those rows) and the entries count.</p>' : '') +
+      (tabs.length ? '<p class="dn-hint">For a tab: if people log their own work there, add a Name field to it in Tabs &amp; fields and it counts. If it\'s a list (a project\'s pages, holidays), it doesn\'t need counting.</p>' : '');
     const ignored = nIgnored ? `<details class="dn-ignored" id="dash-ignored"><summary>Ignored (${nIgnored})</summary><ul>${(ig.names || []).map((v) => `<li>${esc(v)} <button type="button" class="dn-btn dn-unignore-name" data-v="${esc(v)}">Stop ignoring</button></li>`).join('')}${(ig.tabs || []).map((v) => `<li>${esc(v)} (tab) <button type="button" class="dn-btn dn-unignore-tab" data-v="${esc(v)}">Count it again</button></li>`).join('')}</ul></details>` : '';
     const title = lines.length ? `Something missing? (${lines.length})` : 'Nothing missing';
     return `<details class="dash-notes" id="dash-notes" ${open ? 'open' : ''}><summary>${title}</summary>${lines.length ? `<ul>${lines.join('')}</ul>${hint}` : ''}${ignored}<div class="dn-msg" id="dn-msg" role="status"></div></details>`;
@@ -96,10 +98,10 @@
     const off = d.weekOffset || 0;
     const stuck = t.stuckTickets || 0;
     if (!t.people) return 'No one is in the team yet.';
-    if (off < 0) return `${offsetLabel(off)}, ${t.logged || 0} of ${t.people} people logged ${plural(t.entries || 0, 'entry', 'entries')}.`;
-    const who = t.logged === t.people ? 'Everyone has logged this week'
-      : !t.logged ? 'Nobody has logged anything yet this week'
-      : `${t.logged} of ${t.people} people have logged this week`;
+    if (off < 0) return `${offsetLabel(off)}, ${t.logged || 0} of ${t.people} people added ${plural(t.entries || 0, 'entry', 'entries')}.`;
+    const who = t.logged === t.people ? 'Everyone has added entries this week'
+      : !t.logged ? 'Nobody has added anything yet this week'
+      : `${t.logged} of ${t.people} people have added entries this week`;
     return stuck ? `${who}, and ${stuck === 1 ? '1 ticket has' : stuck + ' tickets have'} waited more than a week.` : who + '.';
   }
 
@@ -129,7 +131,7 @@
     const ring = `<svg class="k-ring" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" class="k-ring-track"/><circle cx="20" cy="20" r="16" class="k-ring-fill" stroke-dasharray="${(C * frac).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 20 20)"/></svg>`;
     const k2 = off !== 0 ? '' : !t.people ? '' : !quiet.length ? '<span class="k-note up">Everyone\'s in</span>'
       : quiet.length === 1 ? `<span class="k-note warn">${esc(quiet[0].name)}: nothing yet this week</span>`
-      : `<span class="k-note warn">${quiet.length} haven't logged yet</span>`;
+      : `<span class="k-note warn">${quiet.length} haven't added anything yet</span>`;
     // 3 — leave
     let k3 = '', leaveN = t.onLeaveToday || 0, leaveLabel = 'on leave today';
     if (off !== 0) {
@@ -152,7 +154,7 @@
     const k4 = off !== 0 || stuck == null ? '' : stuck ? `<span class="k-note warn"><span aria-hidden="true">⏳</span> ${stuck} waiting over a week</span>` : '<span class="k-note up">None waiting over a week</span>';
     return `<div class="d2-kpis">
       <div class="dash-stat"><b>${t.entries || 0}</b><span>entries ${off === 0 ? 'this week' : 'that week'}</span>${k1}</div>
-      <div class="dash-stat has-ring"><b>${t.logged || 0}<small>/${t.people || 0}</small></b><span>people logged</span>${k2}${ring}</div>
+      <div class="dash-stat has-ring"><b>${t.logged || 0}<small>/${t.people || 0}</small></b><span>people with entries</span>${k2}${ring}</div>
       <div class="dash-stat"><b>${leaveN}</b><span>${leaveLabel}</span>${k3}</div>
       <button type="button" class="dash-stat as-btn" id="dash-k-tickets" title="Open the ticket board"><b>${t.openTickets || 0}</b><span>open tickets</span>${k4}</button>
     </div>`;
@@ -171,7 +173,7 @@
         <div class="dp-row dp-head" role="row"><span class="dp-name" role="columnheader">Person</span>${DAYS.map((x, i) => `<span class="dp-day${i === today ? ' today' : ''}" role="columnheader">${x} ${dayNum(days[i])}</span>`).join('')}<span class="dp-n" role="columnheader">Total</span><span class="dp-k"></span></div>
         ${people.map((p, idx) => `
           <div class="dp-row" role="row" data-person="${esc(p.name)}">
-            <span class="dp-name" role="cell"><span class="dp-av">${esc(initials(p.name))}</span><span class="dp-nm" title="${esc(p.lastEntry ? 'Last entry ' + short(p.lastEntry) : 'No entries in the last few weeks')}">${esc(p.name)}</span>${quiet.has(p.name) && today > 0 ? '<span class="dp-quiet">quiet this week</span>' : ''}</span>
+            <span class="dp-name" role="cell"><span class="dp-av">${esc(initials(p.name))}</span><span class="dp-nm" title="${esc(p.lastEntry ? 'Last entry ' + short(p.lastEntry) : 'No entries in the last few weeks')}">${esc(p.name)}</span>${quiet.has(p.name) && today > 0 ? '<span class="dp-quiet" title="No entries dated this week yet (signing in doesn\'t count)">no entries yet</span>' : ''}</span>
             ${DAYS.map((x, i) => `<span class="dp-day" role="cell">${dayCell(p, i, d, max)}</span>`).join('')}
             <span class="dp-n" role="cell">${p.entries}</span>
             <span class="dp-k">${canKudos(p) ? `<button type="button" class="dash-btn kudos-btn" data-i="${idx}" title="Send ${esc(p.name)} kudos" aria-label="Send ${esc(p.name)} kudos">🎉</button>` : ''}</span>
@@ -408,6 +410,16 @@
         const without = (list, v) => list.filter((x) => String(x).toLowerCase() !== String(v).toLowerCase());
         notes.querySelectorAll('.dn-ignore-name').forEach((b) => { b.onclick = () => change({ names: ig.names.concat([b.dataset.v]), tabs: ig.tabs }); });
         notes.querySelectorAll('.dn-ignore-tab').forEach((b) => { b.onclick = () => change({ names: ig.names, tabs: ig.tabs.concat([b.dataset.v]) }); });
+        notes.querySelectorAll('.dn-holiday-tab').forEach((b) => {
+          b.onclick = async () => {
+            const m = notes.querySelector('#dn-msg');
+            m.textContent = 'Saving…';
+            const r = await window.statusApp.setTabType(b.dataset.v, 'holiday').catch((e) => ({ ok: false, error: e.message }));
+            if (!r || !r.ok) { m.textContent = (r && r.error) || 'Couldn\'t save that.'; return; }
+            notesOpen = true;
+            load(offset, { fresh: true });
+          };
+        });
         notes.querySelectorAll('.dn-unignore-name').forEach((b) => { b.onclick = () => change({ names: without(ig.names, b.dataset.v), tabs: ig.tabs }); });
         notes.querySelectorAll('.dn-unignore-tab').forEach((b) => { b.onclick = () => change({ names: ig.names, tabs: without(ig.tabs, b.dataset.v) }); });
       }
@@ -467,7 +479,7 @@
     function skeleton(off) {
       hero.innerHTML = heroHtml(off === 0 ? 'Your team this week' : offsetLabel(off), 'Getting the team\'s week…', off);
       wireHero();
-      body.innerHTML = `<div class="d2-kpis">${['entries', 'people logged', 'on leave today', 'open tickets'].map((l) => `<div class="dash-stat"><b class="sk">—</b><span>${l}</span></div>`).join('')}</div>
+      body.innerHTML = `<div class="d2-kpis">${['entries', 'people with entries', 'on leave today', 'open tickets'].map((l) => `<div class="dash-stat"><b class="sk">—</b><span>${l}</span></div>`).join('')}</div>
         <div class="d2-row"><section class="d2-panel d2-week"><div class="d2-ph"><h3>The team's week</h3></div><div class="dash-people">${[1, 2, 3].map(() => '<div class="dp-row"><span class="dp-name"><span class="dp-av sk"> </span><span class="sk-bar"></span></span></div>').join('')}</div></section><section class="d2-panel d2-wait"><div class="d2-ph"><h3>Waiting more than a week</h3></div><span class="sk-bar"></span></section></div>`;
     }
     load(0);

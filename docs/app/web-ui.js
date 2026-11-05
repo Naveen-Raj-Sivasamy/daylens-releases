@@ -36,6 +36,8 @@
     });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('web-nav-open')) { set(false); btn.focus(); } });
     window.addEventListener('message', (e) => { if (e.data && e.data.__webCloseNav) set(false); });
+    const dock = $('#fab-dock'); // Refresh / Reminders / Ask (1.8): the menu folds away too
+    if (dock) dock.addEventListener('click', () => set(false));
   }
 
   // ---------- "Keep me signed in" on the join and sign-in forms ----------

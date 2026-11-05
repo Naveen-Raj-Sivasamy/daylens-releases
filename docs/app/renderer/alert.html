@@ -14,8 +14,10 @@
 <!--
   The corner pop-up for reminders that fall due. On top of every other
   app, and it STAYS until the person acts on each card: Done, Snooze
-  (1 hour, just for them), Open (the app / the other team it belongs to),
-  or ✕ (closes the card; the reminder stays in Today until it's done).
+  (5 minutes, 15 minutes or an hour, just for them), Open (the app / the
+  other team it belongs to), or Stop / ✕ (closes the card; the reminder
+  stays in Today until it's done). 1.8: while a card is up it pulses red
+  (slowly; steady with motion turned off) and the alarm repeats.
 -->
 <style>
   * { box-sizing: border-box; }
@@ -50,6 +52,9 @@
   }
   .x:hover { opacity: 1; background: rgba(255,255,255,0.10); }
   html[data-mode="light"] .x:hover { background: #eef1f8; }
+  .card { animation: alarm-pulse 1.2s ease-in-out infinite; border-left-color: #e5484d !important; }
+  @keyframes alarm-pulse { 50% { box-shadow: 0 0 0 3px #e5484d, 0 12px 34px rgba(229,72,77,0.55); } }
+  @media (prefers-reduced-motion: reduce) { .card { animation: none; box-shadow: 0 0 0 3px #e5484d, 0 12px 34px rgba(0,0,0,0.35); } }
   .more { text-align: right; font-size: 12px; font-weight: 700; color: #fff; padding: 0 6px; text-shadow: 0 1px 3px rgba(0,0,0,0.6); cursor: pointer; }
 </style>
 </head>
@@ -74,13 +79,13 @@
           ${it.teamName ? `<span class="team">${esc(it.teamName)}</span>` : ''}
           <div class="actions">
             ${it.canAct
-              ? '<button type="button" class="primary" data-a="done">Done</button><button type="button" data-a="snooze">Snooze 1 hour</button><button type="button" data-a="open">Open</button>'
-              : `<button type="button" class="primary" data-a="open">Open ${esc(it.teamName || 'Daylens')}</button>`}
+              ? '<button type="button" class="primary" data-a="done">Done</button><button type="button" data-a="snooze" data-m="5">Snooze 5 min</button><button type="button" data-a="snooze" data-m="15">15 min</button><button type="button" data-a="snooze" data-m="60">1 hour</button><button type="button" data-a="close">Stop</button><button type="button" data-a="open">Open</button>'
+              : `<button type="button" class="primary" data-a="open">Open ${esc(it.teamName || 'Daylens')}</button><button type="button" data-a="close">Stop</button>`}
           </div>
         </div>
-        <button type="button" class="x" data-a="close" title="Close this pop-up (it stays in Today)" aria-label="Close">✕</button>`;
+        <button type="button" class="x" data-a="close" title="Stop the alarm (the reminder stays in Today)" aria-label="Stop">✕</button>`;
       card.querySelectorAll('[data-a]').forEach((b) => {
-        b.onclick = () => { b.disabled = true; window.statusApp.alertAction(it.key, b.dataset.a); };
+        b.onclick = () => { b.disabled = true; window.statusApp.alertAction(it.key, b.dataset.a, Number(b.dataset.m) || 0); };
       });
       stack.appendChild(card);
     });
@@ -92,8 +97,16 @@
       stack.appendChild(more);
     }
     requestAnimationFrame(() => window.statusApp.resizeAlert(document.body.scrollHeight));
-    if (data && data.chime) window.playChime();
+    // The alarm: right away for a new reminder, then every 4 seconds while any card is up.
+    alarmOn = !!(data && data.alarm) && items.length > 0;
+    clearInterval(alarmTimer);
+    if (alarmOn) {
+      if (data.chime) window.playAlarm();
+      alarmTimer = setInterval(() => { if (alarmOn) window.playAlarm(); }, ALARM_EVERY_MS);
+    }
   }
+  const ALARM_EVERY_MS = 4000;
+  let alarmOn = false, alarmTimer = null;
   window.statusApp.onAlertData(render);
 </script>
 </body>

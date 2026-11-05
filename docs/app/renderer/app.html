@@ -169,8 +169,48 @@
   /* Ask Daylens (assistant.js): a round lens button, bottom right. It moves
      up while a Save / Submit bar is showing at the bottom, so it never
      covers those buttons. */
+  .fab-dock { position: fixed; z-index: 44; right: 24px; bottom: 48px; display: flex; align-items: center; gap: 10px; transition: bottom 0.18s ease; }
+  .fab-dock[hidden], .fab-dock > [hidden] { display: none !important; }
+  .round-fab {
+    position: relative; width: 50px; height: 50px; flex: none; border-radius: 50%; border: 1px solid var(--line); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; padding: 0;
+    background: var(--chrome); color: var(--on-brand); box-shadow: 0 10px 28px rgba(0,0,0,0.35); transition: transform 0.12s ease;
+  }
+  html[data-mode="light"] .round-fab { background: #fff; color: #1d2433; border-color: #e3e7f0; box-shadow: 0 10px 28px rgba(30,45,90,0.18); }
+  .round-fab svg { width: 22px; height: 22px; stroke: currentColor; }
+  .round-fab:hover { transform: translateY(-1px); }
+  .round-fab:focus-visible { outline: 3px solid var(--gold-bright); outline-offset: 2px; }
+  .round-fab.active { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 10px 28px rgba(0,0,0,0.3); }
+  .round-fab .fab-badge { position: absolute; top: -5px; right: -5px; margin: 0; box-shadow: 0 0 0 2px var(--chrome); }
+  #refresh-btn.busy svg { animation: dl-spin 0.8s linear infinite; }
+  @keyframes dl-spin { to { transform: rotate(360deg); } }
+  .refresh-toast { position: fixed; z-index: 47; right: 24px; bottom: 110px; max-width: min(360px, calc(100vw - 48px)); padding: 9px 14px; border-radius: 12px;
+    background: var(--chrome); color: var(--on-brand); border: 1px solid var(--line); box-shadow: 0 12px 34px rgba(0,0,0,0.35); font-size: 13px; font-weight: 650; }
+  html[data-mode="light"] .refresh-toast { background: #fff; color: #1d2433; border-color: #e3e7f0; }
+  body.bar-up .refresh-toast { bottom: calc(var(--bar-lift, 112px) + 62px); }
+  /* The reminder alarm (1.8): a red glow round the whole window that
+     pulses slowly (well under 3 flashes a second), steady for anyone who
+     turns motion off; and a bar saying what's due, with its buttons. */
+  .alarm-glow { position: fixed; inset: 0; z-index: 60; pointer-events: none; box-shadow: inset 0 0 0 6px #e5484d, inset 0 0 60px 18px rgba(229,72,77,0.55);
+    background: rgba(229,72,77,0.08); animation: dl-alarm 1.2s ease-in-out infinite; }
+  @keyframes dl-alarm { 50% { opacity: 0.25; } }
+  .alarm-bar { position: fixed; z-index: 61; top: 14px; left: 50%; transform: translateX(-50%); width: min(720px, calc(100vw - 32px));
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 14px;
+    background: #b4232a; color: #fff; box-shadow: 0 18px 50px rgba(0,0,0,0.45); }
+  .alarm-ic { font-size: 22px; line-height: 1; }
+  .alarm-text { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .alarm-text b { font-size: 14.5px; line-height: 1.3; overflow-wrap: anywhere; }
+  .alarm-text span { font-size: 12.5px; opacity: 0.92; overflow-wrap: anywhere; }
+  .alarm-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .alarm-actions button { border: 1px solid rgba(255,255,255,0.55); background: rgba(255,255,255,0.12); color: #fff; border-radius: 9px; padding: 7px 11px;
+    font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; }
+  .alarm-actions button.primary { background: #fff; color: #8d1b21; border-color: #fff; }
+  .alarm-actions button:hover { background: rgba(255,255,255,0.24); }
+  .alarm-actions button.primary:hover { background: #ffe9ea; }
+  .alarm-actions button:focus-visible { outline: 3px solid #ffd479; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .alarm-glow { animation: none; } #refresh-btn.busy svg { animation: none; opacity: 0.55; } }
   .ask-fab {
-    position: fixed; z-index: 44; right: 24px; bottom: 48px; height: 50px; min-width: 50px; padding: 0 18px 0 14px;
+    position: static; height: 50px; min-width: 50px; padding: 0 18px 0 14px;
     display: inline-flex; align-items: center; gap: 8px; border: none; border-radius: 999px; cursor: pointer;
     background: var(--accent-grad); color: var(--on-accent); font: inherit; font-size: 14px; font-weight: 800;
     box-shadow: var(--accent-glow), 0 10px 28px rgba(0,0,0,0.35); transition: bottom 0.18s ease, transform 0.12s ease;
@@ -180,7 +220,7 @@
   .ask-fab:focus-visible { outline: 3px solid var(--gold-bright); outline-offset: 2px; }
   .ask-fab[aria-expanded="true"] { filter: brightness(0.95); }
   .ask-fab[hidden] { display: none; }
-  body.bar-up .ask-fab { bottom: var(--bar-lift, 112px); }
+  body.bar-up .fab-dock { bottom: var(--bar-lift, 112px); }
   body.bar-up .ask-panel { bottom: calc(var(--bar-lift, 112px) + 60px); }
   .ask-panel {
     position: fixed; z-index: 46; top: 46px; right: 24px; bottom: 108px; width: min(420px, calc(100vw - 48px)); display: flex; flex-direction: column;
@@ -335,10 +375,6 @@
         <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.2 12 3.5l8.5 6.7"/><path d="M5.5 8.8V20h4.5v-5.5h4V20h4.5V8.8"/></svg>
         Home
       </button>
-      <button class="nav-item" data-section="reminders">
-        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-        Reminders <span class="badge-count" id="reminders-badge" hidden></span>
-      </button>
       <button class="nav-item" data-section="approvals" id="approvals-item" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5 11.2 14 16 9"/><rect x="3.5" y="4" width="17" height="16.5" rx="2.5"/><path d="M8 2.5v3M16 2.5v3"/></svg>
         Approvals <span class="badge-count" id="approvals-badge" hidden></span>
@@ -396,11 +432,30 @@
       <div class="lock-note" id="lock-note">Log in (or finish the update) on the right — the menu unlocks after.</div>
     </div>
   </nav>
-  <!-- Ask Daylens: always at hand, bottom right (above any Save / Submit bar). -->
-  <button type="button" class="ask-fab" id="ask-btn" aria-haspopup="dialog" aria-expanded="false" title="Ask Daylens — find things, get help, fill in an entry">
-    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/><path d="M10.5 7.2v1.6M10.5 12.2v1.6M7.2 10.5h1.6M12.2 10.5h1.6" stroke-width="1.6"/></svg>
-    <span>Ask</span>
-  </button>
+  <!-- Bottom right, on every screen (above any Save / Submit bar): Refresh
+       this screen, Reminders, Ask Daylens. -->
+  <div class="fab-dock" id="fab-dock">
+    <button type="button" class="round-fab" id="refresh-btn" title="Refresh — fresh data from the Sheet for this screen" aria-label="Refresh this screen">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5a8 8 0 1 0-2.3 5.7"/><path d="M20 4.5v7h-7"/></svg>
+    </button>
+    <button type="button" class="round-fab" id="reminders-btn" data-section="reminders" title="Reminders" aria-label="Reminders">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="7.5"/><path d="M12 9.5V13l2.4 1.8"/><path d="M4.5 4.8 7 2.8M19.5 4.8 17 2.8M7.5 20.5 6 22M16.5 20.5 18 22"/></svg>
+      <span class="badge-count fab-badge" id="reminders-badge" hidden></span>
+    </button>
+    <button type="button" class="ask-fab" id="ask-btn" aria-haspopup="dialog" aria-expanded="false" title="Ask Daylens — find things, get help, fill in an entry">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/><path d="M10.5 7.2v1.6M10.5 12.2v1.6M7.2 10.5h1.6M12.2 10.5h1.6" stroke-width="1.6"/></svg>
+      <span>Ask</span>
+    </button>
+  </div>
+  <div class="refresh-toast" id="refresh-toast" role="status" aria-live="polite" hidden></div>
+  <!-- A reminder that's due: the whole window pulses red, with what's due
+       and Snooze / Stop / Done, until one is pressed (1.8). -->
+  <div class="alarm-glow" id="alarm-glow" hidden></div>
+  <div class="alarm-bar" id="alarm-bar" role="alert" hidden>
+    <span class="alarm-ic" aria-hidden="true">⏰</span>
+    <div class="alarm-text"><b id="alarm-title"></b><span id="alarm-detail"></span></div>
+    <div class="alarm-actions" id="alarm-actions"></div>
+  </div>
 
   <div class="content" id="content">
     <iframe id="frame-index" title="Daylens" class="visible"></iframe>
@@ -472,6 +527,7 @@
       if (on) el.setAttribute('aria-current', 'page'); else el.removeAttribute('aria-current');
     };
     document.querySelectorAll('nav .nav-item[data-section]').forEach((b) => mark(b, b.dataset.section === active));
+    mark(document.getElementById('reminders-btn'), active === 'reminders');
     mark(document.getElementById('team-card'), active === 'team');
   }
 
@@ -705,6 +761,8 @@
     // Ask Daylens needs you signed in (and past any update screen).
     const ask = document.getElementById('ask-btn');
     if (ask) ask.hidden = !!v;
+    // Refresh and Reminders too (the sign-in / update screen has its own buttons).
+    ['refresh-btn', 'reminders-btn'].forEach((id) => { const b = document.getElementById(id); if (b) b.hidden = !!v; });
     if (v && typeof assistant !== 'undefined') assistant.reset();
     nav.classList.toggle('locked', v);
     lockNote.style.display = v ? 'block' : 'none';
@@ -727,6 +785,9 @@
         break;
       case 'gate':
         if (fromId === 'frame-index') setLocked(!!msg.locked);
+        break;
+      case 'refreshed':
+        if (fromId === visibleFrame) refreshDone(msg.note);
         break;
       case 'actionbar':
         if (fromId === 'frame-index') { indexActionBar = !!msg.visible; indexBarHeight = Number(msg.height) || 0; liftAskButton(); }
@@ -879,6 +940,70 @@
   // signed-in person; a desktop notification click lands on Reminders.
   window.statusApp.onRemindersDue((n) => setRemindersBadge(n));
   window.statusApp.onOpenReminders(() => goSection('reminders'));
+  document.getElementById('reminders-btn').onclick = () => goSection('reminders');
+
+  // Refresh (1.8): fresh data from the Sheet for the screen you're on —
+  // the Sheet's own short-term copies and this app's are dropped, then the
+  // screen redraws where you are (a half-filled form keeps what's typed).
+  const refreshBtn = document.getElementById('refresh-btn');
+  const refreshToast = document.getElementById('refresh-toast');
+  let refreshTimer = null, toastTimer = null;
+  function refreshDone(note) {
+    clearTimeout(refreshTimer);
+    refreshBtn.classList.remove('busy');
+    refreshBtn.removeAttribute('aria-busy');
+    refreshToast.textContent = note || 'Up to date with the Sheet.';
+    refreshToast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { refreshToast.hidden = true; }, 3500);
+  }
+  refreshBtn.onclick = async () => {
+    if (locked || refreshBtn.classList.contains('busy')) return;
+    refreshBtn.classList.add('busy');
+    refreshBtn.setAttribute('aria-busy', 'true');
+    refreshToast.hidden = true;
+    let res = null;
+    try { res = await window.statusApp.refreshData(); } catch { /* offline: the screen still redraws from what's here */ }
+    refreshSession();
+    refreshTeam();
+    refreshApprovals();
+    const f = frames[visibleFrame];
+    if (!f || visibleFrame === 'frame-connect') { refreshDone(); return; }
+    f.contentWindow.postMessage({ __statusApp: true, type: 'refresh-screen', offline: !!(res && res.offline) }, '*');
+    refreshTimer = setTimeout(() => refreshDone(), 15000); // a screen that never answers
+  };
+
+  // The reminder alarm (1.8): while a reminder is due and not snoozed or
+  // stopped, the window pulses red and this bar says what's due.
+  const alarmGlow = document.getElementById('alarm-glow');
+  const alarmBar = document.getElementById('alarm-bar');
+  let alarmKey = '';
+  function renderAlarm(data) {
+    const items = (data && data.items) || [];
+    const it = items[items.length - 1]; // the newest
+    alarmGlow.hidden = alarmBar.hidden = !it;
+    if (!it) { alarmKey = ''; return; }
+    const isNew = it.key !== alarmKey;
+    alarmKey = it.key;
+    document.getElementById('alarm-title').textContent = it.title + (items.length > 1 ? `  (+${items.length - 1} more)` : '');
+    document.getElementById('alarm-detail').textContent = [it.teamName, it.detail].filter(Boolean).join(' — ');
+    const acts = document.getElementById('alarm-actions');
+    const btn = (label, action, minutes, primary) => `<button type="button" data-a="${action}"${minutes ? ` data-m="${minutes}"` : ''}${primary ? ' class="primary"' : ''}>${label}</button>`;
+    acts.innerHTML = it.canAct
+      ? btn('Done', 'done', 0, true) + btn('Snooze 5 min', 'snooze', 5) + btn('15 min', 'snooze', 15) + btn('1 hour', 'snooze', 60) + btn('Stop', 'close') + btn('Open', 'open')
+      : btn('Open ' + (it.teamName || 'its team'), 'open', 0, true) + btn('Stop', 'close');
+    if (items.length > 1) acts.insertAdjacentHTML('beforeend', btn(`Stop all ${items.length}`, 'close-all'));
+    acts.querySelectorAll('button').forEach((b) => {
+      b.onclick = async () => {
+        acts.querySelectorAll('button').forEach((x) => { x.disabled = true; });
+        if (b.dataset.a === 'close-all') { for (const x of items) await window.statusApp.alertAction(x.key, 'close'); return; } // all stay in Today
+        window.statusApp.alertAction(it.key, b.dataset.a, Number(b.dataset.m) || 0);
+      };
+    });
+    // (Focus stays where it is: someone typing must never land on "Done" by a keypress.)
+    if (isNew) alarmBar.setAttribute('aria-label', 'Reminder due: ' + it.title);
+  }
+  if (window.statusApp.onReminderAlarm) window.statusApp.onReminderAlarm(renderAlarm);
 
   document.getElementById('signin-chip').onclick = () => {
     showFrame('frame-index');

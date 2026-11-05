@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.7.0'; // always the same as the app's version (package.json) — a test keeps them equal
+var BACKEND_VERSION = '1.8.0'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -472,7 +472,15 @@ function doPostInner_(e) {
      * right after reordering tabs in the Sheet, so the new order shows up
      * immediately instead of waiting out CACHE_SECONDS. */
     if (body.action === 'clearCache') {
-      clearCache();
+      // Also the button by Ask (1.8, Refresh): the dashboard and leave
+      // calendar are worked out afresh too. Many presses within 10 seconds
+      // (a whole team refreshing at once) clear once.
+      var ccCache = CacheService.getScriptCache();
+      if (!ccCache.get('cc:recent')) {
+        ccCache.put('cc:recent', '1', 10);
+        clearCache();
+        forgetDashboard_();
+      }
       return jsonOut({ ok: true, message: 'Cache cleared.' });
     }
 
@@ -1954,7 +1962,7 @@ function tmAbout() {
 function clearCache() {
   CacheService.getScriptCache().removeAll(
     listVisibleTabsUncached().map(function (t) { return 'columns:' + t; })
-      .concat(['tabs', 'options', 'fieldSchema', 'categories', 'dataSourceTypes', 'tabTypes', 'dirOptions', 'dirKnown', 'hiddenFields'])
+      .concat(['tabs', 'options', 'fieldSchema', 'categories', 'dataSourceTypes', 'tabTypes', 'dirOptions', 'dirKnown', 'hiddenFields', 'icons'])
   );
   Logger.log('Cache cleared.');
 }
@@ -3627,6 +3635,7 @@ var TAB_TYPE_WORDS_ = {
   'ticket tracker': 'ticket-tracker', tickets: 'ticket-tracker', ticket: 'ticket-tracker',
   'weekly meeting': 'weekly-meeting', meeting: 'weekly-meeting', meetings: 'weekly-meeting',
   custom: 'custom', other: 'custom', plain: 'custom', 'plain tab': 'custom',
+  holiday: 'holiday', holidays: 'holiday', 'holiday list': 'holiday', 'public holidays': 'holiday',
 };
 function tabTypeWord_(v) {
   var k = String(v == null ? '' : v).trim().toLowerCase().replace(/[-_\s]+/g, ' ');
@@ -3649,9 +3658,14 @@ function getTabTypes() {
       if (!tab || !type) return;
       var real = names.indexOf(tab) !== -1 ? tab : (loose[tab.toLowerCase().replace(/\s+/g, ' ')] || tab);
       if (exact[real] && real !== tab) return;
+      if (type === 'holiday') return; // (the holiday list is _Config's HolidaysTab, below)
       map[real] = type;
       if (real === tab) exact[real] = true;
     });
+    // The team's holiday list (1.8: "For: Holidays" in Tabs & fields): never
+    // anyone's entries — the dashboard leaves it out; holidays come from it.
+    var hol = getConfigValue('HolidaysTab');
+    if (hol && names.indexOf(hol) !== -1) map[hol] = 'holiday';
     return map;
   });
 }
@@ -3659,7 +3673,7 @@ function getTabTypes() {
 function writeTabTypes_(map) {
   ensureTabTypesTab_();
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TAB_TYPES_TAB_NAME);
-  var rows = Object.keys(map).map(function (t) { return [t, map[t]]; });
+  var rows = Object.keys(map).filter(function (t) { return map[t] !== 'holiday'; }).map(function (t) { return [t, map[t]]; }); // (holidays: _Config)
   var lastRow = sheet.getLastRow();
   if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, 2).clearContent();
   if (rows.length) sheet.getRange(2, 1, rows.length, 2).setValues(rows);
@@ -3709,7 +3723,7 @@ function tabKeyColumns_(tab, headers) {
   if (type === 'weekly-meeting') headers.forEach(function (h, i) { add(i); });
   return out;
 }
-var TAB_TYPE_NAMES_ = { 'daily-status': 'Daily status', leave: 'Leave', 'ticket-tracker': 'Ticket tracker', 'weekly-meeting': 'Weekly meeting', custom: 'Plain' };
+var TAB_TYPE_NAMES_ = { 'daily-status': 'Daily status', leave: 'Leave', 'ticket-tracker': 'Ticket tracker', 'weekly-meeting': 'Weekly meeting', custom: 'Plain', holiday: 'Holidays' };
 /** Admins: say what a tab is for (Leave, Ticket tracker…). It changes only
  * which screens Daylens uses and what the dashboard reads — never the
  * tab's entries. */
@@ -3726,13 +3740,22 @@ function setTabType_(session, body) {
     CacheService.getScriptCache().remove('tabTypes');
     var types = getTabTypes();
     before = types[tab] || 'custom';
-    types[tab] = type;
+    if (type === 'holiday') {
+      // One holiday list per team: this tab becomes it (any other goes back to plain).
+      delete types[tab];
+      setConfigValue('HolidaysTab', tab);
+    } else {
+      if (before === 'holiday') setConfigValue('HolidaysTab', ''); // (holidays then come from the hidden _Holidays tab)
+      types[tab] = type;
+    }
     writeTabTypes_(types);
+    forgetDashboard_(); // what counts on the dashboard just changed
   } finally {
     lock.releaseLock();
   }
   var headers = getHeaderRow(sheet);
   var missing = [];
+  if (type === 'holiday' && findColumnIndex(headers, 'Date') === -1) missing.push('a Date column');
   if (type === 'leave' || type === 'daily-status') {
     if (activityPersonColumn_(headers, type) === -1) missing.push('a Name column');
     var di = activityDateColumn_(headers, {}, type);
@@ -3740,7 +3763,7 @@ function setTabType_(session, body) {
   }
   if (type === 'ticket-tracker' && findColumnIndex(headers, 'Status') === -1) missing.push('a Status column');
   logAudit_(body.sessionToken, 'tab type', tab, TAB_TYPE_NAMES_[before] + ' → ' + TAB_TYPE_NAMES_[type], 'Success');
-  return { ok: true, type: type, message: '"' + tab + '" is now ' + (type === 'custom' ? 'a plain tab.' : 'a ' + TAB_TYPE_NAMES_[type] + ' tab.') +
+  return { ok: true, type: type, message: '"' + tab + '" is now ' + (type === 'custom' ? 'a plain tab.' : type === 'holiday' ? 'the team\'s holiday list: holidays on the dashboard, the leave calendar and Today come from it, and it isn\'t counted as anyone\'s entries.' : 'a ' + TAB_TYPE_NAMES_[type] + ' tab.') +
     (missing.length ? ' It still needs ' + missing.join(' and ') + ' — add it in Field Types.' : '') };
 }
 /** Fields hidden from the form, per tab: { tab: [column, …] } in _Config
@@ -6332,7 +6355,7 @@ function saveHolidays_(session, body) {
     if (!sheet) {
       sheet = ss.insertSheet(HOLIDAYS_TAB_NAME);
       sheet.getRange(1, 1, 1, 2).setValues([['Date', 'Reason']]);
-      if (!getConfigValue('HolidaysTab')) setConfigValue('HolidaysTab', HOLIDAYS_TAB_NAME); // Today shows them too
+      if (!getConfigValue('HolidaysTab')) { setConfigValue('HolidaysTab', HOLIDAYS_TAB_NAME); CacheService.getScriptCache().remove('tabTypes'); } // Today shows them too
     }
     var h = getHeaderRow(sheet);
     var di = findColumnIndex(h, 'Date'), ni = findColumnIndex(h, 'Reason');
@@ -6970,7 +6993,7 @@ function weekActivity_(now) {
     if (!sheet || sheet.getLastRow() <= 1) return;
     var headers = getHeaderRow(sheet);
     var type = types[tab] || 'custom';
-    if (type === 'weekly-meeting') return; // meeting notes aren't anyone's own entries
+    if (type === 'weekly-meeting' || type === 'holiday') return; // meeting notes and the holiday list aren't anyone's own entries
     var ticketRows = null;
     if (type === 'ticket-tracker') {
       // open tickets: by Status, however old the ticket; the waiting ones by how long since they were opened

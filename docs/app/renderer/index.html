@@ -1219,8 +1219,18 @@
   // each one starting says "I'm the screen now", so a slower one that was
   // opened before it — and left — doesn't draw over it when it finishes.
   let screenSeq = 0;
-  function beginScreen() {
+  // Refresh (1.8, the button by Ask) draws the screen you're on again with
+  // fresh data: each screen notes itself here. A form (an entry, a
+  // reminder…) isn't redrawn — only its lists — so nothing typed is lost.
+  let lastScreen = null;
+  const FORM_SCREENS = new Set(['showForm', 'showReminderForm', 'showHolidayEditor', 'openSearchHit', 'openTicketFromDash']);
+  function trackScreen(fn, args) {
+    lastScreen = fn ? { fn, args: Array.from(args || []), form: FORM_SCREENS.has(fn.name) } : null;
+  }
+  function formScreen() { lastScreen = { form: true }; }
+  function beginScreen(fn, args) {
     const mine = ++screenSeq;
+    if (fn) trackScreen(fn, args);
     return { get stale() { return mine !== screenSeq; } };
   }
   function appSection(name, extra) {
@@ -1627,7 +1637,7 @@
   }
 
   async function showReportOptions() {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showReportOptions, arguments); // a newer screen takes over: this one stops drawing
     appSection('report');
     els.footer.classList.add('hidden');
     setScreen('Reports', []);
@@ -1734,6 +1744,7 @@
   // glance, highlights, who did what, tickets, where the work went, next
   // month, leave & holidays) and saves it where you choose.
   function showMonthlyPpt(message) {
+    formScreen();
     appSection('report');
     els.footer.classList.add('hidden');
     setScreen('Monthly PPT', [{ label: 'Reports', go: () => showReportOptions() }]);
@@ -1806,7 +1817,7 @@
   // columns and period), one table per tab, with search — and Email /
   // Download right there once it looks right.
   async function showReportView(range, configName) {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showReportView, arguments); // a newer screen takes over: this one stops drawing
     appSection('report');
     els.footer.classList.add('hidden');
     els.main.style.minHeight = '';
@@ -1881,7 +1892,7 @@
   // sends back exactly the text on screen — not a fresh regeneration —
   // so what the team sees always matches what was actually reviewed.
   async function showAiDigest() {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showAiDigest, arguments); // a newer screen takes over: this one stops drawing
     appSection('digest');
     els.footer.classList.add('hidden');
     setScreen('AI digest', []);
@@ -2002,7 +2013,7 @@
   // connection, Log Analyser, AI Digest and About used to be listed here
   // too — they're all in the sidebar now, so they were just duplicates.
   async function showSettings() {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showSettings, arguments); // a newer screen takes over: this one stops drawing
     appSection('settings');
     els.footer.classList.add('hidden');
     setScreen('Settings', []);
@@ -2046,13 +2057,13 @@
     if (scr.stale) return;
     const soundTile = makeTile({
       id: 'sound-btn', icon: soundIsOn ? '🔔' : '🔕', title: `Sound: ${soundIsOn ? 'On' : 'Off'}`,
-      hint: soundIsOn ? "A soft chime when a reminder falls due or today's leave card appears. Click to turn off." : 'Click for a soft chime when a reminder falls due or today\'s leave card appears.',
+      hint: soundIsOn ? "The reminder alarm (it repeats until you Snooze, Stop or Done) and a soft chime for today's leave card. Click to turn off." : 'Click to hear the reminder alarm (it repeats until you Snooze, Stop or Done) and a soft chime for today\'s leave card.',
       variant: soundIsOn ? 'is-on' : '',
     });
     soundTile.onclick = async () => {
       soundTile.disabled = true;
       const on = await window.statusApp.setSound(!soundIsOn).catch(() => soundIsOn);
-      if (on && window.playChime) window.playChime(); // a sample, so you know what it sounds like
+      if (on && window.playAlarm) window.playAlarm(); // a sample, so you know what the reminder alarm sounds like
       showSettings();
     };
     tiles.push(
@@ -2108,7 +2119,7 @@
   // setup guide + troubleshooting shown during first-run setup
   // (setup-guide.js — one source for both).
   async function showTeamSetup(message) {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showTeamSetup, arguments); // a newer screen takes over: this one stops drawing
     appSection('team');
     els.footer.classList.add('hidden');
     setScreen('Team setup & connection', [{ label: 'Settings', go: () => showSettings() }]);
@@ -2454,7 +2465,7 @@
   }
   const stChip = (st) => (st ? `<span class="st-chip st-${escapeHtml(String(st).toLowerCase())}">${escapeHtml(st === 'Rejected' ? 'Not approved' : st)}</span>` : '');
   async function showApprovals(message) {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showApprovals, arguments); // a newer screen takes over: this one stops drawing
     appSection('approvals');
     els.footer.classList.add('hidden');
     setScreen('Approvals', []);
@@ -2559,7 +2570,7 @@
   }
 
   async function showFeatures() {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showFeatures, arguments); // a newer screen takes over: this one stops drawing
     appSection('features');
     els.footer.classList.add('hidden');
     setScreen('Features', []);
@@ -2639,6 +2650,7 @@
 
   // -------------------- Theme picker --------------------
   function showThemes() {
+    trackScreen(showThemes, arguments);
     appSection('settings');
     els.footer.classList.add('hidden');
     setScreen('Theme', [{ label: 'Settings', go: () => showSettings() }]);
@@ -2665,7 +2677,7 @@
   const ROLE_HELP = 'Admin: full access — everything, including Tabs & fields, People, the Activity log and team setup. User: logging entries, reports, digest and reminders. Demo: look only — to show your work to someone outside the team (best on a separate demo team): it can\'t change, copy or download anything, and never sees People, keys or the Sheet.';
 
   async function showUsers(message) {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showUsers, arguments); // a newer screen takes over: this one stops drawing
     appSection('users');
     els.footer.classList.add('hidden');
     setScreen('People', []);
@@ -2948,7 +2960,7 @@
   }
 
   async function showReminders(message) {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showReminders, arguments); // a newer screen takes over: this one stops drawing
     appSection('reminders');
     els.footer.classList.add('hidden');
     setScreen('Reminders', []);
@@ -3048,7 +3060,7 @@
   }
 
   async function showReminderForm(existing) {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showReminderForm, arguments); // a newer screen takes over: this one stops drawing
     appSection('reminders');
     els.footer.classList.add('hidden');
     setScreen(existing ? 'Edit reminder' : 'New reminder', [{ label: 'Reminders', go: () => showReminders() }]);
@@ -3161,7 +3173,7 @@
   // and credit info now live in one place someone actually goes looking
   // for it, instead of being shown unconditionally forever.
   async function showAbout() {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showAbout, arguments); // a newer screen takes over: this one stops drawing
     appSection('settings'); // reached from Settings → About Daylens
     els.footer.classList.add('hidden');
     setScreen('About Daylens', [{ label: 'Settings', go: () => showSettings() }]);
@@ -3252,7 +3264,7 @@
   let logAnalyserStatusFilter = 'all';
 
   async function showLogAnalyser() {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showLogAnalyser, arguments); // a newer screen takes over: this one stops drawing
     appSection('logs');
     els.footer.classList.add('hidden');
     setScreen('Activity log', []);
@@ -3418,6 +3430,7 @@
   // Set your own password. forced = signed in with a temporary password
   // (new account / admin reset): the app stays locked until it's done.
   function showChangePassword(forced, knownCurrent) {
+    formScreen(); // Refresh keeps what's typed here
     appGate(!!forced);
     if (!forced) appSection('settings');
     els.footer.classList.add('hidden');
@@ -3461,6 +3474,7 @@
   // SHARED_SECRET was changed). Nothing can be saved, and nobody can log
   // in, until it's fixed — say so up front instead of failing on Save.
   function showConnectionBroken() {
+    lastScreen = null;
     appGate(true);
     els.footer.classList.add('hidden');
     setScreen('Connection out of date', []);
@@ -3481,6 +3495,7 @@
   // no sidebar lock, and a "Not now" button. Otherwise it's the required
   // gate (RequireLogin on, or this PC's name has an account).
   async function showLoginGate(suggestedUsername, optional) {
+    lastScreen = null;
     appGate(!optional);
     els.footer.classList.add('hidden');
     setScreen('Sign in', []);
@@ -3659,7 +3674,7 @@
   let lastCategoryGroups = [];
 
   async function showCategoryPicker() {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showCategoryPicker, arguments); // a newer screen takes over: this one stops drawing
     if (lastTooOld) { showAppTooOld(lastTooOld); return; }
     currentCategory = null;
     appGate(false);
@@ -3822,6 +3837,7 @@
   // `showTabPicker(event)`) safely falls back to whichever tab list was
   // already showing.
   function showTabPicker(group) {
+    trackScreen(showTabPicker, arguments);
     if (group && typeof group === 'object' && Array.isArray(group.tabs)) {
       currentCategory = group;
     }
@@ -3890,7 +3906,7 @@
   // Search everything (the box at the top): opens the row it found. The row
   // is read fresh, so the edit screen shows what's in the Sheet right now.
   async function openSearchHit(tab, rowIndex, title) {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(openSearchHit, arguments); // a newer screen takes over: this one stops drawing
     if (!tab) return showCategoryPicker();
     setScreen(tab, tabTrail());
     showLoading('Opening…');
@@ -3920,7 +3936,7 @@
   // are in it by themselves (their on/off is set in People). Teammates look.
   const dirState = { group: '', q: '', showOff: false };
   async function showDirectory(message) {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showDirectory, arguments); // a newer screen takes over: this one stops drawing
     appSection('users');
     els.footer.classList.add('hidden');
     els.main.style.minHeight = '';
@@ -4103,7 +4119,7 @@
     try { return new URL(link).hostname.replace(/^www\./, ''); } catch (e) { return ''; }
   }
   async function showDocuments(message) {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showDocuments, arguments); // a newer screen takes over: this one stops drawing
     appSection('documents');
     els.footer.classList.add('hidden');
     els.main.style.minHeight = '';
@@ -4296,7 +4312,7 @@
   // A ticket on Home's "Waiting more than a week" → its update screen
   // (Back goes to the board).
   async function openTicketFromDash(item) {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(openTicketFromDash, arguments); // a newer screen takes over: this one stops drawing
     if (!item || !item.tab) return;
     currentTicketTab = item.tab;
     showLoading('Opening the ticket…');
@@ -4325,7 +4341,7 @@
     return seen.length ? seen : ['Open', 'In Progress', 'Resolved'];
   }
   async function showTicketBoard(tab, opts) {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showTicketBoard, arguments); // a newer screen takes over: this one stops drawing
     currentTicketTab = tab;
     if (tbState.tab !== tab || opts) Object.assign(tbState, { tab, who: '', mine: false, stuck: false, q: '', open: {} }, opts || {});
     setScreen(tab, tabTrail());
@@ -4503,7 +4519,7 @@
     return i >= 0 && i < LC_COLORS.length ? LC_COLORS[i] : '#8b867c';
   }
   async function showLeaveCalendar(tab, opts) {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showLeaveCalendar, arguments); // a newer screen takes over: this one stops drawing
     if (tabTypesLoaded) await tabTypesLoaded;
     if (scr.stale) return;
     const leaveTabs = Object.keys(liveTabTypes).filter((t) => liveTabTypes[t] === 'leave');
@@ -4650,7 +4666,7 @@
   // Admins: a year's holidays at once — rows, or paste a list (one per line:
   // a date, then the name; 26/01/2027 is read day first).
   async function showHolidayEditor(year, data) {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showHolidayEditor, arguments); // a newer screen takes over: this one stops drawing
     setScreen(`Holidays in ${year}`, tabTrail().concat([{ label: lcState.tab || 'Leave calendar', go: () => showLeaveCalendar(lcState.tab) }]));
     let list = year === data.year ? (data.holidays || []).slice() : [];
     if (year !== data.year) {
@@ -4712,7 +4728,7 @@
 
   // Opens one tab's screens (from its tile on Home).
   async function openTab(tab) {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(openTab, arguments); // a newer screen takes over: this one stops drawing
     window.statusApp.logNavigation(tab).catch(() => {});
     if (tabTypesLoaded) await tabTypesLoaded;
     if (scr.stale) return;
@@ -5156,7 +5172,7 @@
   }
 
   async function showForm(tab) {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showForm, arguments); // a newer screen takes over: this one stops drawing
     setScreen(tab, tabHomeIsList(tab) ? tabTrail().concat([{ label: tab, go: () => showTabEntries(tab) }]) : tabTrail());
     showLoading('Loading fields…');
     try {
@@ -5387,6 +5403,7 @@
   }
 
   function showCmsWeeklyConnectForm(meetingTab) {
+    formScreen(); // Refresh keeps what's typed here
     setScreen(meetingTab, tabTrail());
     els.main.style.minHeight = '';
     els.main.innerHTML = `
@@ -5651,7 +5668,7 @@
   let lastSavedRow = null;
 
   async function showTabEntries(tab) {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showTabEntries, arguments); // a newer screen takes over: this one stops drawing
     setScreen(tab, tabTrail());
     els.footer.classList.add('hidden');
     els.main.style.minHeight = '';
@@ -5806,6 +5823,7 @@
   // value rather than re-fetching "next number" (that's only for new
   // rows); week-auto still re-syncs if the date is changed here.
   function showEntryEdit(tab, row) {
+    formScreen(); // Refresh keeps what's typed here
     setScreen(tab, tabTrail().concat([{ label: tab, go: () => showTabEntries(tab) }]));
     els.footer.classList.add('hidden');
     els.main.style.minHeight = '';
@@ -6005,7 +6023,7 @@
   }
 
   async function showWeeklyConnectTickets() {
-    const scr = beginScreen(); // a newer screen takes over: this one stops drawing
+    const scr = beginScreen(showWeeklyConnectTickets, arguments); // a newer screen takes over: this one stops drawing
     setScreen(`${currentTicketTab || 'Tickets'} — tickets`, tabTrail().concat(currentTicketTab ? [{ label: currentTicketTab, go: () => openTab(currentTicketTab) }] : []));
     els.footer.classList.add('hidden');
     els.main.style.minHeight = '';
@@ -6242,6 +6260,7 @@
   // (rangeSubFieldsHtml/computeRangeFromOptions below) and just asks:
   // which group, which dates.
   function showPostToTeams() {
+    formScreen(); // Refresh keeps what's typed here
     setScreen('Post to Teams', tabTrail().concat(currentTicketTab ? [{ label: currentTicketTab, go: () => openTab(currentTicketTab) }] : [], [{ label: 'Tickets', go: () => showWeeklyConnectTickets() }]));
     els.footer.classList.add('hidden');
     els.main.style.minHeight = '';
@@ -6316,6 +6335,7 @@
   }
 
   function showWeeklyConnectEdit(ticket, fromBoard) {
+    formScreen(); // Refresh keeps what's typed here
     const back = fromBoard ? () => showTicketBoard(currentTicketTab) : () => renderWeeklyConnectList();
     setScreen(`Ticket #${ticket['Ticket ID']}`, tabTrail().concat(currentTicketTab ? [{ label: currentTicketTab, go: () => openTab(currentTicketTab) }] : [], fromBoard ? [] : [{ label: 'Tickets', go: () => showWeeklyConnectTickets() }]));
     els.main.style.minHeight = '';
@@ -6498,6 +6518,7 @@
   // reinstall of the current installer; after that, this gate (and
   // Windows' silent auto-update) covers them going forward.
   function showForcedUpdateGate({ ready, version, downloadUrl, waiting, min, current }) {
+    lastScreen = null;
     appGate(true);
     els.footer.classList.add('hidden');
     setScreen('Update required', []);
@@ -6653,9 +6674,25 @@
   // Sidebar navigation from the main window's shell (app.html). Ignored
   // while a login/update gate is up — the shell also greys its sidebar
   // out then, this is just the belt to that pair of braces.
+  // Refresh (1.8): the shell's button by Ask has just dropped every copy
+  // (the Sheet's and this app's); draw this screen again from the Sheet.
+  const MESSAGE_FIRST = /^(async\s+)?function\s*\w*\s*\(\s*message\b/; // showUsers(message)…: not the old message again
+  async function refreshThisScreen(offline) {
+    refreshLiveData();
+    const s = lastScreen;
+    let note = offline ? 'Couldn\'t reach the Sheet — showing what\'s saved here.' : 'Up to date with the Sheet.';
+    if (s && s.form) {
+      note = offline ? note : 'Lists are fresh from the Sheet — what you typed is kept.';
+    } else if (s && s.fn && !appGateLocked) {
+      screenSeq++;
+      try { await s.fn.apply(null, MESSAGE_FIRST.test(String(s.fn)) ? [] : s.args); } catch { /* the screen shows its own error */ }
+    }
+    window.__appPost({ type: 'refreshed', note });
+  }
   if (window.__appMode) {
     window.addEventListener('message', (e) => {
       const msg = e.data;
+      if (msg && msg.__statusApp && msg.type === 'refresh-screen') { refreshThisScreen(!!msg.offline); return; }
       if (!msg || !msg.__statusApp || msg.type !== 'nav' || appGateLocked) return;
       screenSeq++; // whatever was still loading has been left (even for a screen that draws at once)
       switch (msg.screen) {

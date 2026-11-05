@@ -463,6 +463,8 @@
   .tpl-check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; margin: 12px 0 4px; cursor: pointer; }
   .tpl-check input { width: auto; margin: 0; }
   .hint-inline { font-weight: 500; text-transform: none; letter-spacing: 0; }
+  .old-link-warn { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: rgba(229,154,40,0.14); border: 1px solid rgba(229,154,40,0.5); font-weight: 600; }
+  .old-link-warn[hidden] { display: none; }
 </style>
 <script src="app-mode.js"></script>
 <script src="tab-templates.js"></script>
@@ -505,7 +507,7 @@
       <h3>Tabs</h3>
       <p class="hint">Each tab is one thing your team logs. Add one from a template — Daily status, Leave, Ticket tracker, Weekly meeting — or start from Custom, then adjust its fields any time.</p>
       <p class="hint" style="margin-top:-4px;">Turn off "Show in app" for a tab nobody should type into, like an archive, a pivot table or a chart. It stays in your Sheet.</p>
-      <p class="hint" style="margin-top:-4px;"><b>For</b> says what a tab is for. A Leave tab feeds "Who's off" and the leave calendar; a Ticket tracker gets the ticket list and board. Changing it never touches the tab's entries.</p>
+      <p class="hint" style="margin-top:-4px;"><b>For</b> says what a tab is for. A Leave tab feeds "Who's off" and the leave calendar; a Ticket tracker gets the ticket list and board; Holidays (one tab: a Date and a name for each day) marks the team's holidays and isn't counted as anyone's entries. Changing it never touches the tab's entries.</p>
       <div id="tm-tab-list"></div>
       <div class="m-sub">Add a tab</div>
       <div id="tm-templates" class="tpl-grid"></div>
@@ -573,6 +575,7 @@
       <div class="field-label">Teams channel (report reminders)</div>
       <p class="hint" style="margin: -2px 0 6px;">Optional. Paste a Teams channel's webhook link to also post each report's reminder there. Ticket trackers post to their own channels (Ticket Groups). Leave blank for email only.</p>
       <input id="teams-webhook-url" type="text" placeholder="https://..." style="width:100%;" />
+      <p class="hint old-link-warn" id="teams-webhook-old" role="status" hidden></p>
 
       <div class="field-label" style="margin-top:14px;">Gemini API key (AI digest)</div>
       <p class="hint" style="margin: -2px 0 6px;">Free key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">aistudio.google.com/apikey</a> (your Google account, no credit card). It powers AI digest; leave it blank to keep that off. Good to know: on Google's free tier, Google may use what's sent to improve its products, and people there may read it, so don't use the free tier for confidential work.</p>
@@ -969,7 +972,7 @@
   ];
   const esc = (v) => String(v == null ? '' : v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   let newTabTemplate = null;
-  const TAB_FOR_CHOICES = [['custom', 'Plain tab'], ['daily-status', 'Daily status'], ['leave', 'Leave'], ['ticket-tracker', 'Ticket tracker'], ['weekly-meeting', 'Weekly meeting']];
+  const TAB_FOR_CHOICES = [['custom', 'Plain tab'], ['daily-status', 'Daily status'], ['leave', 'Leave'], ['ticket-tracker', 'Ticket tracker'], ['weekly-meeting', 'Weekly meeting'], ['holiday', 'Holidays']];
 
   function renderTabsSection() {
     const list = document.getElementById('tm-tab-list');
@@ -1910,8 +1913,20 @@
     return row;
   }
 
+  // 1.8: Microsoft switched off the old Teams "Incoming Webhook" (connector)
+  // links in May 2026 — a link of that kind takes the message but nothing
+  // reaches the channel. A Workflows link works (Daylens sends the cards it takes).
+  const OLD_TEAMS_LINK = /^https:\/\/[^/]*\.webhook\.office\.com\/|^https:\/\/outlook\.office(365)?\.com\/webhook\//i;
+  const OLD_TEAMS_MSG = 'This is an old Teams connector link. Microsoft stopped these in May 2026, so messages sent to it no longer reach the channel. In Teams, open the channel → ⋯ → Workflows → "Post to a channel when a webhook request is received", and paste the link it gives you here.';
+  function watchTeamsLink(input, warn) {
+    const check = () => { const old = OLD_TEAMS_LINK.test(String(input.value || '').trim()); warn.hidden = !old; warn.textContent = old ? '⚠ ' + OLD_TEAMS_MSG : ''; };
+    input.addEventListener('input', check);
+    check();
+    return check;
+  }
   function renderReportSettings() {
     document.getElementById('teams-webhook-url').value = reportSettings.teamsWebhookUrl || '';
+    watchTeamsLink(document.getElementById('teams-webhook-url'), document.getElementById('teams-webhook-old'));
     document.getElementById('gemini-api-key').value = reportSettings.geminiApiKey || '';
     document.getElementById('gemini-model').value = reportSettings.geminiModel || '';
     document.getElementById('leave-approval').checked = !!reportSettings.leaveApproval;
@@ -2347,6 +2362,11 @@
     urlInput.value = webhookUrl || '';
     urlInput.style.width = '100%';
     row.appendChild(urlInput);
+    const warn = document.createElement('p');
+    warn.className = 'hint old-link-warn';
+    warn.setAttribute('role', 'status');
+    row.appendChild(warn);
+    watchTeamsLink(urlInput, warn);
 
     return row;
   }
@@ -3122,6 +3142,21 @@
   });
   buildSectionTiles();
   wireSaveStates();
+  // Refresh (1.8, the button by Ask in the main window): read everything
+  // here again from the Sheet — unless something's waiting to be saved.
+  if (window.__appMode) {
+    window.addEventListener('message', async (e) => {
+      const msg = e.data;
+      if (!msg || !msg.__statusApp || msg.type !== 'refresh-screen') return;
+      let note = msg.offline ? 'Couldn\'t reach the Sheet — showing what\'s saved here.' : 'Up to date with the Sheet.';
+      if (document.querySelector('.save-state.dirty')) {
+        note = 'Not reloaded: save (or undo) your unsaved changes first.';
+      } else if (!document.getElementById('content').classList.contains('hidden')) {
+        try { await loadAndShowContent(); } catch { /* it shows its own error */ }
+      }
+      window.__appPost({ type: 'refreshed', note });
+    });
+  }
   init();
 </script>
 </body>

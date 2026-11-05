@@ -45,7 +45,7 @@
 <div id="dl-link" role="dialog" aria-label="Open the link" hidden><span>Your browser held back a new tab.</span><a id="dl-link-a" href="#" target="_blank" rel="noopener">Open it</a><button type="button" id="dl-link-x" aria-label="Close">✕</button></div>
 <noscript>Daylens needs JavaScript. Turn it on for this site, or use the Daylens desktop app.</noscript>
 <script>
-  window.__DAYLENS_VERSION__ = '1.7.0';
+  window.__DAYLENS_VERSION__ = '1.8.0';
   window.__DAYLENS_ENV__ = {};
   // Daylens never runs inside another site's page (someone else's frame could trick a tap).
   if (window.top !== window.self) { document.documentElement.innerHTML = '<body style="font-family:sans-serif;padding:24px">Open Daylens directly: <a href="' + location.href + '" target="_top">' + location.href + '</a></body>'; throw new Error('framed'); }
@@ -61,6 +61,6 @@
     }).observe(document.getElementById('dl-windows'), { subtree: true, attributes: true, childList: true });
   })();
 </script>
-<script src="daylens-core.js?v=1.7.0"></script>
+<script src="daylens-core.js?v=1.8.0"></script>
 </body>
 </html>
