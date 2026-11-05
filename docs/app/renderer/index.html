@@ -9,6 +9,7 @@
 
 <meta charset="utf-8" />
 <script src="theme.js"></script>
+<script src="demo-guard.js"></script>
 <title>Daylens</title>
 <script src="setup-guide.js"></script>
 <link rel="stylesheet" href="today.css" />
@@ -1024,6 +1025,9 @@
   .pill { font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.3px; }
   .pill.admin { background: var(--brand); color: var(--gold-bright); }
   .pill.user { background: var(--chip); color: var(--text); }
+  .pill.demo { background: transparent; color: var(--text); border: 1px dashed currentColor; }
+  .fp-box { margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: var(--chip); }
+  .fp-box .login-hint { margin-top: 0; }
   .pill.off { background: #ece5e6; color: #6b5a56; }
   .pill.overdue { background: #fbdada; color: #a13a3a; }
   .pill.soon { background: #fdecc8; color: #8a5a1e; }
@@ -1140,6 +1144,7 @@
 
     <footer class="form-actions hidden" id="footer">
       <button class="secondary" id="cancel-btn">Cancel</button>
+      <span class="demo-note" id="demo-note">Demo account: look around — nothing is saved.</span>
       <button class="primary" id="submit-btn">Submit</button>
     </footer>
   </div>
@@ -2346,13 +2351,38 @@
   // Copy-ready card the admin sends to a teammate after creating their
   // account or resetting their password (temporary password — they must
   // set their own at first sign-in). Carries the team's invite code.
-  async function inviteCardHtml(username, tempPassword) {
+  async function inviteCardHtml(username, tempPassword, demo) {
     const [info, shell, inv] = await Promise.all([
       window.statusApp.getTeamInfo().catch(() => ({})),
       window.statusApp.getShellInfo().catch(() => ({})),
       window.statusApp.getInviteCode(username).catch(() => ({})),
     ]);
     const code = inv && inv.ok ? inv.code : '';
+    // A Demo account (1.7): one message to share (on LinkedIn, say) — the
+    // browser link first, nothing to install, and its password stays.
+    if (demo) {
+      const dl = [
+        `Try Daylens, the team work & status app I built — a look-only demo of ${info.teamName || 'a team'}:`,
+        shell.webUrl ? `1. Open it in your browser (nothing to install): ${shell.webUrl}` : '1. Open Daylens.',
+        '2. Choose "Join my team" and paste this invite code:',
+        `   ${code || '(ask me for the invite code)'}`,
+        `3. Username: ${username}`,
+        `   Password: ${tempPassword}`,
+        'It\'s a demo account: you can look around everything, but not change, copy or download anything.',
+      ];
+      window.__lastInvite = dl.join('\n');
+      return `
+      <div class="invite-card" id="invite-card">
+        <div class="ic-title">🔎 Share this demo account</div>
+        <div class="ic-row"><span>Team</span><b>${escapeHtml(info.teamName || '')}</b></div>
+        <div class="ic-row"><span>Invite code</span><b class="mono small">${escapeHtml(code || '—')}</b></div>
+        <div class="ic-row"><span>Username</span><b class="mono">${escapeHtml(username)}</b></div>
+        <div class="ic-row"><span>Password</span><b class="mono">${escapeHtml(tempPassword)}</b></div>
+        ${shell.webUrl ? `<div class="ic-row"><span>In a browser</span><b class="mono small">${escapeHtml(shell.webUrl)}</b></div>` : ''}
+        <div class="ic-note">Everyone with this message shares the account: they can look, not change anything, and nobody is asked to choose a new password.</div>
+        <button type="button" class="mini-btn go" id="copy-invite">Copy message</button>
+      </div>`;
+    }
     const lines = [
       `Hi ${username}, you've been added to ${info.teamName || 'our team'} on Daylens (Work & Status Reports).`,
       shell.downloadUrl ? `1. Install Daylens: ${shell.downloadUrl}` : '1. Install Daylens.',
@@ -2632,7 +2662,7 @@
   // User can do, plus Manage fields & options, Users & roles, Log Analyser
   // and Organization connection). Every action here is re-checked by the
   // server (requireAdminSession_ in Code.gs).
-  const ROLE_HELP = 'Admin: full access — everything, including Tabs & fields, People, the Activity log and team setup. User: logging entries, reports, digest and reminders.';
+  const ROLE_HELP = 'Admin: full access — everything, including Tabs & fields, People, the Activity log and team setup. User: logging entries, reports, digest and reminders. Demo: look only — to show your work to someone outside the team (best on a separate demo team): it can\'t change, copy or download anything, and never sees People, keys or the Sheet.';
 
   async function showUsers(message) {
     const scr = beginScreen(); // a newer screen takes over: this one stops drawing
@@ -2661,7 +2691,7 @@
       <div id="users-add-host"></div>
       <div id="users-list" class="scroll-list"></div>`;
     if (message && message.invite) {
-      document.getElementById('users-invite-host').innerHTML = await inviteCardHtml(message.invite.username, message.invite.password);
+      document.getElementById('users-invite-host').innerHTML = await inviteCardHtml(message.invite.username, message.invite.password, !!message.invite.demo);
       wireInviteCopy();
     }
     const msg = (text, err) => { const m = document.getElementById('users-msg'); m.className = 'inline-msg ' + (err ? 'err' : 'ok'); m.textContent = text; };
@@ -2678,7 +2708,7 @@
             <input type="text" id="new-user-name" placeholder="Username (e.g. their first name)" class="grow" />
             <input type="text" id="new-user-pass" placeholder="Temporary password (8+)" class="grow" spellcheck="false" />
             <button type="button" class="mini-btn" id="new-user-gen" title="Generate a random temporary password">🎲 Generate</button>
-            <select id="new-user-role"><option value="User">User</option><option value="Admin">Admin</option></select>
+            <select id="new-user-role"><option value="User">User</option><option value="Admin">Admin</option><option value="Demo">Demo (look only — for sharing)</option></select>
             <button type="button" class="mini-btn go" id="new-user-create">Create</button>
             <button type="button" class="mini-btn" id="new-user-cancel">Cancel</button>
           </div>
@@ -2700,7 +2730,7 @@
         btn.disabled = true;
         const out = await window.statusApp.createUser(u, p, r, newGroups ? newGroups.value : []).catch((err) => ({ ok: false, error: err.message }));
         if (!out || !out.ok) { btn.disabled = false; return msg((out && out.error) || 'Could not create the account.', true); }
-        showUsers({ text: `Account "${u}" created as ${r}.`, invite: { username: u, password: p } });
+        showUsers({ text: r === 'Demo' ? `Demo account "${u}" created: it can look around, but not change anything.` : `Account "${u}" created as ${r}.`, invite: { username: u, password: p, demo: r === 'Demo' } });
       };
     };
 
@@ -2718,10 +2748,11 @@
             <div class="card-title">${escapeHtml(u.username)}${isMe ? ' <span class="card-sub">(you)</span>' : ''}</div>
             <div class="card-sub">${last && !isNaN(last) ? 'Last login ' + escapeHtml(last.toLocaleString()) : 'Never logged in'} · <span class="user-email">${u.email ? escapeHtml(u.email) : 'no email'}</span>${u.approver ? ' · <b class="user-approver">approves leave</b>' : ''}${(u.groups || []).length ? ` · <span class="user-groups">${escapeHtml(u.groups.join(', '))}</span>` : ''}</div>
           </div>
-          <span class="pill ${u.active ? (u.role === 'Admin' ? 'admin' : 'user') : 'off'}">${u.active ? escapeHtml(u.role) : 'Inactive'}</span>
+          <span class="pill ${u.active ? (u.role === 'Admin' ? 'admin' : u.role === 'Demo' ? 'demo' : 'user') : 'off'}">${u.active ? escapeHtml(u.role) : 'Inactive'}</span>
           <select class="role-select" title="Role">
-            <option value="User" ${u.role !== 'Admin' ? 'selected' : ''}>User</option>
+            <option value="User" ${u.role !== 'Admin' && u.role !== 'Demo' ? 'selected' : ''}>User</option>
             <option value="Admin" ${u.role === 'Admin' ? 'selected' : ''}>Admin (full access)</option>
+            <option value="Demo" ${u.role === 'Demo' ? 'selected' : ''}>Demo (look only — for sharing)</option>
           </select>
           <button type="button" class="mini-btn active-btn">${u.active ? 'Deactivate' : 'Activate'}</button>
           <button type="button" class="mini-btn rename-btn">Rename</button>
@@ -2832,7 +2863,7 @@
         if (!p || p.length < 8) return msg('Use at least 8 characters for the temporary password.', true);
         const out = await window.statusApp.resetUserPassword(u.username, p).catch((err) => ({ ok: false, error: err.message }));
         if (!out || !out.ok) return msg((out && out.error) || 'Could not reset the password.', true);
-        showUsers({ text: `Temporary password set for ${u.username}.`, invite: { username: u.username, password: p } });
+        showUsers({ text: u.role === 'Demo' ? `New password set for the demo account ${u.username}.` : `Temporary password set for ${u.username}.`, invite: { username: u.username, password: p, demo: u.role === 'Demo' } });
       };
       card.querySelector('.delete-btn').onclick = async () => {
         if (!window.confirm(`Delete the account "${u.username}"? They won't be able to log in, and this can't be undone.`)) return;
@@ -2872,7 +2903,7 @@
             <div class="card-title">${escapeHtml(u.username)}${isMe ? ' <span class="card-sub">(you)</span>' : ''}</div>
             <div class="card-sub">${last && !isNaN(last) ? 'Last login ' + escapeHtml(last.toLocaleString()) : 'Never logged in'}${u.approver ? ' · <b class="user-approver">approves leave</b>' : ''}${(u.groups || []).length ? ` · <span class="user-groups">${escapeHtml(u.groups.join(', '))}</span>` : ''}</div>
           </div>
-          <span class="pill ${u.active ? (u.role === 'Admin' ? 'admin' : 'user') : 'off'}">${u.active ? escapeHtml(u.role) : 'Inactive'}</span>
+          <span class="pill ${u.active ? (u.role === 'Admin' ? 'admin' : u.role === 'Demo' ? 'demo' : 'user') : 'off'}">${u.active ? escapeHtml(u.role) : 'Inactive'}</span>
         </div>`;
       list.appendChild(card);
     });
@@ -3465,7 +3496,21 @@
         <div class="login-err" id="login-err"></div>
         <button class="primary" id="login-submit-btn" style="width:100%;">Log in</button>
         ${optional ? '<button type="button" class="secondary" id="login-skip-btn" style="width:100%; margin-top:6px;">Not now</button>' : ''}
-        <p class="login-hint" style="margin-top:14px;">No account yet, or forgot your password? Ask your admin, or use "Contact Admin" below.</p>
+        <button type="button" class="link-inline" id="login-forgot" style="margin-top:12px;">Forgot password?</button>
+        <div class="fp-box" id="fp-box" hidden>
+          <p class="login-hint" id="fp-step1-hint">We'll email a 6-digit code to the address saved on your account. No email saved? Ask your admin to reset your password.</p>
+          <div class="field"><label for="fp-user">Username</label><input id="fp-user" autocomplete="username" /></div>
+          <button type="button" class="secondary" id="fp-send" style="width:100%;">Email me a code</button>
+          <div id="fp-step2" hidden>
+            <p class="login-hint" id="fp-sent"></p>
+            <div class="field"><label for="fp-code">Code from the email</label><input id="fp-code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" /></div>
+            <div class="field"><label for="fp-new">New password</label><input id="fp-new" type="password" autocomplete="new-password" /></div>
+            <div class="field"><label for="fp-new2">New password again</label><input id="fp-new2" type="password" autocomplete="new-password" /></div>
+            <button type="button" class="primary" id="fp-save" style="width:100%;">Set password and sign in</button>
+          </div>
+          <div class="login-err" id="fp-err" role="alert"></div>
+        </div>
+        <p class="login-hint" style="margin-top:14px;">No account yet? Ask your admin, or use "Contact Admin" below.</p>
         <div id="login-fix-host"></div>
       </div>
     `;
@@ -3525,6 +3570,48 @@
 
     btn.onclick = attemptLogin;
     passEl.onkeydown = (e) => { if (e.key === 'Enter') attemptLogin(); };
+
+    // Forgot password (1.7): a code by email, then a new password — and in.
+    const fp = (id) => document.getElementById(id);
+    fp('login-forgot').onclick = () => {
+      fp('fp-box').hidden = !fp('fp-box').hidden;
+      if (!fp('fp-box').hidden) { fp('fp-user').value = userEl.value.trim(); (fp('fp-user').value ? fp('fp-send') : fp('fp-user')).focus(); }
+    };
+    fp('fp-send').onclick = async () => {
+      const u = fp('fp-user').value.trim();
+      fp('fp-err').textContent = '';
+      if (!u) { fp('fp-err').textContent = 'Type your username first.'; return; }
+      fp('fp-send').disabled = true;
+      fp('fp-send').textContent = 'Sending…';
+      const r = await window.statusApp.requestPasswordCode(u).catch((err) => ({ ok: false, error: err.message }));
+      fp('fp-send').disabled = false;
+      fp('fp-send').textContent = 'Email me a new code';
+      if (!r || !r.ok) {
+        const e = String((r && r.error) || '');
+        fp('fp-err').textContent = /log in again|Missing "tab"|latest update/i.test(e) ? 'Emailed codes need the latest update of your team\'s Sheet — until then, ask your admin to reset your password.' : friendlyBackendError(e, 'The code couldn\'t be sent — try again, or ask your admin.');
+        return;
+      }
+      fp('fp-sent').textContent = r.message || 'If that account has an email address saved, a code is on its way.';
+      fp('fp-step2').hidden = false;
+      fp('fp-code').focus();
+    };
+    const fpSave = async () => {
+      const u = fp('fp-user').value.trim(), code = fp('fp-code').value.replace(/\s+/g, ''), p1 = fp('fp-new').value, p2 = fp('fp-new2').value;
+      fp('fp-err').textContent = '';
+      if (!/^\d{6}$/.test(code)) { fp('fp-err').textContent = 'Enter the 6-digit code from the email.'; return; }
+      if (p1.length < 8) { fp('fp-err').textContent = 'Use at least 8 characters for your new password.'; return; }
+      if (p1 !== p2) { fp('fp-err').textContent = 'The two new passwords don\'t match.'; return; }
+      fp('fp-save').disabled = true;
+      const r = await window.statusApp.resetPasswordWithCode(u, code, p1).catch((err) => ({ ok: false, error: err.message }));
+      fp('fp-save').disabled = false;
+      if (!r || !r.ok || !r.sessionToken) { fp('fp-err').textContent = friendlyBackendError(r && r.error, 'That didn\'t work — ask for a new code.'); return; }
+      if (window.__appMode) window.__appPost({ type: 'session-changed' });
+      yourName = await window.statusApp.getYourName();
+      refreshLiveData();
+      showResult({ success: true, title: 'New password set', subtitle: `You're signed in as ${r.username}. Use the new password from now on.`, doneLabel: 'Continue', onDone: showCategoryPicker });
+    };
+    fp('fp-save').onclick = fpSave;
+    fp('fp-new2').onkeydown = (e) => { if (e.key === 'Enter') fpSave(); };
     const skip = document.getElementById('login-skip-btn');
     if (skip) skip.onclick = () => showCategoryPicker();
 

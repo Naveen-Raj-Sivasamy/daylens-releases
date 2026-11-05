@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.5.1';
+var BACKEND_VERSION = '1.7.0'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -166,9 +166,12 @@ function doGet(e) {
     }
     // Everything else — entries, option lists, highlights… — only for
     // signed-in people of this team.
-    if (!validateSessionCached_(params.sessionToken)) {
+    var getRole = validateSessionCached_(params.sessionToken);
+    if (!getRole) {
       return jsonOut({ ok: false, error: 'Please log in again.' });
     }
+    // A Demo account gets no names from the team directory (1.7).
+    var dirForCaller = function () { return isDemoRole_(getRole) ? {} : dirOptionsSafe_(); };
     if (action === 'tabs') {
       return jsonOut({ ok: true, tabs: cached('tabs', listVisibleTabs) });
     }
@@ -194,7 +197,7 @@ function doGet(e) {
      * by editing that tab directly instead of needing a code change and a
      * redeploy for every tweak. */
     if (action === 'options') {
-      return jsonOut({ ok: true, options: cached('options', getOptionsMap), dirOptions: dirOptionsSafe_() });
+      return jsonOut({ ok: true, options: cached('options', getOptionsMap), dirOptions: dirForCaller() });
     }
     /** Which fields on which tabs get a dropdown/date/multiselect/etc. —
      * read from _FieldSchema (see ensureFieldSchemaTab()) instead of
@@ -226,7 +229,7 @@ function doGet(e) {
       return jsonOut({
         ok: true, bootstrap: 1, tabs: bTabs, columns: bColumns,
         options: cached('options', getOptionsMap),
-        dirOptions: dirOptionsSafe_(),
+        dirOptions: dirForCaller(),
         fieldSchema: cached('fieldSchema', getFieldSchemaMap),
         categories: cached('categories', getCategoriesMap),
         icons: cached('icons', getIcons_),
@@ -300,6 +303,7 @@ var ADMIN_ACTIONS_ = {
 var DIR_CHANGERS_ = {
   createUser: true, setUserActive: true, deleteUser: true, renameUser: true, saveFieldSchema: true, createTab: true, deleteTab: true, renameTab: true,
   addDirectoryPeople: true, updateDirectoryPerson: true, saveDirectoryGroups: true,
+  setUserRole: true, // a Demo account leaves the directory (1.7)
 };
 
 // Admin screens everyone in the team may LOOK at (1.3, view only): the same
@@ -313,7 +317,7 @@ var DASH_CHANGERS_ = {
   submit: true, updateTabRow: true, deleteTabRow: true, createUser: true, renameUser: true, setUserActive: true,
   deleteUser: true, saveReportSettings: true, setTabHidden: true, createTab: true, deleteTab: true, renameTab: true,
   saveFieldSchema: true, saveDashboardIgnore: true, updateWeeklyConnectTicket: true, decideLeave: true, importRows: true, undoImport: true,
-  setTabType: true, saveFieldLayout: true,
+  setTabType: true, saveFieldLayout: true, setUserRole: true,
 };
 function doPost(e) {
   var out = doPostInner_(e);
@@ -349,10 +353,10 @@ function doPostInner_(e) {
     // Everyone signs in with their own username + password; every request
     // is checked against their session. Only signing in and creating the
     // very first admin work without one.
-    var PUBLIC_ACTIONS_ = { login: true, bootstrapFirstAdmin: true };
+    var PUBLIC_ACTIONS_ = { login: true, bootstrapFirstAdmin: true, requestPasswordCode: true, resetPasswordWithCode: true };
     // ===== Is the app new enough to save here? (the safety switch) =====
     // Signing in still works, so the app can show its "Update required".
-    var APP_CHECK_FREE_ = { login: true, bootstrapFirstAdmin: true, logout: true, setLatestVersion: true };
+    var APP_CHECK_FREE_ = { login: true, bootstrapFirstAdmin: true, logout: true, setLatestVersion: true, requestPasswordCode: true, resetPasswordWithCode: true };
     if (!APP_CHECK_FREE_[body.action]) {
       var needApp = appTooOld_(body.appVersion);
       if (needApp) {
@@ -370,6 +374,12 @@ function doPostInner_(e) {
       if (callerSession.mustChange && body.action !== 'changeMyPassword') {
         return jsonOut({ ok: false, error: 'Set a new password first.', mustChangePassword: true });
       }
+      // A Demo account (1.7) looks around and changes nothing — and never
+      // sees who's in the team, how it's set up, or anything that costs the
+      // team (Ask, the AI digest). Checked here on every call.
+      if (isDemoRole_(callerSession.role) && !DEMO_READS_[body.action]) {
+        return jsonOut({ ok: false, demo: true, error: DEMO_REFUSED_ });
+      }
       // Changing how the team's app is set up is for Admins only — checked
       // here on every call, not just by hiding buttons in the app.
       if (ADMIN_ACTIONS_[body.action] && callerSession.role !== 'Admin') {
@@ -377,6 +387,10 @@ function doPostInner_(e) {
         viewOnly = true;
       }
     }
+
+    // Forgot password (1.7): a 6-digit code to the account's email.
+    if (body.action === 'requestPasswordCode') return jsonOut(requestPasswordCode_(body.username));
+    if (body.action === 'resetPasswordWithCode') return jsonOut(resetPasswordWithCode_(body.username, body.code, body.newPassword));
 
     if (body.action === 'sendReportNow') {
       compileAndSendReport(parseRangeFromRequest(body), body.configName);
@@ -1158,11 +1172,12 @@ function doPostInner_(e) {
           Username: String(body.username).trim(),
           PasswordHash: hashPassword_(body.password, newSalt),
           Salt: newSalt,
-          Role: body.role === 'Admin' ? 'Admin' : 'User',
+          Role: body.role === 'Admin' ? 'Admin' : isDemoRole_(body.role) ? DEMO_ROLE_ : 'User',
           Active: 'TRUE',
           CreatedAt: new Date(),
           LastLoginAt: '',
-          MustChangePassword: 'TRUE',
+          // A Demo account is shared, so nobody is asked to replace its password.
+          MustChangePassword: isDemoRole_(body.role) ? 'FALSE' : 'TRUE',
           Groups: dirSplit_(body.groups || []).join(', '),
         });
         if (dirSplit_(body.groups || []).length) saveDirGroupsAdding_(dirSplit_(body.groups));
@@ -1190,9 +1205,14 @@ function doPostInner_(e) {
         var saltCol = findColumnIndex(resetData.headers, 'Salt');
         resetData.sheet.getRange(resetIdx + 2, hashCol + 1).setValue(hashPassword_(body.newPassword, resetSalt));
         resetData.sheet.getRange(resetIdx + 2, saltCol + 1).setValue(resetSalt);
-        // An admin-set password is temporary — they choose their own at next sign-in.
+        // An admin-set password is temporary — they choose their own at next
+        // sign-in. Not a Demo account: several people share it (1.7).
+        var resetRec = rowToUserRecord_(resetData.headers, resetData.rows[resetIdx]);
         var mustColR = findColumnIndex(resetData.headers, 'MustChangePassword');
-        if (mustColR !== -1) resetData.sheet.getRange(resetIdx + 2, mustColR + 1).setValue('TRUE');
+        if (mustColR !== -1) resetData.sheet.getRange(resetIdx + 2, mustColR + 1).setValue(isDemoRole_(resetRec['Role']) ? 'FALSE' : 'TRUE');
+        // A reset also lifts the "too many wrong passwords" pause (1.7) —
+        // before, the new password was refused for up to 15 minutes.
+        clearLoginFails_(resetRec['Username']);
       } finally {
         resetLock.releaseLock();
       }
@@ -1381,9 +1401,10 @@ function doPostInner_(e) {
     if (body.action === 'setUserRole') {
       var roleAuth = requireAdminSession_(body);
       if (roleAuth.error) return jsonOut({ ok: false, error: roleAuth.error });
-      if (!body.username || (body.role !== 'Admin' && body.role !== 'User')) {
-        return jsonOut({ ok: false, error: 'Username and a valid role (Admin/User) are required.' });
+      if (!body.username || (body.role !== 'Admin' && body.role !== 'User' && !isDemoRole_(body.role))) {
+        return jsonOut({ ok: false, error: 'Username and a valid role (Admin, User or Demo) are required.' });
       }
+      if (isDemoRole_(body.role)) body.role = DEMO_ROLE_;
       var roleLock = LockService.getScriptLock();
       if (!roleLock.tryLock(LOCK_WAIT_MS)) {
         return jsonOut({ ok: false, error: 'Server is busy — please try again in a few seconds.' });
@@ -1395,11 +1416,14 @@ function doPostInner_(e) {
         var roleTargetRec = rowToUserRecord_(roleData.headers, roleData.rows[roleIdx]);
         // Same guard as setUserActive, same reason — demoting the last
         // admin to User is just as much a lockout as deactivating them.
-        if (body.role === 'User' && roleTargetRec['Role'] === 'Admin' && countOtherActiveAdmins_(roleData, roleIdx) === 0) {
+        if (body.role !== 'Admin' && roleTargetRec['Role'] === 'Admin' && countOtherActiveAdmins_(roleData, roleIdx) === 0) {
           return jsonOut({ ok: false, error: 'Can\'t demote the only remaining admin account.' });
         }
         var roleCol = findColumnIndex(roleData.headers, 'Role');
         roleData.sheet.getRange(roleIdx + 2, roleCol + 1).setValue(body.role);
+        // Made a Demo account: it's shared, so it isn't asked for a new password.
+        var roleMust = findColumnIndex(roleData.headers, 'MustChangePassword');
+        if (body.role === DEMO_ROLE_ && roleMust !== -1) roleData.sheet.getRange(roleIdx + 2, roleMust + 1).setValue('FALSE');
       } finally {
         roleLock.releaseLock();
       }
@@ -1486,8 +1510,9 @@ function doPostInner_(e) {
       var namesData = usersSheetRows_();
       var namesCol = findColumnIndex(namesData.headers, 'Username');
       var activeCol = findColumnIndex(namesData.headers, 'Active');
+      var nRoleCol = findColumnIndex(namesData.headers, 'Role');
       var names = namesData.rows
-        .filter(function (r) { return isActiveValue_(r[activeCol]); })
+        .filter(function (r) { return isActiveValue_(r[activeCol]) && !isDemoRole_(nRoleCol === -1 ? '' : r[nRoleCol]); })
         .map(function (r) { return String(r[namesCol]).trim(); })
         .filter(Boolean);
       return jsonOut({ ok: true, usernames: names });
@@ -1912,6 +1937,7 @@ function tmResetAdminPassword() {
   var mc = findColumnIndex(data.headers, 'MustChangePassword');
   if (mc !== -1) data.sheet.getRange(row, mc + 1).setValue(true);
   removeSessionsForUser_(rowToUserRecord_(data.headers, data.rows[idx])['Username']);
+  clearLoginFails_(rowToUserRecord_(data.headers, data.rows[idx])['Username']); // (1.7) the new one works at once
   ui.alert('Temporary password', 'Sign in to Daylens as "' + name + '" with:\n\n' + temp +
     '\n\nYou\'ll be asked to choose a new password straight away.', ui.ButtonSet.OK);
 }
@@ -2948,10 +2974,107 @@ function bootstrapFirstAdmin_(username, password) {
   return loginUser_(username, password);
 }
 
+// ==================== Demo accounts (1.7) ====================
+// Several people (say, recruiters) share one; it can look around but not
+// change anything, and never sees the People list, the team directory, the
+// activity log, team setup or secrets. Everything it may ask the Sheet for:
+var DEMO_ROLE_ = 'Demo';
+var DEMO_REFUSED_ = 'This is a demo account: you can look around, but not change, copy or download anything.';
+function isDemoRole_(r) { return String(r || '').trim().toLowerCase() === 'demo'; }
+var DEMO_READS_ = {
+  logout: true, listReminders: true, getTabRows: true, getReportConfigs: true, getReportSettings: true,
+  getConnectGroups: true, getDataSources: true, viewReport: true, logAppOpened: true, logNavigation: true,
+  getCleanup: true, previewCleanup: true, getWeeklyCheck: true, previewWeeklyCheck: true, teamDashboard: true,
+  searchAll: true, meetingOpenActions: true, leaveCalendar: true, getDocuments: true, getFieldLayout: true, recentImports: true,
+};
+
+// ==================== Forgot password (1.7) ====================
+// "Forgot password?" on the sign-in screen: a 6-digit code goes to the
+// email saved on the account (People), good for 15 minutes and one use.
+// The answer is the same whether or not the account exists or has an
+// email, so nobody can use it to find accounts. At most 3 codes an hour
+// per account, and 5 tries at a code.
+var PW_CODE_TTL_S = 900;
+var PW_CODE_MAX_PER_HOUR = 3;
+var PW_CODE_MAX_TRIES = 5;
+var PW_CODE_SENT_ = 'If that account has an email address saved, a code is on its way to it. It works for 15 minutes. Nothing after a few minutes? Check spam, or ask your admin to reset your password.';
+function pwKey_(kind, username) { return kind + ':' + String(username || '').trim().toLowerCase(); }
+function requestPasswordCode_(username) {
+  var name = String(username || '').trim();
+  if (!name) return { ok: false, error: 'Type your username first.' };
+  var cache = CacheService.getScriptCache();
+  var sentKey = pwKey_('pwreq', name);
+  var sent = Number(cache.get(sentKey) || 0);
+  if (sent >= PW_CODE_MAX_PER_HOUR) return { ok: true, message: PW_CODE_SENT_ };
+  cache.put(sentKey, String(sent + 1), 3600);
+  var data = usersSheetRows_();
+  var idx = findUserRowIndex_(data.headers, data.rows, name);
+  if (idx === -1) return { ok: true, message: PW_CODE_SENT_ };
+  var rec = rowToUserRecord_(data.headers, data.rows[idx]);
+  var email = String(rec['Email'] || '').trim();
+  if (!isActiveValue_(rec['Active']) || isDemoRole_(rec['Role']) || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: true, message: PW_CODE_SENT_ };
+  var code = String(Math.floor(100000 + Math.random() * 900000));
+  var salt = Utilities.getUuid();
+  cache.put(pwKey_('pwcode', name), JSON.stringify({ h: hashPassword_(code, salt), s: salt, tries: 0 }), PW_CODE_TTL_S);
+  var team = PropertiesService.getScriptProperties().getProperty('TEAM_NAME') || 'your team';
+  try {
+    MailApp.sendEmail(email, 'Your Daylens code: ' + code,
+      'Hi ' + rec['Username'] + ',\n\nYour code to set a new Daylens password for ' + team + ' is:\n\n    ' + code +
+      '\n\nIt works once, for the next 15 minutes. If you didn\'t ask for it, ignore this email: your password hasn\'t changed.\n\n— Daylens');
+  } catch (mailErr) {
+    return { ok: false, error: 'The code couldn\'t be emailed just now — try again later, or ask your admin to reset your password.' };
+  }
+  logAudit_('', 'password code', 'People', 'A code to set a new password was emailed to ' + rec['Username'] + '.');
+  return { ok: true, message: PW_CODE_SENT_ };
+}
+function resetPasswordWithCode_(username, code, newPassword) {
+  var name = String(username || '').trim();
+  var c = String(code || '').replace(/\s+/g, '');
+  var pw = String(newPassword || '');
+  if (!name || !/^\d{6}$/.test(c)) return { ok: false, error: 'Enter your username and the 6-digit code from the email.' };
+  if (pw.length < 8) return { ok: false, error: 'Use at least 8 characters for your new password.' };
+  var cache = CacheService.getScriptCache();
+  var key = pwKey_('pwcode', name);
+  var held = null;
+  try { held = JSON.parse(cache.get(key) || 'null'); } catch (e) { held = null; }
+  var wrong = { ok: false, error: 'That code isn\'t right or has run out — ask for a new one.' };
+  if (!held) return wrong;
+  if (hashPassword_(c, held.s) !== held.h) {
+    held.tries = (held.tries || 0) + 1;
+    if (held.tries >= PW_CODE_MAX_TRIES) cache.remove(key); else cache.put(key, JSON.stringify(held), PW_CODE_TTL_S);
+    return wrong;
+  }
+  cache.remove(key);
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(LOCK_WAIT_MS)) return { ok: false, error: 'Server is busy — please try again in a few seconds.' };
+  var realName;
+  try {
+    var data = usersSheetRows_();
+    var idx = findUserRowIndex_(data.headers, data.rows, name);
+    if (idx === -1) return wrong;
+    var rec = rowToUserRecord_(data.headers, data.rows[idx]);
+    if (!isActiveValue_(rec['Active']) || isDemoRole_(rec['Role'])) return wrong;
+    realName = rec['Username'];
+    var salt = Utilities.getUuid();
+    data.sheet.getRange(idx + 2, findColumnIndex(data.headers, 'PasswordHash') + 1).setValue(hashPassword_(pw, salt));
+    data.sheet.getRange(idx + 2, findColumnIndex(data.headers, 'Salt') + 1).setValue(salt);
+    var mc = findColumnIndex(data.headers, 'MustChangePassword');
+    if (mc !== -1) data.sheet.getRange(idx + 2, mc + 1).setValue('FALSE'); // they chose it themselves
+  } finally {
+    lock.releaseLock();
+  }
+  clearLoginFails_(realName);
+  logAudit_('', 'password reset', 'People', realName + ' set a new password with an emailed code.');
+  return loginUser_(realName, pw); // and signed in
+}
+
 // Slows down password guessing: after 10 wrong passwords for one username
 // within 15 minutes, that username is refused until the window passes.
 var LOGIN_MAX_FAILS = 10;
 var LOGIN_FAIL_WINDOW_S = 900;
+function clearLoginFails_(username) {
+  try { CacheService.getScriptCache().remove('loginfail:' + String(username || '').trim().toLowerCase()); } catch (e) { /* nothing to lift */ }
+}
 
 function loginUser_(username, password) {
   var failKey = 'loginfail:' + String(username || '').trim().toLowerCase();
@@ -2980,7 +3103,12 @@ function loginUser_(username, password) {
   if (!isActiveValue_(rec['Active'])) {
     return { ok: false, error: 'This account has been deactivated — contact your admin.' };
   }
-  if (hashPassword_(password, rec['Salt']) !== rec['PasswordHash']) {
+  // A space or line break that came along when the password was pasted
+  // (from WhatsApp, Teams, an email…) doesn't make it wrong. (1.7)
+  var pw = String(password == null ? '' : password);
+  var pwOk = hashPassword_(pw, rec['Salt']) === rec['PasswordHash'] ||
+    (pw.trim() !== pw && pw.trim() !== '' && hashPassword_(pw.trim(), rec['Salt']) === rec['PasswordHash']);
+  if (!pwOk) {
     cache.put(failKey, String(fails + 1), LOGIN_FAIL_WINDOW_S);
     return { ok: false, error: 'Invalid username or password.' };
   }
@@ -2996,7 +3124,7 @@ function loginUser_(username, password) {
     ok: true, sessionToken: token, username: rec['Username'], role: rec['Role'],
     mustChangePassword: String(rec['MustChangePassword']).trim().toUpperCase() === 'TRUE',
     teamId: props.getProperty('TEAM_ID') || '', teamName: props.getProperty('TEAM_NAME') || '',
-    sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl(),
+    sheetUrl: isDemoRole_(rec['Role']) ? '' : SpreadsheetApp.getActiveSpreadsheet().getUrl(), // a Demo account never gets the Sheet's address
     renamedFrom: renamedFrom,
     message: renamedFrom ? 'Your admin renamed your account to "' + rec['Username'] + '" — sign in with that name from now on.' : undefined,
   };
@@ -3038,10 +3166,15 @@ function validateSessionCached_(token) {
   var cache = CacheService.getScriptCache();
   var key = 'sessok:' + Utilities.base64EncodeWebSafe(
     Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(token))).slice(0, 43);
-  if (cache.get(key)) return true;
-  var ok = !!validateSession_(token);
-  if (ok) cache.put(key, '1', 120);
-  return ok;
+  // Remembers the role too (1.7: a Demo account reads a little less). Gives
+  // the role ('Admin', 'User', 'Demo'…), or false.
+  var hit = cache.get(key);
+  if (hit && hit !== '1') return hit;
+  var s = validateSession_(token);
+  if (!s) return false;
+  var role = String(s.role || 'User');
+  cache.put(key, role, 120);
+  return role;
 }
 
 /** Every user-management action below needs this — returns the validated
@@ -6116,6 +6249,7 @@ function leaveCalendar_(year, now) {
     var rec = rowToUserRecord_(users.headers, row);
     var name = String(rec['Username'] || '').trim();
     if (!name) return;
+    if (isDemoRole_(rec['Role'])) return; // a Demo account isn't in the team
     byKey[personKey_(name)] = { name: name, active: isActiveValue_(rec['Active']) };
     if (!isActiveValue_(rec['Active'])) return;
     people[name.toLowerCase()] = { name: name, taken: 0, planned: 0, pending: 0, by: {} };
@@ -6756,6 +6890,7 @@ function weekActivity_(now) {
     var rec = rowToUserRecord_(users.headers, row);
     var name = String(rec['Username']).trim();
     if (!name) return;
+    if (isDemoRole_(rec['Role'])) return; // a Demo account isn't in the team (nor "quiet" this week)
     var active = isActiveValue_(rec['Active']);
     byKey[personKey_(name)] = { name: name, active: active };
     if (!active) return;
@@ -7117,7 +7252,7 @@ function directory_() {
     var rec = rowToUserRecord_(users.headers, row);
     var name = String(rec['Username'] || '').trim();
     var key = personKey_(name);
-    if (!key) return;
+    if (!key || isDemoRole_(rec['Role'])) return; // a Demo account isn't a name to pick
     people[key] = { name: name, groups: gCol === -1 ? [] : dirSplit_(row[gCol]), status: isActiveValue_(rec['Active']) ? 'Active' : 'Retired', note: '', account: true };
   });
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(DIRECTORY_TAB_);
@@ -7462,6 +7597,8 @@ function getDocuments_(session) {
   var categories = admin ? docCategories_(all) : docCategories_(docs).filter(function (c) {
     return docs.some(function (d) { return d.category.toLowerCase() === c.toLowerCase(); });
   });
+  // A Demo account sees what's there, not where it lives (1.7).
+  if (session && isDemoRole_(session.role)) docs = docs.map(function (d) { var c = Object.assign({}, d); c.link = ''; return c; });
   var out = { ok: true, admin: admin, categories: categories, docs: docs, team: [] };
   if (admin) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -7745,7 +7882,7 @@ function assistantContext_(session, question, now) {
   var people = [];
   try {
     var u = usersSheetRows_();
-    u.rows.forEach(function (row) { var rec = rowToUserRecord_(u.headers, row); if (isActiveValue_(rec['Active'])) people.push(String(rec['Username'])); });
+    u.rows.forEach(function (row) { var rec = rowToUserRecord_(u.headers, row); if (isActiveValue_(rec['Active']) && !isDemoRole_(rec['Role'])) people.push(String(rec['Username'])); });
   } catch (e) { /* names are a nice-to-have */ }
   var today = null;
   try { today = getTodayHighlights(); } catch (e2) { today = null; }
@@ -8142,7 +8279,7 @@ function monthlyDeckData_(key, now, opts) {
   users.rows.forEach(function (row) {
     var rec = rowToUserRecord_(users.headers, row);
     var name = String(rec['Username']).trim();
-    if (!name) return;
+    if (!name || isDemoRole_(rec['Role'])) return;
     var active = isActiveValue_(rec['Active']);
     byKey[personKey_(name)] = { name: name, active: active };
     if (!active) return;

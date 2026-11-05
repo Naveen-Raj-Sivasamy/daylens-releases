@@ -34,7 +34,7 @@
     <div class="wrap">
       <h1>Privacy policy</h1>
       <p>Daylens keeps your team's work in your own Google Sheet. This page explains exactly what the app touches, where it's kept and who can see it.</p>
-      <p class="updated">Effective November 4, 2026</p>
+      <p class="updated">Effective November 5, 2026</p>
     </div>
   </div>
 
@@ -89,7 +89,8 @@
         <li>once a month, unless your admin switches it off, copies every tab into a new Google Sheet in a "Daylens copies" folder in the same Google account's Drive, using the permissions the admin approved for the script. It keeps the 3 newest; the oldest goes to Drive's trash. The copies hold everything the Sheet holds, including the team accounts tab, and aren't shared with anyone;</li>
         <li>sends data to services your admin turns on, described under <a href="#others">Other services</a>.</li>
       </ul>
-      <p><strong>Team accounts.</strong> Teammates sign in to Daylens with a username and password that their admin creates. Passwords are stored in the team's Sheet as salted hashes, never as plain text, and never reach us. Teammates don't need a Google account. When an admin renames an account, the Sheet also keeps the old name, so the person can still sign in with it. An admin may also add a teammate's email address, used only for the Friday check-in and kudos; only admins can see it.</p>
+      <p><strong>Team accounts.</strong> Teammates sign in to Daylens with a username and password that their admin creates. Passwords are stored in the team's Sheet as salted hashes, never as plain text, and never reach us. Teammates don't need a Google account. When an admin renames an account, the Sheet also keeps the old name, so the person can still sign in with it. An admin may also add a teammate's email address, used only for the Friday check-in, kudos and the code to set a new password; only admins can see it.</p>
+      <p><strong>Forgot password.</strong> When someone asks for a code on the sign-in screen, the team's script emails a 6-digit code to the address saved on that account, from the team's own Google account. It works once, for 15 minutes, and the script keeps only a hash of it in Google's temporary cache for the team's script. The Activity log notes that a code was sent and that a new password was set, never the code or the password.</p>
       <p><strong>Team dashboard.</strong> Everyone in a team can see, on Daylens's Home screen, which days each teammate logged entries that week and how many. It also shows tickets that have been pending or in progress for more than a week, with who has them, and who's off in the next 7 working days. It's worked out from the team's own Sheet and isn't sent anywhere else. To show it straight away, Daylens keeps the last copy on each teammate's computer.</p>
       <p><strong>Leave calendar.</strong> Everyone in a team can see the leave calendar: who's off on which day (leave taken, planned, or waiting for approval), the type of leave, the holidays, and each person's leave days for the year. It's worked out from the team's Leave tabs, and Daylens keeps the last copy on each teammate's computer so it opens straight away. Admins can add the year's holidays, which are kept in a holidays tab of the team's Sheet.</p>
       <p><strong>Search.</strong> When someone searches in Daylens, the team's script looks through the tabs that person can see in Daylens (the newest 5,000 rows of each) and sends back the matching rows. Hidden tabs and settings tabs are never searched. To answer quickly, the script keeps the text of those tabs in Google's temporary cache for the team's script for up to 30 minutes. It isn't sent anywhere else.</p>
@@ -100,6 +101,7 @@
       <p><strong>Importing a file.</strong> When an admin imports an Excel or CSV file, Daylens reads it on their computer and adds its rows to the team's Sheet. The file isn't sent anywhere else. The team's script keeps a short record of the last few imports (which tab and rows) so an import can be undone.</p>
       <p><strong>Monthly PPT.</strong> Anyone in a team can make a PowerPoint of a month. It's built on their own computer from the team's numbers and saved where they choose. It isn't sent anywhere, unless they ask for AI highlights (see <a href="#others">Other services</a>).</p>
       <p><strong>Admin screens.</strong> Everyone signed in to a team can look at how it's set up, view only: People (names, roles and last sign-in), Tabs &amp; fields, Scheduled reports, the Friday check-in, Clean-up &amp; backups and the Activity log (who did what in Daylens, and when). Only admins can change anything. Passwords, the Gemini key, Teams and Power Automate links and email addresses are never shown to teammates. In the Activity log, any link or email address is hidden from them too.</p>
+      <p><strong>Demo accounts.</strong> An admin can make a look-only Demo account, to show the team's work to someone outside it. It sees the team's entries, dashboards, reports and the names of documents. It never sees People, the team directory, the Activity log, email addresses, keys or links, the Sheet or the documents' links, and it can't use Ask Daylens or the AI digest. The team's script refuses any change from it. In the desktop app it can't select, copy, print or download anything, and its window is hidden from screenshots and screen sharing. In a browser, Daylens's screens block copying and printing too, but a browser can't stop a screenshot or its own developer tools. Whoever has a Demo account's sign-in can see that team's entries, so an admin should use one on a team with made-up data.</p>
       <p><strong>App version.</strong> Each time Daylens talks to your team's script, it says which version of Daylens it is, so the script can ask an out-of-date copy to update. This goes only to your team's own script, not to us.</p>
       <p>Who can see the Sheet is controlled by the admin in Google Drive, like any other Google file. In Daylens, only admins have the button that opens it. Because it's the admin's Sheet, the admin's organisation and Google's own terms also apply to it.</p>
 
@@ -181,7 +183,8 @@
       <ul>
         <li>Everything between the Daylens app, your team's script and Google travels over encrypted HTTPS connections.</li>
         <li>Your team's script shares your team's entries only with people signed in to your team, and only admins can change team settings, accounts and tabs.</li>
-        <li>Passwords are stored as salted hashes. After too many wrong passwords, sign-in for that account pauses for 15 minutes.</li>
+        <li>Passwords are stored as salted hashes. After too many wrong passwords, sign-in for that account pauses for 15 minutes, until an admin resets the password or the person sets a new one with an emailed code.</li>
+        <li>A code to set a new password goes only to the email address saved on that account. Asking for one gives the same answer whether or not the account exists, and each account can be sent at most three an hour.</li>
         <li>The admin's Google sign-in key, and each person's Daylens sign-in, are encrypted on their computer.</li>
       </ul>
       <p>No system is perfectly secure. Keep your computer's account protected, share invite codes only with your team, and remove people's accounts when they leave the team.</p>
