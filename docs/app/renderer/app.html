@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'none'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -9,6 +9,7 @@
 
 <meta charset="utf-8" />
 <script src="theme.js"></script>
+<script src="a11y.js"></script>
 <script src="demo-guard.js"></script>
 <link rel="stylesheet" href="today.css" />
 <script src="today.js"></script>
@@ -68,7 +69,7 @@
   nav .scroll::-webkit-scrollbar-button { display: none; }
   /* Signed out / updating: the menu waits — but the team card still
      works, so you can switch to another team from the sign-in screen. */
-  nav.locked .scroll, nav.locked .bottom { opacity: 0.4; pointer-events: none; }
+  nav.locked .scroll, nav.locked .bottom .nav-item, nav.locked .bottom .user-chip { opacity: 0.4; pointer-events: none; } /* (1.10: the sign-in button and the note under it stay readable) */
 
   .team-card {
     display: flex; align-items: center; gap: 10px; margin: 10px 10px 6px; padding: 8px;
@@ -190,6 +191,23 @@
     background: var(--chrome); color: var(--on-brand); border: 1px solid var(--line); box-shadow: 0 12px 34px rgba(0,0,0,0.35); font-size: 13px; font-weight: 650; }
   html[data-mode="light"] .refresh-toast { background: #fff; color: #1d2433; border-color: #e3e7f0; }
   body.bar-up .refresh-toast { bottom: calc(var(--bar-lift, 112px) + 62px); }
+  /* 1.10 — the outbox: a small mark in the dock while entries are on their
+     way to the Sheet, and a bar when one couldn't be saved. */
+  .outbox-pill { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 999px; font-size: 12.5px; font-weight: 700;
+    background: var(--chrome); color: var(--on-brand); border: 1px solid var(--line); box-shadow: 0 6px 18px rgba(0,0,0,0.25); white-space: nowrap; }
+  html[data-mode="light"] .outbox-pill { background: #fff; color: #1d2433; border-color: #e3e7f0; }
+  .outbox-pill svg { width: 16px; height: 16px; stroke: currentColor; }
+  .outbox-bar { position: fixed; z-index: 59; top: 48px; left: 50%; transform: translateX(-50%); width: min(720px, calc(100vw - 32px)); display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 14px; border-radius: 14px; background: #fff; color: #1d2433; border: 2px solid #c53030; box-shadow: 0 14px 40px rgba(0,0,0,0.35); font-size: 13px; }
+  .outbox-bar[hidden] { display: none; }
+  .outbox-bar .ob-text { flex: 1 1 260px; min-width: 0; }
+  .outbox-bar .ob-text b { display: block; }
+  .outbox-bar .ob-text span { display: block; overflow-wrap: anywhere; }
+  .outbox-bar .ob-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .outbox-bar button { font: inherit; font-weight: 700; padding: 6px 12px; border-radius: 9px; border: 1px solid #c9cfdb; background: #f4f6fb; color: #1d2433; cursor: pointer; }
+  .outbox-bar button.primary { background: #1f5a45; border-color: #1f5a45; color: #fff; }
+  .outbox-bar button:focus-visible { outline: 3px solid #1d6fe0; outline-offset: 2px; }
+  body.alarm-on .outbox-bar { top: 96px; }
   /* The reminder alarm (1.8): a red glow round the whole window that
      pulses slowly (well under 3 flashes a second), steady for anyone who
      turns motion off; and a bar saying what's due, with its buttons. */
@@ -277,7 +295,10 @@
     width: min(440px, 40vw); height: 28px; padding: 0 8px 0 10px; border-radius: 9px;
     background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.14); color: var(--strip-text);
   }
-  .srch:focus-within { background: rgba(255,255,255,0.16); border-color: var(--gold); }
+  .srch:focus-within { background: rgba(255,255,255,0.16); border-color: var(--gold); outline: 2px solid var(--gold); outline-offset: 1px; }
+  /* 1.10 — keyboard: jump past the menu to the screen. Shown only while it has the focus. */
+  .skip-link { position: fixed; z-index: 70; top: 6px; left: 6px; padding: 8px 14px; border-radius: 10px; background: #fff; color: #1d2433; font-weight: 800; font-size: 13px; border: 2px solid #1d6fe0; transform: translateY(-200%); }
+  .skip-link:focus { transform: none; outline: 3px solid #1d6fe0; outline-offset: 2px; }
   .srch svg { width: 15px; height: 15px; stroke: currentColor; opacity: 0.75; flex: none; }
   .srch input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; font-size: 12.5px; }
   .srch input::placeholder { color: currentColor; opacity: 0.62; }
@@ -348,6 +369,7 @@
 </style>
 </head>
 <body>
+  <a href="#content" class="skip-link" id="skip-link">Skip to the screen</a>
   <div class="titlestrip">
     <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
       <rect width="32" height="32" rx="8" fill="var(--gold)"/>
@@ -437,6 +459,7 @@
   <!-- Bottom right, on every screen (above any Save / Submit bar): Refresh
        this screen, Reminders, Ask Daylens. -->
   <div class="fab-dock" id="fab-dock">
+    <span class="outbox-pill" id="outbox-pill" role="status" hidden></span>
     <button type="button" class="round-fab" id="refresh-btn" title="Refresh — fresh data from the Sheet for this screen" aria-label="Refresh this screen">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5a8 8 0 1 0-2.3 5.7"/><path d="M20 4.5v7h-7"/></svg>
     </button>
@@ -450,6 +473,11 @@
     </button>
   </div>
   <div class="refresh-toast" id="refresh-toast" role="status" aria-live="polite" hidden></div>
+  <!-- 1.10: an entry the Sheet refused, or that couldn't be confirmed. -->
+  <div class="outbox-bar" id="outbox-bar" role="alert" hidden>
+    <div class="ob-text"><b id="outbox-title"></b><span id="outbox-detail"></span></div>
+    <div class="ob-btns" id="outbox-btns"></div>
+  </div>
   <!-- A reminder that's due: the whole window pulses red, with what's due
        and Snooze / Stop / Done, until one is pressed (1.8). -->
   <div class="alarm-glow" id="alarm-glow" hidden></div>
@@ -767,6 +795,8 @@
     ['refresh-btn', 'reminders-btn'].forEach((id) => { const b = document.getElementById(id); if (b) b.hidden = !!v; });
     if (v && typeof assistant !== 'undefined') assistant.reset();
     nav.classList.toggle('locked', v);
+    // The locked menu is out of reach of the keyboard and screen readers too, not just the mouse (1.10).
+    nav.querySelectorAll('.scroll, .bottom .nav-item, .bottom .user-chip').forEach((el) => { el.inert = !!v; });
     lockNote.style.display = v ? 'block' : 'none';
     // Locked = login/update screen showing in the main frame. Keep it in
     // view — unless the person was sent to fix the connection from there.
@@ -987,6 +1017,7 @@
     const items = (data && data.items) || [];
     const it = items[items.length - 1]; // the newest
     alarmGlow.hidden = alarmBar.hidden = !it;
+    document.body.classList.toggle('alarm-on', !!it); // (the "wasn't saved" bar sits below it)
     if (!it) { alarmKey = ''; return; }
     const isNew = it.key !== alarmKey;
     alarmKey = it.key;
@@ -1009,6 +1040,53 @@
     if (isNew) alarmBar.setAttribute('aria-label', 'Reminder due: ' + it.title);
   }
   if (window.statusApp.onReminderAlarm) window.statusApp.onReminderAlarm(renderAlarm);
+
+  // Keyboard: "Skip to the screen" puts the focus in the screen that's showing (1.10).
+  document.getElementById('skip-link').onclick = (e) => {
+    e.preventDefault();
+    const f = frames[visibleFrame];
+    if (f) { f.focus(); try { f.contentWindow.focus(); } catch { /* still loading */ } }
+  };
+
+  // The outbox (1.10): new entries are saved in the background. A small
+  // mark sits by Refresh while any are on their way; a bar says so when
+  // one couldn't be saved, wherever the person is in the app.
+  const outboxPill = document.getElementById('outbox-pill');
+  const outboxBar = document.getElementById('outbox-bar');
+  function renderOutbox(info) {
+    const items = (info && info.items) || [];
+    const moving = items.filter((x) => x.state === 'waiting' || x.state === 'sending');
+    const bad = items.filter((x) => x.state === 'failed' || x.state === 'unsure');
+    outboxPill.hidden = !moving.length;
+    if (moving.length) {
+      const offline = navigator.onLine === false;
+      const what = moving.length === 1 ? '1 entry' : `${moving.length} entries`;
+      outboxPill.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V6"/><path d="m6.5 11.5 5.5-5.5 5.5 5.5"/></svg><span></span>';
+      outboxPill.lastChild.textContent = offline ? `${what} waiting for a connection` : `Sending ${what}…`;
+      outboxPill.title = offline ? 'Kept on this computer. Daylens sends them when you\'re back online.' : 'Saved on this computer and on the way to the Sheet. You can carry on.';
+    }
+    const it = bad[0];
+    outboxBar.hidden = !it;
+    if (!it) return;
+    document.getElementById('outbox-title').textContent = (it.state === 'failed' ? `An entry for ${it.tab} wasn't saved` : `An entry for ${it.tab} couldn't be confirmed`) + (bad.length > 1 ? `  (+${bad.length - 1} more)` : '');
+    document.getElementById('outbox-detail').textContent = it.error || '';
+    const btns = document.getElementById('outbox-btns');
+    btns.innerHTML = (it.state === 'failed' ? '<button type="button" class="primary" data-a="edit">Edit</button>' : '') + '<button type="button" data-a="retry">Send again</button><button type="button" data-a="discard">Discard</button>';
+    btns.querySelectorAll('button').forEach((b) => {
+      b.onclick = () => {
+        if (b.dataset.a === 'retry') { window.statusApp.outboxRetry(it.id); return; }
+        showFrame('frame-index'); // Edit opens its form; Discard asks first, in the screen
+        frames['frame-index'].contentWindow.postMessage({ __statusApp: true, type: 'outbox-act', action: b.dataset.a, id: it.id }, '*');
+      };
+    });
+  }
+  if (window.statusApp.onOutboxChanged) {
+    window.statusApp.onOutboxChanged(renderOutbox);
+    const pullOutbox = () => window.statusApp.outboxList().then(renderOutbox).catch(() => {});
+    pullOutbox();
+    window.addEventListener('online', pullOutbox);
+    window.addEventListener('offline', pullOutbox);
+  }
 
   document.getElementById('signin-chip').onclick = () => {
     showFrame('frame-index');

@@ -18,7 +18,7 @@
     // ---- Everyday work
     { id: 'log-entry', area: 'Everyday work', title: 'Log your work', go: 'home',
       what: 'Add an entry to any of your team\'s tabs: daily status, deployments, tickets and so on.',
-      how: ['Home → pick a category tile → pick the tab.', 'Click "Add new entry", fill it in (your name is filled in for you).', 'Press Submit. Drafts are kept if you close Daylens half-way.'],
+      how: ['Home → pick a category tile → pick the tab.', 'Click "Add new entry", fill it in (your name is filled in for you).', 'Press Submit. It\'s saved on this computer at once and sent to the Sheet behind the screen, so you can carry on; it shows as "Sending…" on its tab until it lands. If it can\'t be saved, a bar says why, with Edit, Send again and Discard.', 'Drafts are kept if you close Daylens half-way.'],
       keywords: 'add entry submit status daily update form' },
     { id: 'edit-entry', area: 'Everyday work', title: 'Change or remove an entry', go: 'home',
       what: 'Fix a mistake in something already saved, or take it out.',
@@ -50,11 +50,11 @@
       keywords: 'approve approval approver reject pending leave request manager ok' },
     { id: 'tickets', area: 'Everyday work', title: 'Ticket tracker', go: 'type:ticket-tracker',
       what: 'Log tickets, see them in one list, update their status and comments, and post them to the right Teams channel.',
-      how: ['Open the ticket tab from Home.', 'Add a ticket, or pick one in the list to update its status or comments.', 'Pick the group on the ticket to post it to that group\'s Teams channel.'],
+      how: ['Open the ticket tab from Home: it opens as a list, one line a ticket (with the Trendy look; in Classic choose "View & update tickets").', '"+ New ticket" adds one; click a ticket to update its status or comments. Board | List at the top switches the view, and Daylens remembers which you like.', 'Pick the group on the ticket to post it to that group\'s Teams channel.'],
       keywords: 'ticket issue request status servicenow teams group' },
     { id: 'ticket-board', area: 'Everyday work', title: 'Ticket board', go: 'board:ticket-tracker',
       what: 'Every ticket in a column for its status. Drag a ticket to another column to change its status. Tickets pending or in progress for more than a week are marked amber, after two weeks red.',
-      how: ['Open the ticket tab → the "Ticket board" tile (with the Trendy look, the tab opens on it).', 'Drag a card to another column, or click it and press ← / → to move it. Click a card to update its status and comments.', 'Filter by person, Mine, "waiting over a week" or a word. "+ New ticket" raises one.'],
+      how: ['Open the ticket tab → Board (in Classic: the "Ticket board" tile).', 'Drag a card to another column, or click it and press ← / → to move it. Click a card to update its status and comments.', 'Filter by person, Mine, "waiting over a week" or a word. "+ New ticket" raises one.'],
       keywords: 'ticket board kanban columns drag status waiting move' },
     { id: 'search-all', area: 'Everyday work', title: 'Search everything', go: 'search',
       what: 'One box at the top of the window finds a ticket ID, a mail subject or a name across every tab you can see, and opens that row. It finds documents in the Document Centre too.',
@@ -238,11 +238,11 @@
       keywords: 'dropdown options choices select list status done pending share same' },
     { id: 'field-types', area: 'Admin', title: 'Field types', go: 'manage:field-types-section', admin: true,
       what: 'What kind of field each column is: text, drop-down, pick several, date, week, number 1, 2, 3…, link, checkbox, rich text or attachment. Add a column here too.',
-      how: ['Tabs & fields → Field Types → the tab → pick a type for a column → Save Field Types.', 'A Dropdown or Pick several field can take its choices from a list you type, or names from the team directory (choose the groups).'],
+      how: ['Tabs & fields → Field Types → pick the category → pick the tab.', 'Pick a type for a field (plain text needs nothing). A Dropdown or Pick several field takes its choices from a list, or names from the team directory.', '"+ Add a field" → name it → Save Field Types: its column is added to the Sheet.'],
       keywords: 'field type column date dropdown checkbox link directory names' },
     { id: 'field-order', area: 'Admin', title: 'Move or hide a field', go: 'manage:field-types-section', admin: true,
       what: 'Change the order of a tab\'s fields, or take a field you don\'t need off the form. Moving a field moves its column in the Sheet too, so old entries stay lined up. A hidden field keeps its column and old entries in the Sheet; Show brings it back.',
-      how: ['Tabs & fields → Field Types → the tab → ↑ ↓ next to a field, or Hide → Save Field Types.', 'Fields Daylens needs can\'t be hidden (a Leave tab\'s Name and Date, a ticket\'s Status and ID).'],
+      how: ['Tabs & fields → Field Types → the category → the tab → ↑ ↓ next to a field, or Hide → Save Field Types.', 'Fields Daylens needs can\'t be hidden (a Leave tab\'s Name and Date, a ticket\'s Status and ID).'],
       keywords: 'field remove delete hide show move order reorder up down column form' },
     { id: 'app-settings', area: 'Admin', title: 'App Settings', go: 'manage:app-settings-section', admin: true,
       what: 'The team\'s Teams channel, the Gemini key (for the AI digest and Ask Daylens) and who "Contact Admin" emails. Microsoft stopped the old Teams "Incoming Webhook" links in May 2026: Daylens warns you if yours is one — make a Workflows link in Teams instead ("Post to a channel when a webhook request is received").',
@@ -272,6 +272,14 @@
       what: 'Add a whole year\'s holidays at once. The leave calendar shows them, and scheduled reports and the Friday check-in skip those days. In December and January, Home reminds admins until they\'re in.',
       how: ['Leave calendar → "Edit <year> holidays" or "Add <next year> holidays".', 'Add each one, or paste a list (a date, then the name, one per line) → Save.'],
       keywords: 'holidays public holiday year calendar office closed add paste' },
+    { id: 'setup-guide', area: 'Your settings', title: 'Set-up guide', go: 'setup-guide',
+      what: 'For each thing an admin can set up: how to add it, change it, remove it, and which other features it works with.',
+      how: ['Settings → Set-up guide.', 'Search, or open a feature. "Take me there" goes to where it\'s set up.'],
+      keywords: 'setup set up configure configuration how to add edit update remove link guide admin' },
+    { id: 'speed-check', area: 'Your settings', title: 'Speed check', go: 'speed',
+      what: 'Times your team\'s Sheet from this computer and says where the wait goes. Admins also see how many rows each tab has. The timings stay on this computer.',
+      how: ['Settings → Speed check → Run the check.', 'A tab marked "Slowing Daylens" has grown past 3,000 rows with clean-up off: "Open Clean-up & backups" fixes that.'],
+      keywords: 'speed slow fast performance timing check rows big tab' },
     { id: 'activity-log', area: 'Admin', title: 'Activity log', go: 'logs', admin: true,
       what: 'Who did what in Daylens, and when: entries added, changed or removed, settings changed, and anything that failed.',
       how: ['Menu → Activity log.', 'Filter by Success or Failed, search, or pick dates. Export CSV saves what you see.'],
@@ -290,6 +298,93 @@
       keywords: 'google sheet open spreadsheet' },
   ];
 
+  // Set-up guide (1.10): for the things that are set up rather than just
+  // used — how to change it, how to remove it (or switch it off), and what
+  // it works with. "Add" is the feature's own how-to above.
+  const SETUP = {
+    'tabs': {
+      change: 'Tabs & fields → Tabs: Rename changes its name everywhere; "For" says what the tab is for; the icon button changes its icon.',
+      remove: 'Untick "Show in app" to hide a tab and keep everything in the Sheet. Delete takes the tab away; use it only when its entries aren\'t needed.',
+      links: 'A tab shows on Home under the category it\'s ticked in (Landing-Screen Categories). Its fields come from Field Types. Its "For" choice connects it to the dashboard, the leave calendar, or the ticket list and board.' },
+    'tab-for': {
+      change: 'Tabs & fields → Tabs → "For". It saves at once and never touches the entries, so it can be changed back any time.',
+      remove: 'Set it back to "Plain tab".',
+      links: 'Leave: fills "Who\'s off", the leave calendar and the warning when two people pick the same day; needs Name and Date fields. Ticket tracker: gives the ticket list, the board and "waiting more than a week"; needs Ticket ID and Status fields. Weekly meeting: one form per meeting, and queries with an owner become reminders. Holidays: the team\'s holiday list. Plain or Daily status: counted as each person\'s entries on the dashboard when the tab has Name and Date fields.' },
+    'categories': {
+      change: 'Tabs & fields → Landing-Screen Categories: retype the name, tick or untick its tabs, change its icon → Save Categories.',
+      remove: '✕ on the category → Save Categories. Its tabs and their entries stay.',
+      links: 'Home shows one tile per category. Field Types is arranged by the same categories; a tab in none of them is under Miscellaneous there. Each category can have its own report in Scheduled reports.' },
+    'field-types': {
+      change: 'Pick another type any time; entries already saved keep what they hold. To rename a field, rename its column heading in the Google Sheet, press Refresh, then set its type again.',
+      remove: 'Hide takes a field off the form and keeps its column and old entries. "Clear this tab\'s types" turns every field of the tab back to plain text. To delete a field for good, delete its column in the Google Sheet.',
+      links: 'A Dropdown or Pick several field gets its choices from a list in Dropdown & Multiselect Options (two fields can share one list) or from the team directory. A "Week (from a date)" field fills itself from a date field. Name and Date fields are what put a tab on the dashboard.' },
+    'field-order': {
+      change: '↑ ↓ and Hide / Show on the field → Save Field Types. The columns move in the Sheet too.',
+      remove: 'Show brings a hidden field back.',
+      links: 'The order here is the order on the form and in the Sheet. Hidden fields are left out of forms and of what Ask Daylens fills in.' },
+    'options': {
+      change: 'Tabs & fields → Dropdown & Multiselect Options: retype a choice, add or remove one → Save Options. Entries already saved keep the old word.',
+      remove: '✕ on a choice. Entries that used it keep it; it just can\'t be picked any more.',
+      links: 'A list is tied to a field in Field Types. A Status list with "Waiting for Requested Date" (one click to add) opens a reminder for that date when someone picks it. A ticket tab\'s Status list gives the board its columns.' },
+    'dashboard': {
+      change: 'Which tabs count: Home → the dashboard → "Something missing?" → "Don\'t count this tab", or Ignore a name. "Ignored" there undoes it. Classic | Trendy at the top right changes how it looks, for you only.',
+      remove: 'A tab stops counting when it\'s hidden (Show in app off), set to "Don\'t count this tab", or has no Name or Date field.',
+      links: 'A row per person in People. An entry counts for the person named in the tab\'s Name field on the day in its Date field, so a tab needs both fields to show in The team\'s week (add them in Field Types → "+ Add a field"). Leave tabs fill "Who\'s off"; ticket tabs fill "waiting more than a week"; the holiday list marks holidays.' },
+    'people': {
+      change: 'Menu → People → the person: Rename, Email, Groups, role, Make approver, Reset password.',
+      remove: 'Deactivate stops them signing in and keeps the account; Delete removes the account. Their entries stay in the Sheet either way.',
+      links: 'The name here is what entries, leave and reminders are matched on, so it should be the name used in the tabs\' Name field. Approvers decide leave. Emails are used for nudges, password codes and kudos.' },
+    'team-directory': {
+      change: 'People → Team directory: edit a person or the groups they\'re in.',
+      remove: 'Remove a person or a group there. Entries that already name them keep the name.',
+      links: 'A Dropdown or Pick several field can take its names from chosen groups (Field Types). These people don\'t sign in; they\'re names to pick.' },
+    'set-up-approval': {
+      change: 'People → Make approver / Remove approver on a person.',
+      remove: 'Tabs & fields → App Settings → untick "Leave needs an approver\'s OK" → Save App Settings. Requests already decided stay as they are.',
+      links: 'Needs a tab set "For: Leave". Pending requests show on the leave calendar and under Approvals; rejected leave is left out of "Who\'s off".' },
+    'holidays': {
+      change: 'Leave calendar → "Edit <year> holidays" → change a date or a name → Save.',
+      remove: 'Delete the line there and Save.',
+      links: 'Holidays show on the leave calendar and the dashboard, and choosing one for leave asks first. A tab set "For: Holidays" can be the list instead.' },
+    'reminders': {
+      change: 'Reminders (by Ask) → the reminder → Edit → change it → Save.',
+      remove: 'Mark it Done, or delete it from the list.',
+      links: 'A meeting query with an owner makes one. Choosing "Waiting for Requested Date" in an entry offers one for that date. Due reminders show in Today (the bell) and ring until Done, Snooze or Stop.' },
+    'scheduled-reports': {
+      change: 'Menu → Reports → Scheduled reports → open the report → change its tabs, columns, people or time → Save.',
+      remove: 'Remove the report there → Save scheduled reports.',
+      links: 'Each report covers the tabs you choose, usually one category. It emails the people listed and can remind those who haven\'t logged anything.' },
+    'checkin': {
+      change: 'Tabs & fields → Friday check-in → day, time, message → Save.',
+      remove: 'Switch it off there.',
+      links: 'Uses the dashboard\'s counts and the Leave tab, so people on leave aren\'t nudged.' },
+    'ticket-groups': {
+      change: 'Tabs & fields → Ticket Groups → retype the name or paste a new Teams link → Save.',
+      remove: '✕ on the group → Save. Tickets keep their group\'s name.',
+      links: 'A ticket\'s Group decides which Teams channel its posts go to. The Teams link is a Workflows link from that channel.' },
+    'app-settings': {
+      change: 'Tabs & fields → App Settings → change a value → Save App Settings.',
+      remove: 'Clear the box and Save: a cleared Teams link stops the posts; a cleared Gemini key switches off the AI digest and Ask Daylens\' answers.',
+      links: 'The Teams link is used by Today\'s update and the AI digest post. The Gemini key is used by the AI digest, Ask Daylens and the Monthly PPT\'s highlights. The admin contact emails get Contact Admin messages and the Clean-up backups.' },
+    'data-sources': {
+      change: 'Tabs & fields → Data Sources → pick the tab → paste the new link → Save.',
+      remove: 'Set the tab back to Google Sheet there.',
+      links: 'A tab routed to Excel saves through a Power Automate flow. Such a tab has no entries list or ticket board in Daylens, and Submit waits for the flow\'s answer.' },
+    'cleanup': {
+      change: 'Tabs & fields → Clean-up & backups → choose how long each tab keeps rows → Save clean-up.',
+      remove: 'Set a tab back to "Keep everything".',
+      links: 'Older rows are emailed to the admins as a backup file before they\'re removed. Leave tabs are never cleaned. The Speed check and Home tell admins when a tab has grown big enough to slow Daylens.' },
+    'documents': {
+      change: 'Document Centre → ⋯ on a document → Edit, or move it to another category. "Categories" renames and reorders them.',
+      remove: '⋯ → Remove. Only the link goes; the document itself is untouched.',
+      links: 'Documents are found by the search box and by Ask Daylens. "Only admins" hides one from teammates.' },
+    'import': {
+      change: 'Run the import again with a corrected file; rows already brought in aren\'t changed.',
+      remove: 'Tabs & fields → Import from Excel or CSV → Recent imports → Undo removes the rows that import added.',
+      links: 'Columns only the file has can be added to the tab as new fields. Names are matched to People so the rows count on the dashboard.' },
+  };
+  F.forEach((f) => { if (SETUP[f.id]) f.setup = SETUP[f.id]; });
+
   const AREAS = ['Everyday work', 'Reminders & Today', 'Team & insights', 'Your settings', 'Admin'];
 
   /** Help text for Ask Daylens: how-tos for everything this person can do;
@@ -297,7 +392,7 @@
   function helpLines(isAdmin) {
     return F.map((f) => (f.admin && !isAdmin
       ? `${f.title}: ${f.what} (This person can only look — view only; an admin changes it.)`
-      : `${f.title}: ${f.how.join(' ')}`));
+      : `${f.title}: ${f.how.join(' ')}` + (f.setup && isAdmin ? ` To change it: ${f.setup.change} To remove it: ${f.setup.remove} Works with: ${f.setup.links}` : '')));
   }
 
   window.DAYLENS_FEATURES = { list: F, areas: AREAS, helpLines };

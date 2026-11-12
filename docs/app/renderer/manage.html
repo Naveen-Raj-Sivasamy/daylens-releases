@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'none'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -9,6 +9,7 @@
 
 <meta charset="utf-8" />
 <script src="theme.js"></script>
+<script src="a11y.js"></script>
 <script src="demo-guard.js"></script>
 <title>Tabs &amp; fields</title>
 <style>
@@ -112,9 +113,9 @@
   .cu-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--input-bg); border: 1px solid var(--card-border); margin-bottom: 8px; }
   .cu-row .cu-name { font-weight: 800; color: var(--card-text); }
   .cu-row .cu-kind { margin-left: 6px; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--card-text); }
-  .cu-row .cu-why { grid-column: 1 / -1; font-size: 12px; color: var(--card-text); opacity: 0.8; }
+  .cu-row .cu-why { grid-column: 1 / -1; font-size: 12px; color: var(--card-text-dim); }
   .cu-row select { margin: 0; min-width: 180px; }
-  .cu-row.off { opacity: 0.7; }
+  .cu-row.off { border-style: dashed; background: transparent; } /* (1.10: not faded — its reason must stay readable) */
   .cu-to, .cu-last, .cu-preview, .wc-preview { font-size: 13px; color: var(--card-text); margin: 8px 0; line-height: 1.45; }
   .cu-preview b, .wc-preview b { font-weight: 800; }
   .wc-check { display: flex; gap: 8px; align-items: center; margin: 8px 0; color: var(--card-text); font-weight: 700; cursor: pointer; }
@@ -262,7 +263,7 @@
   button.secondary { background: var(--input-bg); color: var(--card-text); border: 1px dashed var(--input-border); font-weight: 700; }
   button.secondary:hover { border-color: var(--gold-bright); color: var(--card-text); }
   button.icon-btn { background: transparent; color: #ff8f8f; border: 1px solid transparent; font-weight: 700; padding: 6px 10px; }
-  html[data-mode="light"] button.icon-btn { color: #d64545; }
+  html[data-mode="light"] button.icon-btn { color: #c53030; }
   button.icon-btn:hover { background: rgba(255,120,120,0.12); }
   /* icon-btns that ADD something (+ Add, + Add another column…) aren't destructive */
   button.icon-btn.add-btn { color: var(--card-text); border: 1.5px dashed var(--input-border); border-radius: 999px; }
@@ -338,7 +339,7 @@
     min-width: 2ch; width: auto;
   }
   html[data-mode="dark"] .opt-row.opt-chip input { color: color-mix(in srgb, var(--h) 30%, white); }
-  html[data-mode="light"] .opt-row.opt-chip input { color: color-mix(in srgb, var(--h) 60%, black); }
+  html[data-mode="light"] .opt-row.opt-chip input { color: color-mix(in srgb, var(--h) 45%, black); }
   .opt-row.opt-chip:focus-within { box-shadow: 0 0 0 2px var(--h); }
   button.opt-x {
     width: 22px; height: 22px; border-radius: 50%; padding: 0; border: none; cursor: pointer; flex: 0 0 auto;
@@ -399,6 +400,33 @@
   .dir-g:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 1px; }
   .dir-g-hint { font-size: 11.5px; }
   .fs-src-wrap { display: flex; flex-direction: column; gap: 6px; }
+  .fs-src-wrap > * { flex: none !important; } /* (1.10: in a column, ".fs-row input { flex: 1 1 110px }" made each box 110px TALL) */
+  /* 1.10 — Field Types opens on the categories, then that category's tabs, then one tab's fields. */
+  .fs-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 12px; font-size: 13px; }
+  .fs-crumbs button { font: inherit; font-weight: 700; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--card-border); background: transparent; color: var(--card-text); cursor: pointer; }
+  .fs-crumbs button:hover, .fs-crumbs button:focus-visible { border-color: var(--gold); outline: none; }
+  .fs-crumbs b { font-weight: 800; color: var(--card-text); }
+  .fs-crumbs .sep { color: var(--card-text-dim); }
+  .fs-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 0 0 14px; }
+  .fs-tile { --h: var(--h1); display: flex; gap: 12px; align-items: flex-start; text-align: left; min-height: 78px; padding: 14px; border-radius: 16px; cursor: pointer; font: inherit;
+    background: var(--input-bg); color: var(--card-text); border: 1px solid var(--card-border); border-top: 4px solid var(--h); }
+  .fs-tile:nth-child(6n+2) { --h: var(--h2); } .fs-tile:nth-child(6n+3) { --h: var(--h3); } .fs-tile:nth-child(6n+4) { --h: var(--h4); } .fs-tile:nth-child(6n+5) { --h: var(--h5); } .fs-tile:nth-child(6n) { --h: var(--h6); }
+  .fs-tile:hover, .fs-tile:focus-visible { border-color: var(--h); outline: none; box-shadow: 0 6px 18px rgba(30,45,90,0.12); }
+  .fs-tile .ic { font-size: 22px; line-height: 1; flex: none; }
+  .fs-tile .t { display: block; font-weight: 800; font-size: 14px; overflow-wrap: anywhere; }
+  .fs-tile .h { display: block; font-size: 12px; color: var(--card-text-dim); margin-top: 3px; line-height: 1.4; }
+  .fs-tile .chg { display: inline-block; margin-top: 5px; font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 999px; background: #b45309; color: #fff; }
+  #fs-nav .fs-crumbs button { background: transparent !important; color: var(--card-text) !important; box-shadow: none !important; border: 1px solid var(--card-border) !important; padding: 4px 12px !important; }
+  #fs-rows .fs-tab-group > .icon-btn { color: var(--card-text); border: 1px dashed var(--card-border); border-radius: 999px; padding: 5px 14px; font-weight: 700; }
+  .fs-empty { font-size: 13px; color: var(--card-text-dim); margin: 0 0 12px; }
+  #fs-rows .fs-tab-group[hidden] { display: none; }
+  /* one field = one compact row: name, type, then (only when needed) its choices */
+  #fs-rows .fs-row.group { padding: 8px 12px; margin-bottom: 6px; border-top-width: 1px; box-shadow: none; }
+  #fs-rows .fs-row .group-header { margin-bottom: 0; align-items: flex-end; flex-wrap: wrap; }
+  #fs-rows .fs-row .opt-row { margin: 8px 0 2px; align-items: flex-start; }
+  #fs-rows .fs-row .field-label { font-size: 11px; }
+  #fs-rows .fs-row .fs-col { min-height: 36px; box-sizing: border-box; display: flex; align-items: center; }
+  .fs-new-note { font-size: 12px; color: var(--card-text-dim); margin: 2px 0 8px; }
   .fs-layout { display: inline-flex; gap: 4px; align-items: center; align-self: flex-end; flex: none; }
   .fs-layout button { width: auto; margin: 0; padding: 6px 10px; font-size: 12px; font-weight: 800; border-radius: 8px; cursor: pointer;
     background: var(--input-bg); color: var(--card-text); border: 1px solid var(--input-border); }
@@ -548,8 +576,8 @@
 
     <div class="section" id="field-types-section">
       <h3>Field Types</h3>
-      <p class="hint">Add a tab below and every real column on it shows up automatically — just pick a Type for the ones that need one; a column left at "(plain text)" needs nothing further. Need a column that isn't on the sheet yet? Add it inside that tab's section — it's created there when you save.</p>
-      <p class="hint" style="margin-top:-4px;">↑ ↓ change the order fields appear on the form (their columns move in the Sheet too). <b>Hide</b> takes a field off the form; its column and old entries stay in the Sheet, and <b>Show</b> brings it back.</p>
+      <p class="hint">Pick a category, then a tab, to change that tab's fields: what kind each one is, the order they appear on the form (↑ ↓, their columns move in the Sheet too) and which are hidden. A new field is added to the Sheet when you save.</p>
+      <div id="fs-nav"></div>
       <div id="fs-rows"></div>
       <div class="row-actions">
         <div id="fs-tab-adder" class="fs-tab-adder"></div>
@@ -1423,42 +1451,94 @@
   // until they remove it on purpose.
   let fsTabSections = [];
 
-  function renderFieldSchema() {
-    const container = document.getElementById('fs-rows');
-    container.innerHTML = '';
-    if (!fsTabSections.length) fsTabSections = Object.keys(fieldSchemaMap);
-    fsTabSections.forEach((tab) => container.appendChild(buildFsTabGroup(tab)));
-    renderFsAdder();
-  }
-
-  function renderFsAdder() {
-    const adder = document.getElementById('fs-tab-adder');
-    adder.innerHTML = '';
-    const select = document.createElement('select');
-    const addBtn = document.createElement('button');
-    addBtn.type = 'button';
-    addBtn.className = 'secondary';
-    addBtn.textContent = '+ Add tab';
-
-    const available = liveTabs.filter((t) => fsTabSections.indexOf(t) === -1);
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.textContent = available.length ? 'Choose a tab to configure…' : 'Every tab already has a section';
-    placeholder.disabled = true;
-    placeholder.selected = true;
-    select.appendChild(placeholder);
-    available.forEach((t) => select.appendChild(new Option(t, t)));
-    select.disabled = !available.length;
-    addBtn.disabled = !available.length;
-
-    addBtn.addEventListener('click', () => {
-      if (!select.value) return;
-      fsTabSections.push(select.value);
-      renderFieldSchema();
+  // 1.10 — Field Types is three steps instead of one long page of every
+  // tab: the categories (as on Home), a category's tabs, then one tab's
+  // fields. Tabs in no category sit under "Miscellaneous". A tab's fields
+  // are built the first time it's opened and stay (hidden) until Save, so
+  // moving between tabs keeps what was changed.
+  const FS_MISC = 'Miscellaneous';
+  let fsView = { cat: null, tab: null };
+  let fsBuilt = {};   // tab → its .fs-tab-group
+  let fsCleared = {}; // tab → true: "Clear this tab's types" was pressed
+  function fsCats() {
+    const known = [];
+    liveTabs.concat(Object.keys(fieldSchemaMap)).forEach((t) => { if (t && known.indexOf(t) === -1) known.push(t); });
+    const placed = {};
+    const cats = [];
+    Object.keys(categoriesMap || {}).forEach((name) => {
+      const tabs = (categoriesMap[name] || []).filter((t) => known.indexOf(t) !== -1);
+      tabs.forEach((t) => { placed[t] = true; });
+      if (tabs.length) cats.push({ name, icon: liveIcons['category:' + name] || '📁', tabs });
     });
-
-    adder.appendChild(select);
-    adder.appendChild(addBtn);
+    const rest = known.filter((t) => !placed[t]);
+    if (rest.length) cats.push({ name: FS_MISC, icon: '🗂', tabs: rest, misc: true });
+    return cats;
+  }
+  function fsTabHint(tab) {
+    const typed = Object.keys(fieldSchemaMap[tab] || {}).length;
+    const kind = (window.TAB_TYPE_LABELS || {})[tabTypes[tab]] || '';
+    const gone = liveTabs.indexOf(tab) === -1;
+    return (gone ? 'Hidden from the app, or no longer in the Sheet. ' : '') + (kind && tabTypes[tab] !== 'custom' ? kind + ' tab. ' : '') + (typed ? `${typed} ${typed === 1 ? 'field has' : 'fields have'} a type.` : 'Every field is plain text.');
+  }
+  function fsTile(icon, title, hint, changed, onClick) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'fs-tile';
+    b.innerHTML = `<span class="ic" aria-hidden="true">${esc(icon)}</span><span><span class="t">${esc(title)}</span><span class="h">${esc(hint)}</span>${changed ? '<span class="chg">Changed, not saved</span>' : ''}</span>`;
+    b.onclick = onClick;
+    return b;
+  }
+  const fsTabChanged = (tab) => !!fsCleared[tab] || !!(fsBuilt[tab] && fsBuilt[tab].dataset.touched === '1');
+  function drawFsNav() {
+    const nav = document.getElementById('fs-nav');
+    const rows = document.getElementById('fs-rows');
+    nav.innerHTML = '';
+    const cats = fsCats();
+    if (fsView.tab && !cats.some((c) => c.tabs.indexOf(fsView.tab) !== -1)) fsView.tab = null;
+    if (fsView.cat && !cats.some((c) => c.name === fsView.cat)) fsView = { cat: null, tab: null };
+    if (cats.length === 1 && !fsView.cat) fsView.cat = cats[0].name; // one category: straight to its tabs
+    Object.keys(fsBuilt).forEach((t) => { fsBuilt[t].hidden = t !== fsView.tab; });
+    if (fsView.cat) {
+      const crumbs = document.createElement('div');
+      crumbs.className = 'fs-crumbs';
+      const back = (label, go) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.onclick = go; crumbs.appendChild(b); crumbs.insertAdjacentHTML('beforeend', '<span class="sep" aria-hidden="true">›</span>'); };
+      if (cats.length > 1) back('All categories', () => { fsView = { cat: null, tab: null }; drawFsNav(); });
+      if (fsView.tab) back(fsView.cat, () => { fsView.tab = null; drawFsNav(); });
+      crumbs.insertAdjacentHTML('beforeend', `<b>${esc(fsView.tab || fsView.cat)}</b>`);
+      nav.appendChild(crumbs);
+    }
+    if (fsView.tab) {
+      if (!fsBuilt[fsView.tab]) { fsBuilt[fsView.tab] = buildFsTabGroup(fsView.tab); rows.appendChild(fsBuilt[fsView.tab]); }
+      fsBuilt[fsView.tab].hidden = false;
+      return;
+    }
+    const tiles = document.createElement('div');
+    tiles.className = 'fs-tiles';
+    if (!fsView.cat) {
+      nav.insertAdjacentHTML('beforeend', '<p class="fs-empty">Choose a category to edit the fields of its tabs.</p>');
+      cats.forEach((c) => tiles.appendChild(fsTile(c.icon, c.name, c.misc ? `${c.tabs.length} ${c.tabs.length === 1 ? 'tab' : 'tabs'} in no category` : `${c.tabs.length} ${c.tabs.length === 1 ? 'tab' : 'tabs'}: ${c.tabs.slice(0, 3).join(', ')}${c.tabs.length > 3 ? '…' : ''}`, c.tabs.some(fsTabChanged), () => { fsView = { cat: c.name, tab: null }; drawFsNav(); })));
+      if (!cats.length) nav.insertAdjacentHTML('beforeend', '<p class="fs-empty">There are no tabs yet. Add one under Tabs.</p>');
+    } else {
+      const cat = cats.find((c) => c.name === fsView.cat);
+      nav.insertAdjacentHTML('beforeend', '<p class="fs-empty">Open a tab to edit its fields.</p>');
+      cat.tabs.forEach((t) => tiles.appendChild(fsTile(liveIcons['tab:' + t] || '📄', t, fsCleared[t] ? 'Its field types will be cleared when you save.' : fsTabHint(t), fsTabChanged(t), () => { delete fsCleared[t]; fsView.tab = t; drawFsNav(); })));
+    }
+    nav.appendChild(tiles);
+  }
+  function renderFieldSchema() {
+    document.getElementById('fs-rows').innerHTML = '';
+    fsBuilt = {};
+    fsCleared = {};
+    document.getElementById('fs-tab-adder').hidden = true; // (every tab is a tile now)
+    drawFsNav();
+  }
+  window.__fsOpen = (tab) => openFsTab(tab);
+  // Another screen (Home's notes, the Speed check…) can send someone straight to one tab's fields.
+  function openFsTab(tab) {
+    const cat = fsCats().find((c) => c.tabs.indexOf(tab) !== -1);
+    if (!cat) return;
+    fsView = { cat: cat.name, tab };
+    drawFsNav();
   }
 
   // One card per tab. Real columns load asynchronously (getColumns hits
@@ -1480,12 +1560,18 @@
     const del = document.createElement('button');
     del.type = 'button';
     del.className = 'icon-btn';
-    del.textContent = '✕ Remove tab';
-    del.title = 'Remove every field type set for ' + tab;
+    del.textContent = '✕ Clear this tab\'s types';
+    del.title = 'Every field of ' + tab + ' goes back to plain text when you save. Its columns and entries stay in the Sheet.';
     del.onclick = () => {
-      fsTabSections = fsTabSections.filter((t) => t !== tab);
-      renderFieldSchema();
+      fsCleared[tab] = true;
+      if (fsBuilt[tab]) { fsBuilt[tab].remove(); delete fsBuilt[tab]; }
+      fsView.tab = null;
+      if (typeof markDirty === 'function') markDirty(document.getElementById('field-types-section'));
+      drawFsNav();
     };
+    group.addEventListener('input', () => { group.dataset.touched = '1'; });
+    group.addEventListener('change', () => { group.dataset.touched = '1'; });
+    group.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('.fs-layout, .icon-btn')) group.dataset.touched = '1'; });
     header.appendChild(heading);
     header.appendChild(del);
     group.appendChild(header);
@@ -1501,9 +1587,16 @@
     const addColBtn = document.createElement('button');
     addColBtn.type = 'button';
     addColBtn.className = 'icon-btn';
-    addColBtn.textContent = '+ Add another column';
-    addColBtn.title = "Define a field type for a column that isn't on the sheet yet — it's created there when you save";
-    addColBtn.onclick = () => extraWrap.appendChild(buildFsColumnRow(tab, '', {}, true, false));
+    addColBtn.textContent = '+ Add a field';
+    addColBtn.title = 'A new field for this tab. Its column is added to the Sheet (at the end) when you save; then ↑ ↓ can move it.';
+    addColBtn.onclick = () => {
+      if (!extraWrap.querySelector('.fs-new-note')) extraWrap.insertAdjacentHTML('afterbegin', '<p class="fs-new-note">New fields are added to the Sheet when you save. After that you can move or hide them like the others.</p>');
+      const r = buildFsColumnRow(tab, '', {}, true, false);
+      extraWrap.appendChild(r);
+      const name = r.querySelector('input.fs-col');
+      if (name) name.focus();
+      if (typeof markDirty === 'function') markDirty(group.closest('.section'));
+    };
     group.appendChild(addColBtn);
 
     const savedForTab = fieldSchemaMap[tab] || {};
@@ -1608,7 +1701,7 @@
       colEl = document.createElement('input');
       colEl.type = 'text';
       colEl.className = 'fs-col';
-      colEl.placeholder = 'New column name';
+      colEl.placeholder = 'New field name';
       colEl.value = column || '';
     } else {
       colEl = document.createElement('div');
@@ -1620,6 +1713,7 @@
 
     const typeSel = document.createElement('select');
     typeSel.className = 'fs-type';
+    typeSel.setAttribute('aria-label', 'Field type for ' + column);
     FIELD_TYPES.forEach((t) => {
       const o = document.createElement('option');
       o.value = t;
@@ -1628,7 +1722,7 @@
     });
     typeSel.value = spec.type || '';
 
-    header.appendChild(labeled('Column', colEl));
+    header.appendChild(labeled('Field', colEl));
     header.appendChild(labeled('Type', typeSel));
     if (removable) {
       const del = document.createElement('button');
@@ -1717,7 +1811,10 @@
 
   document.getElementById('save-fs-btn').addEventListener('click', async () => {
     const groups = Array.from(document.querySelectorAll('#fs-rows .fs-tab-group'));
+    // 1.10: only the tabs opened here are on the page; every other tab keeps what it had.
     const map = {};
+    Object.keys(fieldSchemaMap).forEach((t) => { if (!fsCleared[t] && !fsBuilt[t]) map[t] = Object.assign({}, fieldSchemaMap[t]); });
+    const newFields = {}; // tab → names typed under "+ Add a field" (also plain-text ones: they have no type to save)
     // A duplicate (same Tab+Column twice) used to save silently — whichever
     // row happened to build into `map` last just overwrote the other with
     // no warning. Catch that here instead, before it saves. Can still
@@ -1732,6 +1829,7 @@
         const colEl = r.querySelector('.fs-col');
         const column = (colEl.tagName === 'INPUT' ? colEl.value : colEl.dataset.value || '').trim();
         const type = r.querySelector('.fs-type').value.trim();
+        if (column && colEl.tagName === 'INPUT') (newFields[tab] = newFields[tab] || []).push(column);
         if (!column || !type) return; // blank Type = plain text, not stored; blank Column = an empty "+ Add another column" row, skip it
         const key = tab + '::' + column.toLowerCase();
         if (seen.has(key)) duplicate = `${column}" on "${tab}`;
@@ -1752,6 +1850,9 @@
       const real = Array.from(g.querySelectorAll('.fs-real'));
       layout[g.dataset.tab] = { order: real.map((r) => r.dataset.col), hidden: real.filter((r) => r.dataset.hidden === '1').map((r) => r.dataset.col) };
     });
+    Object.keys(newFields).forEach((t) => { layout[t] = Object.assign(layout[t] || {}, { add: newFields[t] }); });
+    const bad = Object.keys(newFields).map((t) => newFields[t].find((c) => c.charAt(0) === '_' || c.length > 100)).filter(Boolean)[0];
+    if (bad) { document.getElementById('fs-err').textContent = `"${bad.slice(0, 40)}" can't be a field name: names can't start with "_" and must be under 100 characters.`; return; }
     const saved = await saveSection('save-fs-btn', 'fs-err', 'fs-ok', async () => {
       const r = await window.statusApp.saveFieldSchema(map);
       if (!r || r.ok === false || !Object.keys(layout).length) return r;
@@ -1759,11 +1860,11 @@
     });
     fieldSchemaMap = map;
     if (saved) {
-      if (Object.keys(layout).length) {
-        fieldLayoutP = window.statusApp.getFieldLayout().then((r) => (r && r.ok ? r.layout : null)).catch(() => null);
-        if (window.__appMode) window.__appPost({ type: 'tabs-changed' });
-      }
-      renderFieldSchema();
+      // Always read the fields again (1.10): saving a type for a new name adds its column to the
+      // Sheet, and the list read before the save showed that column as "(not on the sheet)".
+      fieldLayoutP = window.statusApp.getFieldLayout ? window.statusApp.getFieldLayout().then((r) => (r && r.ok ? r.layout : null)).catch(() => null) : Promise.resolve(null);
+      if (window.__appMode) window.__appPost({ type: 'tabs-changed' });
+      renderFieldSchema(); // (stays on the tab that was open)
     }
   });
 

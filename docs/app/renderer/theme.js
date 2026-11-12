@@ -15,8 +15,8 @@
       brand: '#16332a', 'brand-hover': '#234c3d', chrome: '#10261f',
       surface: '#f6f1e6', 'surface-hover': '#efe6d3', 'tile-hover': '#fbf7ee',
       chip: '#ece4d2', 'chip-hover': '#e6dcc3', border: '#ddd3bd',
-      text: '#1c3a2f', 'text-dim': '#86807a',
-      'on-brand': '#f3ede0', 'on-brand-dim': '#b9ab86', muted: '#7f8f84',
+      text: '#1c3a2f', 'text-dim': '#68635e',
+      'on-brand': '#f3ede0', 'on-brand-dim': '#b9ab86', muted: '#8b9a90',
       gold: '#c9a15f', 'gold-bright': '#d8b877', 'on-gold': '#1c3a2f', 'accent-soft': 'rgba(201,161,95,0.16)',
       mode: 'dark', 'page-bg': 'radial-gradient(1200px 600px at 85% -10%, rgba(232,180,80,0.26), transparent 60%), radial-gradient(900px 500px at 10% 110%, rgba(46,170,120,0.30), transparent 60%), linear-gradient(160deg, #123a2e, #0b211a 70%)',
       'card-bg': 'rgba(255,255,255,0.07)', 'card-bg-2': 'rgba(255,255,255,0.06)', 'card-border': 'rgba(255,255,255,0.11)', 'card-shadow': '0 10px 30px rgba(0,0,0,0.25)',
@@ -30,8 +30,8 @@
       brand: '#0e2a47', 'brand-hover': '#16395f', chrome: '#091d33',
       surface: '#eef6fc', 'surface-hover': '#e0eef9', 'tile-hover': '#f7fbfe',
       chip: '#dbe9f5', 'chip-hover': '#cfe1f1', border: '#c6d9ea',
-      text: '#0d2840', 'text-dim': '#6b7f93',
-      'on-brand': '#eaf4fd', 'on-brand-dim': '#8fb4d6', muted: '#7891a8',
+      text: '#0d2840', 'text-dim': '#586879',
+      'on-brand': '#eaf4fd', 'on-brand-dim': '#8fb4d6', muted: '#7d95ab',
       gold: '#22b8f0', 'gold-bright': '#5cd0fa', 'on-gold': '#06243b', 'accent-soft': 'rgba(34,184,240,0.16)',
       mode: 'dark', 'page-bg': 'radial-gradient(1200px 600px at 85% -10%, rgba(34,184,240,0.28), transparent 60%), radial-gradient(900px 500px at 10% 110%, rgba(91,108,255,0.28), transparent 60%), linear-gradient(160deg, #0f2f50, #081a2e 70%)',
       'card-bg': 'rgba(255,255,255,0.07)', 'card-bg-2': 'rgba(255,255,255,0.06)', 'card-border': 'rgba(255,255,255,0.11)', 'card-shadow': '0 10px 30px rgba(0,0,0,0.25)',
@@ -45,7 +45,7 @@
       brand: '#3a1426', 'brand-hover': '#4d1c33', chrome: '#2a0e1b',
       surface: '#fff3ea', 'surface-hover': '#fde6d6', 'tile-hover': '#fff9f4',
       chip: '#fbe2d0', 'chip-hover': '#f8d5bd', border: '#f1cdb5',
-      text: '#3a1426', 'text-dim': '#94706a',
+      text: '#3a1426', 'text-dim': '#7d5f5a',
       'on-brand': '#ffeee3', 'on-brand-dim': '#e7a98c', muted: '#b0857a',
       gold: '#ff7a45', 'gold-bright': '#ff9b6e', 'on-gold': '#2a0e1b', 'accent-soft': 'rgba(255,122,69,0.18)',
       mode: 'dark', 'page-bg': 'radial-gradient(1200px 600px at 85% -10%, rgba(255,122,69,0.30), transparent 60%), radial-gradient(900px 500px at 10% 110%, rgba(255,94,154,0.26), transparent 60%), linear-gradient(160deg, #45182c, #220a15 70%)',
@@ -60,7 +60,7 @@
       brand: '#1f1147', 'brand-hover': '#2c1a61', chrome: '#160b35',
       surface: '#f3f0ff', 'surface-hover': '#e8e2ff', 'tile-hover': '#faf8ff',
       chip: '#e3dcfb', 'chip-hover': '#d7cdf8', border: '#d4caf5',
-      text: '#1f1147', 'text-dim': '#7a7099',
+      text: '#1f1147', 'text-dim': '#665d80',
       'on-brand': '#efeaff', 'on-brand-dim': '#b3a5e6', muted: '#8d82b3',
       gold: '#a78bfa', 'gold-bright': '#c4b5fd', 'on-gold': '#160b35', 'accent-soft': 'rgba(167,139,250,0.18)',
       mode: 'dark', 'page-bg': 'radial-gradient(1200px 600px at 85% -10%, rgba(167,139,250,0.30), transparent 60%), radial-gradient(900px 500px at 10% 110%, rgba(56,189,248,0.22), transparent 60%), linear-gradient(160deg, #24145a, #120a30 70%)',
@@ -75,7 +75,7 @@
       brand: '#3b0d2c', 'brand-hover': '#511440', chrome: '#2a0820',
       surface: '#fff0f7', 'surface-hover': '#fde2f0', 'tile-hover': '#fff7fb',
       chip: '#fbd9ea', 'chip-hover': '#f8cbe2', border: '#f2c5dc',
-      text: '#3b0d2c', 'text-dim': '#9a6c84',
+      text: '#3b0d2c', 'text-dim': '#7d576b',
       'on-brand': '#ffeef7', 'on-brand-dim': '#e9a3c8', muted: '#b17c98',
       gold: '#f0509b', 'gold-bright': '#f77fb7', 'on-gold': '#2a0820', 'accent-soft': 'rgba(240,80,155,0.18)',
       mode: 'dark', 'page-bg': 'radial-gradient(1200px 600px at 85% -10%, rgba(240,80,155,0.30), transparent 60%), radial-gradient(900px 500px at 10% 110%, rgba(255,170,90,0.22), transparent 60%), linear-gradient(160deg, #46102f, #22071a 70%)',
@@ -90,7 +90,7 @@
       brand: '#06363e', 'brand-hover': '#0a4852', chrome: '#042a31',
       surface: '#effbfa', 'surface-hover': '#ddf5f3', 'tile-hover': '#f6fdfc',
       chip: '#d3f1ee', 'chip-hover': '#c2ebe7', border: '#bfe5e1',
-      text: '#06363e', 'text-dim': '#5b7f80',
+      text: '#06363e', 'text-dim': '#4e6d6e',
       'on-brand': '#e9fbf9', 'on-brand-dim': '#8fd3cc', muted: '#79aaa6',
       gold: '#ff7a59', 'gold-bright': '#ff9a80', 'on-gold': '#2a0d05', 'accent-soft': 'rgba(255,122,89,0.18)',
       mode: 'dark', 'page-bg': 'radial-gradient(1200px 600px at 85% -10%, rgba(255,122,89,0.30), transparent 60%), radial-gradient(900px 500px at 10% 110%, rgba(0,212,200,0.34), transparent 60%), linear-gradient(160deg, #07505a, #032a30 70%)',
@@ -105,7 +105,7 @@
       brand: '#1d1f23', 'brand-hover': '#272a30', chrome: '#141518',
       surface: '#f3f4f6', 'surface-hover': '#e7e9ed', 'tile-hover': '#fafafb',
       chip: '#e5e7eb', 'chip-hover': '#d9dce1', border: '#d6d9de',
-      text: '#1f2328', 'text-dim': '#6b7280',
+      text: '#1f2328', 'text-dim': '#606773',
       'on-brand': '#eceef1', 'on-brand-dim': '#a3a9b3', muted: '#8b919b',
       gold: '#7aa2f7', 'gold-bright': '#9ab8fa', 'on-gold': '#0e1525', 'accent-soft': 'rgba(122,162,247,0.16)',
       mode: 'dark', 'page-bg': 'linear-gradient(160deg, #25282d, #151618 70%)',
@@ -136,8 +136,8 @@
       surface: '#ffffff', 'surface-hover': '#f5f7fc', 'tile-hover': '#ffffff',
       chip: '#eef1f8', 'chip-hover': '#e3e8f4', border: '#e3e7f0',
       text: '#1d2433', 'text-dim': '#5f6b85',
-      'on-brand': '#1d2433', 'on-brand-dim': '#5f6b85', muted: '#8a93a8',
-      gold: '#118452', 'gold-bright': '#0e7d4d', 'on-gold': '#ffffff', 'accent-soft': 'rgba(17,132,82,0.12)', // 1.9: deeper, so white text on it reads well (it's the default now)
+      'on-brand': '#1d2433', 'on-brand-dim': '#5f6b85', muted: '#686e7e',
+      gold: '#118452', 'gold-bright': '#0d7447', 'on-gold': '#ffffff', 'accent-soft': 'rgba(17,132,82,0.12)', // 1.9: deeper, so white text on it reads well (it's the default now)
       mode: 'light', 'page-bg': '#f4f6fb',
       'card-bg': '#ffffff', 'card-bg-2': '#f8f9fd', 'card-border': '#e7eaf3', 'card-shadow': '0 8px 24px rgba(30,45,90,0.08)',
       'card-text': '#1d2433', 'card-text-dim': '#5f6b85',
@@ -151,7 +151,7 @@
       surface: '#ffffff', 'surface-hover': '#f3f6fb', 'tile-hover': '#ffffff',
       chip: '#e8eef8', 'chip-hover': '#dbe4f3', border: '#dbe3ef',
       text: '#172033', 'text-dim': '#56637a',
-      'on-brand': '#172033', 'on-brand-dim': '#56637a', muted: '#7d889c',
+      'on-brand': '#172033', 'on-brand-dim': '#56637a', muted: '#646c7c',
       gold: '#2563eb', 'gold-bright': '#1d4ed8', 'on-gold': '#ffffff', 'accent-soft': 'rgba(37,99,235,0.12)',
       mode: 'light', 'page-bg': 'linear-gradient(180deg, #f3f6fb, #e8edf6)',
       'card-bg': '#ffffff', 'card-bg-2': '#f6f8fc', 'card-border': '#e1e7f1', 'card-shadow': '0 8px 24px rgba(23,32,51,0.07)',
@@ -166,8 +166,8 @@
       surface: '#fffdf9', 'surface-hover': '#f8f2e8', 'tile-hover': '#ffffff',
       chip: '#f1e8da', 'chip-hover': '#e9dcc8', border: '#e6dccb',
       text: '#2b2118', 'text-dim': '#6f6254',
-      'on-brand': '#2b2118', 'on-brand-dim': '#6f6254', muted: '#958676',
-      gold: '#c2410c', 'gold-bright': '#b43c0b', 'on-gold': '#ffffff', 'accent-soft': 'rgba(194,65,12,0.12)',
+      'on-brand': '#2b2118', 'on-brand-dim': '#6f6254', muted: '#776b5e',
+      gold: '#c2410c', 'gold-bright': '#af3a0b', 'on-gold': '#ffffff', 'accent-soft': 'rgba(194,65,12,0.12)',
       mode: 'light', 'page-bg': 'linear-gradient(180deg, #f8f4ec, #f0e9dd)',
       'card-bg': '#fffdf9', 'card-bg-2': '#faf6ef', 'card-border': '#ebe2d3', 'card-shadow': '0 8px 24px rgba(60,40,20,0.08)',
       'card-text': '#2b2118', 'card-text-dim': '#6f6254',
@@ -177,16 +177,16 @@
     },
     // 1.9: four more light themes.
     mint: {
-      label: 'Mint', hint: 'Fresh mint white with deep green accents', 'brand': '#eef8f4', 'brand-hover': '#e1f2ea', 'chrome': '#ffffff', 'surface': '#ffffff', 'surface-hover': '#f2faf6', 'tile-hover': '#ffffff', 'chip': '#e3f4ec', 'chip-hover': '#d4ede1', 'border': '#d5eadf', 'text': '#123b2f', 'text-dim': '#4e6b61', 'on-brand': '#123b2f', 'on-brand-dim': '#4e6b61', 'muted': '#7f978d', 'gold': '#0f7f63', 'gold-bright': '#0b6e55', 'on-gold': '#ffffff', 'accent-soft': 'rgba(15,127,99,0.12)', mode: 'light', 'page-bg': 'linear-gradient(180deg, #f1faf6, #e4f3ec)', 'card-bg': '#ffffff', 'card-bg-2': '#f5fbf8', 'card-border': '#dcefe6', 'card-shadow': '0 8px 24px rgba(18,59,47,0.08)', 'card-text': '#123b2f', 'card-text-dim': '#4e6b61', 'input-bg': '#ffffff', 'input-border': '#c9e2d6', 'input-text': '#123b2f', 'accent-grad': 'linear-gradient(135deg, #14b48a, #0b6e55)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(15,127,99,0.26)', 'strip-bg': 'linear-gradient(90deg, #0c4a3b, #13715a)', 'overlay-color': '#13715a', 'strip-text': '#ffffff', 'overlay-symbol': '#ffffff'
+      label: 'Mint', hint: 'Fresh mint white with deep green accents', 'brand': '#eef8f4', 'brand-hover': '#e1f2ea', 'chrome': '#ffffff', 'surface': '#ffffff', 'surface-hover': '#f2faf6', 'tile-hover': '#ffffff', 'chip': '#e3f4ec', 'chip-hover': '#d4ede1', 'border': '#d5eadf', 'text': '#123b2f', 'text-dim': '#4e6b61', 'on-brand': '#123b2f', 'on-brand-dim': '#4e6b61', 'muted': '#61736b', 'gold': '#0f7f63', 'gold-bright': '#0b6e55', 'on-gold': '#ffffff', 'accent-soft': 'rgba(15,127,99,0.12)', mode: 'light', 'page-bg': 'linear-gradient(180deg, #f1faf6, #e4f3ec)', 'card-bg': '#ffffff', 'card-bg-2': '#f5fbf8', 'card-border': '#dcefe6', 'card-shadow': '0 8px 24px rgba(18,59,47,0.08)', 'card-text': '#123b2f', 'card-text-dim': '#4e6b61', 'input-bg': '#ffffff', 'input-border': '#c9e2d6', 'input-text': '#123b2f', 'accent-grad': 'linear-gradient(135deg, #14b48a, #0b6e55)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(15,127,99,0.26)', 'strip-bg': 'linear-gradient(90deg, #0c4a3b, #13715a)', 'overlay-color': '#13715a', 'strip-text': '#ffffff', 'overlay-symbol': '#ffffff'
     },
     blossom: {
-      label: 'Blossom', hint: 'Soft blush white with rose accents', 'brand': '#fbf1f4', 'brand-hover': '#f6e3ea', 'chrome': '#ffffff', 'surface': '#ffffff', 'surface-hover': '#fdf4f7', 'tile-hover': '#ffffff', 'chip': '#f8e6ed', 'chip-hover': '#f2d6e1', 'border': '#f0dbe4', 'text': '#3d1426', 'text-dim': '#7a5464', 'on-brand': '#3d1426', 'on-brand-dim': '#7a5464', 'muted': '#a3808e', 'gold': '#c2185b', 'gold-bright': '#ad1457', 'on-gold': '#ffffff', 'accent-soft': 'rgba(194,24,91,0.10)', mode: 'light', 'page-bg': 'linear-gradient(180deg, #fdf5f8, #f8e9ef)', 'card-bg': '#ffffff', 'card-bg-2': '#fdf7f9', 'card-border': '#f3dfe7', 'card-shadow': '0 8px 24px rgba(61,20,38,0.08)', 'card-text': '#3d1426', 'card-text-dim': '#7a5464', 'input-bg': '#ffffff', 'input-border': '#ebcfdb', 'input-text': '#3d1426', 'accent-grad': 'linear-gradient(135deg, #ec4899, #be185d)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(194,24,91,0.25)', 'strip-bg': 'linear-gradient(90deg, #5c1631, #8e2450)', 'overlay-color': '#8e2450', 'strip-text': '#ffffff', 'overlay-symbol': '#ffffff'
+      label: 'Blossom', hint: 'Soft blush white with rose accents', 'brand': '#fbf1f4', 'brand-hover': '#f6e3ea', 'chrome': '#ffffff', 'surface': '#ffffff', 'surface-hover': '#fdf4f7', 'tile-hover': '#ffffff', 'chip': '#f8e6ed', 'chip-hover': '#f2d6e1', 'border': '#f0dbe4', 'text': '#3d1426', 'text-dim': '#7a5464', 'on-brand': '#3d1426', 'on-brand-dim': '#7a5464', 'muted': '#826671', 'gold': '#c2185b', 'gold-bright': '#ad1457', 'on-gold': '#ffffff', 'accent-soft': 'rgba(194,24,91,0.10)', mode: 'light', 'page-bg': 'linear-gradient(180deg, #fdf5f8, #f8e9ef)', 'card-bg': '#ffffff', 'card-bg-2': '#fdf7f9', 'card-border': '#f3dfe7', 'card-shadow': '0 8px 24px rgba(61,20,38,0.08)', 'card-text': '#3d1426', 'card-text-dim': '#7a5464', 'input-bg': '#ffffff', 'input-border': '#ebcfdb', 'input-text': '#3d1426', 'accent-grad': 'linear-gradient(135deg, #ec4899, #be185d)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(194,24,91,0.25)', 'strip-bg': 'linear-gradient(90deg, #5c1631, #8e2450)', 'overlay-color': '#8e2450', 'strip-text': '#ffffff', 'overlay-symbol': '#ffffff'
     },
     lilac: {
-      label: 'Lilac', hint: 'Pale lavender with violet accents', 'brand': '#f4f2fc', 'brand-hover': '#e9e5f8', 'chrome': '#ffffff', 'surface': '#ffffff', 'surface-hover': '#f7f5fd', 'tile-hover': '#ffffff', 'chip': '#ece8fa', 'chip-hover': '#dfd8f5', 'border': '#e2ddf3', 'text': '#231a45', 'text-dim': '#5f5880', 'on-brand': '#231a45', 'on-brand-dim': '#5f5880', 'muted': '#8c86a6', 'gold': '#6d3fd6', 'gold-bright': '#5b30c2', 'on-gold': '#ffffff', 'accent-soft': 'rgba(109,63,214,0.11)', mode: 'light', 'page-bg': 'linear-gradient(180deg, #f6f4fd, #ece8f9)', 'card-bg': '#ffffff', 'card-bg-2': '#f8f7fd', 'card-border': '#e6e1f5', 'card-shadow': '0 8px 24px rgba(35,26,69,0.08)', 'card-text': '#231a45', 'card-text-dim': '#5f5880', 'input-bg': '#ffffff', 'input-border': '#d6cfee', 'input-text': '#231a45', 'accent-grad': 'linear-gradient(135deg, #8b5cf6, #5b30c2)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(109,63,214,0.26)', 'strip-bg': 'linear-gradient(90deg, #2e1f66, #4a33a0)', 'overlay-color': '#4a33a0', 'strip-text': '#ffffff', 'overlay-symbol': '#ffffff'
+      label: 'Lilac', hint: 'Pale lavender with violet accents', 'brand': '#f4f2fc', 'brand-hover': '#e9e5f8', 'chrome': '#ffffff', 'surface': '#ffffff', 'surface-hover': '#f7f5fd', 'tile-hover': '#ffffff', 'chip': '#ece8fa', 'chip-hover': '#dfd8f5', 'border': '#e2ddf3', 'text': '#231a45', 'text-dim': '#5f5880', 'on-brand': '#231a45', 'on-brand-dim': '#5f5880', 'muted': '#706b84', 'gold': '#6d3fd6', 'gold-bright': '#5b30c2', 'on-gold': '#ffffff', 'accent-soft': 'rgba(109,63,214,0.11)', mode: 'light', 'page-bg': 'linear-gradient(180deg, #f6f4fd, #ece8f9)', 'card-bg': '#ffffff', 'card-bg-2': '#f8f7fd', 'card-border': '#e6e1f5', 'card-shadow': '0 8px 24px rgba(35,26,69,0.08)', 'card-text': '#231a45', 'card-text-dim': '#5f5880', 'input-bg': '#ffffff', 'input-border': '#d6cfee', 'input-text': '#231a45', 'accent-grad': 'linear-gradient(135deg, #8b5cf6, #5b30c2)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(109,63,214,0.26)', 'strip-bg': 'linear-gradient(90deg, #2e1f66, #4a33a0)', 'overlay-color': '#4a33a0', 'strip-text': '#ffffff', 'overlay-symbol': '#ffffff'
     },
     paper: {
-      label: 'Paper', hint: 'Plain white and grey, black accents — no colour', 'brand': '#f5f5f4', 'brand-hover': '#ebebea', 'chrome': '#ffffff', 'surface': '#ffffff', 'surface-hover': '#f7f7f6', 'tile-hover': '#ffffff', 'chip': '#eeeeec', 'chip-hover': '#e3e3e0', 'border': '#e2e2df', 'text': '#1c1c1a', 'text-dim': '#5f5f5a', 'on-brand': '#1c1c1a', 'on-brand-dim': '#5f5f5a', 'muted': '#8f8f89', 'gold': '#1c1c1a', 'gold-bright': '#000000', 'on-gold': '#ffffff', 'accent-soft': 'rgba(28,28,26,0.08)', mode: 'light', 'page-bg': '#f5f5f4', 'card-bg': '#ffffff', 'card-bg-2': '#fafaf9', 'card-border': '#e7e7e4', 'card-shadow': '0 8px 24px rgba(0,0,0,0.06)', 'card-text': '#1c1c1a', 'card-text-dim': '#5f5f5a', 'input-bg': '#ffffff', 'input-border': '#d6d6d2', 'input-text': '#1c1c1a', 'accent-grad': 'linear-gradient(135deg, #3a3a36, #111110)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(0,0,0,0.18)', 'strip-bg': 'linear-gradient(90deg, #1c1c1a, #3a3a36)', 'overlay-color': '#3a3a36', 'strip-text': '#ffffff', 'overlay-symbol': '#ffffff'
+      label: 'Paper', hint: 'Plain white and grey, black accents — no colour', 'brand': '#f5f5f4', 'brand-hover': '#ebebea', 'chrome': '#ffffff', 'surface': '#ffffff', 'surface-hover': '#f7f7f6', 'tile-hover': '#ffffff', 'chip': '#eeeeec', 'chip-hover': '#e3e3e0', 'border': '#e2e2df', 'text': '#1c1c1a', 'text-dim': '#5f5f5a', 'on-brand': '#1c1c1a', 'on-brand-dim': '#5f5f5a', 'muted': '#6f6f6a', 'gold': '#1c1c1a', 'gold-bright': '#000000', 'on-gold': '#ffffff', 'accent-soft': 'rgba(28,28,26,0.08)', mode: 'light', 'page-bg': '#f5f5f4', 'card-bg': '#ffffff', 'card-bg-2': '#fafaf9', 'card-border': '#e7e7e4', 'card-shadow': '0 8px 24px rgba(0,0,0,0.06)', 'card-text': '#1c1c1a', 'card-text-dim': '#5f5f5a', 'input-bg': '#ffffff', 'input-border': '#d6d6d2', 'input-text': '#1c1c1a', 'accent-grad': 'linear-gradient(135deg, #3a3a36, #111110)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(0,0,0,0.18)', 'strip-bg': 'linear-gradient(90deg, #1c1c1a, #3a3a36)', 'overlay-color': '#3a3a36', 'strip-text': '#ffffff', 'overlay-symbol': '#ffffff'
     },
   };
   var KEY = 'statusApp.theme';

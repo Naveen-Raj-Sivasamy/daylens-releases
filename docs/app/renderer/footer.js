@@ -110,6 +110,9 @@
     link.style.cssText =
       'all:unset; cursor:pointer; color:var(--gold-bright, ' + ACCENT + '); font-weight:700; text-decoration:underline;' +
       '-webkit-app-region:no-drag;';
+    // ("all:unset" above also removes the focus ring: put one back for the keyboard — 1.10)
+    link.addEventListener('focus', () => { if (link.matches(':focus-visible')) { link.style.outline = '2px solid currentColor'; link.style.outlineOffset = '2px'; link.style.borderRadius = '4px'; } });
+    link.addEventListener('blur', () => { link.style.outline = 'none'; });
     bar.appendChild(label);
     bar.appendChild(link);
 

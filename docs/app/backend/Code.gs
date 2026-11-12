@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.9.0'; // always the same as the app's version (package.json) — a test keeps them equal
+var BACKEND_VERSION = '1.10.0'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -115,6 +115,16 @@ var REPORT_DATE_COLUMN = 'Date';
 // for app-driven changes while shrinking the "I edited the Sheet
 // directly, why hasn't anyone else's app noticed" window app-wide.
 var CACHE_SECONDS = 60;
+// When this run of the script began (1.10): every answer says how long the
+// script itself worked (_ms), so the app's Speed check can tell Google's
+// start-up and the network apart from the script's own work.
+var REQ_START_ = Date.now();
+// Only answers to signed-in people carry it: signing in and password codes
+// must answer the same for every account, to the last character.
+var REQ_TIMED_ = false;
+// How long a save's key is remembered (CacheService's longest): the app's
+// outbox can retry a save much later without ever adding it twice.
+var SAVE_KEY_SECONDS_ = 21600;
 
 // How long (ms) a save waits for the write lock before giving up and
 // telling the widget to retry, instead of queuing silently. Kept well
@@ -145,6 +155,7 @@ function doGet(e) {
   // other reason either.
   var params = (e && e.parameter) || {};
   var action = params.action;
+  REQ_START_ = Date.now(); REQ_TIMED_ = false;
   try {
     // Handed over to another admin's link (1.4): newer apps are told where.
     if (action === 'handoverPing') return jsonOut(handoverPing_());
@@ -170,6 +181,7 @@ function doGet(e) {
     if (!getRole) {
       return jsonOut({ ok: false, error: 'Please log in again.' });
     }
+    REQ_TIMED_ = true; // (1.10: how long the script worked, for the app's Speed check)
     // A Demo account gets no names from the team directory (1.7).
     var dirForCaller = function () { return isDemoRole_(getRole) ? {} : dirOptionsSafe_(); };
     if (action === 'tabs') {
@@ -235,6 +247,9 @@ function doGet(e) {
         icons: cached('icons', getIcons_),
         dataSources: cached('dataSourceTypes', getDataSourceTypesOnly_),
         tabTypes: getTabTypes(),
+        // 1.10: what the app's outbox and Home's "this tab is slowing Daylens" note need.
+        backendVersion: BACKEND_VERSION, saveKeySecs: SAVE_KEY_SECONDS_,
+        bigTabs: String(getRole).trim().toLowerCase() === 'admin' ? bigTabs_() : [],
       });
     }
     /** Which tabs route their new entries somewhere other than this Sheet
@@ -297,7 +312,7 @@ var ADMIN_ACTIONS_ = {
   importRows: true, recentImports: true, undoImport: true, makeSheetCopy: true, takeOver: true, saveHolidays: true,
   addDirectoryPeople: true, updateDirectoryPerson: true, saveDirectoryGroups: true, ignoreTypedName: true,
   saveDocument: true, deleteDocument: true, saveDocumentCategories: true,
-  setTabType: true, saveFieldLayout: true,
+  setTabType: true, saveFieldLayout: true, speedInfo: true,
 };
 /** Anything that can change the team directory's name lists. */
 var DIR_CHANGERS_ = {
@@ -320,6 +335,7 @@ var DASH_CHANGERS_ = {
   setTabType: true, saveFieldLayout: true, setUserRole: true,
 };
 function doPost(e) {
+  REQ_START_ = Date.now(); REQ_TIMED_ = false;
   var out = doPostInner_(e);
   try {
     var a = JSON.parse(e.postData.contents).action || 'submit';
@@ -354,6 +370,7 @@ function doPostInner_(e) {
     // is checked against their session. Only signing in and creating the
     // very first admin work without one.
     var PUBLIC_ACTIONS_ = { login: true, bootstrapFirstAdmin: true, requestPasswordCode: true, resetPasswordWithCode: true };
+    REQ_TIMED_ = !PUBLIC_ACTIONS_[body.action]; // (1.10: how long the script worked, for the app's Speed check)
     // ===== Is the app new enough to save here? (the safety switch) =====
     // Signing in still works, so the app can show its "Update required".
     var APP_CHECK_FREE_ = { login: true, bootstrapFirstAdmin: true, logout: true, setLatestVersion: true, requestPasswordCode: true, resetPasswordWithCode: true };
@@ -506,6 +523,8 @@ function doPostInner_(e) {
         if (body.action === 'saveFieldSchema') {
           writeFieldSchemaMap(body.fieldSchema || {});
           CacheService.getScriptCache().remove('fieldSchema');
+          // (1.10) a type saved for a new name adds its column: forms must see it at once
+          Object.keys(body.fieldSchema || {}).slice(0, 80).forEach(function (t) { CacheService.getScriptCache().remove('columns:' + t); });
           return jsonOut({ ok: true, message: 'Field types saved.' });
         }
         // Read BEFORE overwriting — ensureReportConfigsForCategories_ needs
@@ -1075,6 +1094,8 @@ function doPostInner_(e) {
     if (body.action === 'takeOver') return jsonOut(takeOver_(callerSession, body));
     /** The leave calendar (everyone) and the year's holidays (admins). */
     if (body.action === 'leaveCalendar') return jsonOut(leaveCalendar_(body.year, new Date()));
+    /** 1.10 (admins): how many rows each tab has, for Settings → Speed check. Counts only. */
+    if (body.action === 'speedInfo') return jsonOut({ ok: true, tabs: tabSizes_(), bigRows: BIG_TAB_ROWS_ });
     /** 1.9: before a leave entry is saved — who else is off that day (and is it a holiday)? */
     if (body.action === 'leaveClashes') return jsonOut(leaveClashes_(body.tab, body.values || {}, new Date()));
     if (body.action === 'saveHolidays') return jsonOut(saveHolidays_(callerSession, body));
@@ -1280,6 +1301,7 @@ function doPostInner_(e) {
       });
       if (!(AUDIT_LOG_TAB_NAME in cuNext)) cuNext[AUDIT_LOG_TAB_NAME] = getCleanupConfig_()[AUDIT_LOG_TAB_NAME] || 0;
       setConfigValue(CLEANUP_KEY_, JSON.stringify(cuNext));
+      CacheService.getScriptCache().remove('bigTabs');
       if (typeof body.copies === 'boolean') {
         setConfigValue(SHEET_COPY_KEY_, body.copies ? 'on' : 'off');
         var scHalf = body.copies ? null : sheetCopyGet_('SHEET_COPY_PENDING', null);
@@ -1859,7 +1881,7 @@ function doPostInner_(e) {
       // of THIS click, short enough that a genuinely new submission
       // minutes later (a fresh idempotencyKey anyway, but belt-and-braces)
       // is never mistaken for a repeat.
-      if (idemKey) idemCache.put(idemKey, JSON.stringify(resultObj), 300);
+      if (idemKey) idemCache.put(idemKey, JSON.stringify(resultObj), resultObj.ok ? SAVE_KEY_SECONDS_ : 300); // (1.10: a saved entry's key is kept 6 hours — the app's outbox may ask again much later)
     } finally {
       lock.releaseLock();
     }
@@ -1964,7 +1986,7 @@ function tmAbout() {
 function clearCache() {
   CacheService.getScriptCache().removeAll(
     listVisibleTabsUncached().map(function (t) { return 'columns:' + t; })
-      .concat(['tabs', 'options', 'fieldSchema', 'categories', 'dataSourceTypes', 'tabTypes', 'dirOptions', 'dirKnown', 'hiddenFields', 'icons'])
+      .concat(['tabs', 'options', 'fieldSchema', 'categories', 'dataSourceTypes', 'tabTypes', 'dirOptions', 'dirKnown', 'hiddenFields', 'icons', 'bigTabs'])
   );
   Logger.log('Cache cleared.');
 }
@@ -3838,7 +3860,7 @@ function saveFieldLayout_(session, body) {
   if (!tabs.length) return { ok: true, message: 'Nothing to change.' };
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(LOCK_WAIT_MS)) return { ok: false, error: 'Server is busy — please try again in a few seconds.' };
-  var moved = [];
+  var moved = [], added = [];
   try {
     var hiddenMap;
     try { hiddenMap = JSON.parse(String(getConfigValue('HiddenFields') || '{}')); } catch (e) { hiddenMap = {}; }
@@ -3850,6 +3872,9 @@ function saveFieldLayout_(session, body) {
       var headers = getHeaderRow(sheet);
       var spec = layout[tab] || {};
       var plan = { tab: tab, sheet: sheet, order: Array.isArray(spec.order) ? spec.order.slice(0, 200) : null };
+      // 1.10: new fields (also plain-text ones, which have no row in _FieldSchema) become columns at the end.
+      plan.add = (Array.isArray(spec.add) ? spec.add : []).map(function (c) { return String(c || '').trim().slice(0, 100); })
+        .filter(function (c) { return c && c.charAt(0) !== '_' && c !== TIMESTAMP_COLUMN; }).slice(0, 40);
       if (Array.isArray(spec.hidden)) {
         var keep = tabKeyColumns_(tab, headers).map(function (c) { return String(c).toLowerCase(); });
         var hid = [];
@@ -3866,6 +3891,8 @@ function saveFieldLayout_(session, body) {
     }
     plans.forEach(function (plan) {
       if (plan.hidden) { if (plan.hidden.length) hiddenMap[plan.tab] = plan.hidden; else delete hiddenMap[plan.tab]; }
+      plan.add.forEach(function (c) { ensureColumnExists_(plan.tab, c); });
+      if (plan.add.length) added.push(plan.tab);
       if (plan.order && plan.order.length) {
         // Marked first: a save that read the old column order before this
         // lock re-reads it (see submit).
@@ -3881,7 +3908,7 @@ function saveFieldLayout_(session, body) {
     lock.releaseLock();
   }
   logAudit_(body.sessionToken, 'field layout', tabs.join(', '), (moved.length ? 'Fields moved in ' + moved.join(', ') + '. ' : '') + 'Hidden fields saved.', 'Success');
-  return { ok: true, moved: moved, message: 'Saved.' };
+  return { ok: true, moved: moved, added: added, message: 'Saved.' };
 }
 
 function createTab_(body) {
@@ -5756,6 +5783,7 @@ function deleteReminder_(session, id) {
 // ================== end desktop app 2.0 helpers ==================
 
 function jsonOut(obj) {
+  if (REQ_TIMED_ && obj && typeof obj === 'object' && !Array.isArray(obj) && obj._ms === undefined) obj._ms = Date.now() - REQ_START_;
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
     ContentService.MimeType.JSON
   );
@@ -5876,6 +5904,30 @@ function cleanupPlan_(now, config) {
   return plan;
 }
 
+// ==================== how big each tab is (1.10) ====================
+// Every screen that lists a tab's entries reads the whole tab, so a tab
+// that only ever grows gets slower. Admins are told (Home, and Settings →
+// Speed check) once a tab passes BIG_TAB_ROWS_ rows with clean-up off.
+var BIG_TAB_ROWS_ = 3000;
+/** [{tab, label, rows, cols, allowed, months, why}] — counts only, no entries. */
+function tabSizes_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var cfg = getCleanupConfig_();
+  return cleanupTabs_().map(function (t) {
+    var sheet = ss.getSheetByName(t.tab);
+    return { tab: t.tab, label: t.label, rows: sheet ? Math.max(0, sheet.getLastRow() - 1) : 0, cols: sheet ? sheet.getLastColumn() : 0,
+      allowed: !!t.allowed, months: t.allowed ? Number(cfg[t.tab]) || 0 : 0, why: t.why || '' };
+  });
+}
+/** Tabs past BIG_TAB_ROWS_ rows that clean-up could shorten but isn't switched on for. */
+function bigTabs_() {
+  return cached('bigTabs', function () {
+    return tabSizes_().filter(function (t) { return t.allowed && !t.months && t.rows >= BIG_TAB_ROWS_; })
+      .sort(function (a, b) { return b.rows - a.rows; }).slice(0, 5)
+      .map(function (t) { return { tab: t.tab, label: t.label, rows: t.rows }; });
+  });
+}
+
 /** Who gets the backups: the admin contact emails (App Settings), else the
  * Sheet's owner. */
 function cleanupRecipients_() {
@@ -5934,6 +5986,7 @@ function runCleanup_(now, opts) {
           var removed = {};
           plan.forEach(function (p) { removed[p.label] = cleanupRemoveRows_(p); });
           bumpSearch_(''); // rows left the Sheet: search forgets them too
+          CacheService.getScriptCache().remove('bigTabs');
           result = { ok: true, rows: removed, total: total, emailedTo: to, at: now.toISOString() };
         }
       }

@@ -36,7 +36,7 @@
     wrap.hidden = true;
     const mac = /Mac/i.test(navigator.platform || '');
     wrap.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
-      <input id="srch-input" type="text" spellcheck="false" autocomplete="off" placeholder="Search tickets, names, documents…" aria-label="Search everything" aria-controls="srch-panel" aria-expanded="false" aria-autocomplete="list" />
+      <input id="srch-input" type="text" role="combobox" spellcheck="false" autocomplete="off" placeholder="Search tickets, names, documents…" aria-label="Search everything" aria-controls="srch-panel" aria-expanded="false" aria-autocomplete="list" />
       <kbd>${mac ? '⌘K' : 'Ctrl K'}</kbd>`;
     strip.insertBefore(wrap, document.getElementById('bell'));
     input = wrap.querySelector('input');

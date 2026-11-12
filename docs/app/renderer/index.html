@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'none'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -9,6 +9,7 @@
 
 <meta charset="utf-8" />
 <script src="theme.js"></script>
+<script src="a11y.js"></script>
 <script src="demo-guard.js"></script>
 <title>Daylens</title>
 <script src="setup-guide.js"></script>
@@ -373,6 +374,39 @@
   }
   .entry-delete-btn:hover { color: #a13a3a; }
   .entry-delete-btn:disabled { opacity: 0.5; cursor: default; }
+  /* 1.10: entries on their way to the Sheet (the outbox), and the speed check */
+  .outbox-list { margin: 0 0 10px; }
+  .outbox-list[hidden] { display: none; }
+  .entry-card.pending { border-left-style: dashed; flex-wrap: wrap; align-items: center; }
+  .entry-card.pending .pending-body { cursor: default; flex: 1 1 240px; }
+  .entry-card.pending.failed, .entry-card.pending.unsure { border-left-color: #c53030; }
+  .ob-chip { background: var(--chip); color: var(--text); }
+  .ob-chip.bad { background: #c53030; color: #fff; }
+  .ob-why { display: block; margin-top: 4px; font-size: 12px; color: var(--text); }
+  .ob-actions { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 10px 8px 14px; flex: 1 1 100%; }
+  .ob-actions .mini-btn { margin: 0; }
+  .speed-card { background: var(--surface); border-radius: 14px; padding: 14px 16px; margin: 0 0 12px; color: var(--text); }
+  html[data-mode="light"] .speed-card { border: 1px solid var(--card-border); box-shadow: var(--card-shadow); }
+  .speed-card h3 { margin: 0 0 4px; font-size: 14px; }
+  .speed-card p { margin: 4px 0 8px; font-size: 13px; line-height: 1.5; }
+  .speed-card .mini-btn { margin: 0; }
+  .speed-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .speed-table th, .speed-table td { text-align: left; padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .speed-table th { font-size: 12px; font-weight: 700; color: var(--text-dim, var(--text)); }
+  .speed-table td.num, .speed-table th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .speed-table tr:last-child td { border-bottom: 0; }
+  .speed-chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; margin-left: 6px; white-space: nowrap; }
+  .speed-chip.fast { background: #15803d; color: #fff; }
+  .speed-chip.ok { background: #b45309; color: #fff; }
+  .speed-chip.slow { background: #c53030; color: #fff; }
+  .speed-sub { display: block; font-size: 12px; opacity: 0.85; }
+  .setup-dl { margin: 10px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; font-size: 13px; line-height: 1.5; }
+  .setup-dl dt { font-weight: 800; white-space: nowrap; }
+  .setup-dl dd { margin: 0; }
+  .setup-dl ol { margin: 0; padding-left: 18px; }
+  @media (max-width: 560px) { .setup-dl { grid-template-columns: 1fr; gap: 2px; } .setup-dl dt { margin-top: 6px; } }
+  .feat-more { margin: 6px 0 0; }
+  .plain-link { background: none; border: none; padding: 0; font: inherit; font-size: 12.5px; font-weight: 700; color: inherit; text-decoration: underline; cursor: pointer; }
   .entries-empty { text-align: center; color: var(--on-brand-dim); font-size: 12px; padding: 20px 0 24px; }
 
   /* Log Analyser — read-only history of real actions (opens, nav clicks,
@@ -516,7 +550,7 @@
   .tb-r1 { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
   .tb-id { font-size: 11.5px; font-weight: 800; background: var(--chip); padding: 2px 7px; border-radius: 6px; }
   .tb-pri { font-size: 11.5px; font-weight: 700; color: var(--text-dim); } .tb-pri.high, .tb-pri.urgent { color: #9b2c2c; }
-  .tb-ttl { font-size: 14px; font-weight: 680; line-height: 1.3; margin: 8px 0 4px; overflow-wrap: anywhere; }
+  .tb-ttl { font-size: 14px; font-weight: 680; line-height: 1.3; margin: 8px 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* (1.10: one line a ticket; the whole text is its tooltip and its own screen) */
   .tb-from { font-size: 12px; color: var(--text-dim); }
   .tb-r3 { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; }
   .tb-own { display: flex; align-items: center; gap: 6px; font-weight: 650; min-width: 0; } .tb-own.none { color: var(--text-dim); font-style: italic; font-weight: 600; }
@@ -540,7 +574,7 @@
   .lc-dow { display: grid; grid-template-columns: repeat(7, 1fr); font-size: 12px; font-weight: 700; color: var(--text-dim); padding: 2px 4px 8px; }
   .lc-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
   .lc-day { min-height: 92px; border-radius: 10px; background: var(--tile-hover, #fffdf8); border: 1px solid var(--border); padding: 6px; font-size: 12px; min-width: 0; }
-  .lc-day.wk { background: var(--chip); } .lc-day.out { opacity: 0.45; } .lc-day.hol { background: #fdf0d5; border-color: #f0d49a; }
+  .lc-day.wk { background: var(--chip); } .lc-day.out { background: transparent; border-style: dashed; } .lc-day.out .lc-dn { color: var(--text-dim); font-weight: 600; } /* (1.10: another month's days — told apart by a dashed edge, not by fading the text out) */ .lc-day.hol { background: #fdf0d5; border-color: #f0d49a; }
   .lc-day.today { outline: 2px solid #1f6b4f; outline-offset: -1px; }
   .lc-dn { font-weight: 800; font-size: 12.5px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
   .lc-dn .tl { font-size: 10.5px; color: #fff; background: #1f6b4f; border-radius: 999px; padding: 1px 6px; font-weight: 700; }
@@ -841,7 +875,7 @@
   .dc .dash-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 14px 16px 12px; background: var(--accent-grad); color: var(--on-accent); }
   .dc .dash-head .dash-btn { border-color: rgba(255,255,255,0.45); color: inherit; background: rgba(255,255,255,0.12); }
   .dc .dash-head .dash-btn:disabled { opacity: 0.45; }
-  .dc .dash-head .dash-sub { opacity: 0.9; }
+  .dc .dash-head .dash-sub { color: inherit; }
   .dc .dash-upd { font-style: italic; }
   .dc .dash-body { padding: 14px 16px 12px; }
   .dc .dash-notes { margin-top: 10px; font-size: 12px; border-top: 1px dashed rgba(0,0,0,0.15); padding-top: 8px; }
@@ -859,7 +893,7 @@
   .dc .sk-bar { display: inline-block; height: 10px; width: 55%; border-radius: 6px; background: rgba(0,0,0,0.09); animation: sk-pulse 1.2s ease-in-out infinite; }
   @keyframes sk-pulse { 50% { opacity: 0.45; } }
   .dc .dash-title { font-size: 16px; font-weight: 800; }
-  .dc .dash-sub { font-size: 12.5px; opacity: 0.75; margin-top: 2px; }
+  .dc .dash-sub { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; } /* (1.10: quieter text is a colour that passes 4.5:1, not a faded one) */
   .dc .dash-nav { display: flex; gap: 6px; }
   .dc .dash-btn { border: 1px solid rgba(0,0,0,0.14); background: transparent; color: var(--text); border-radius: 9px; padding: 4px 10px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
   .dc .dash-btn:hover:not(:disabled), .dc .dash-btn:focus-visible { border-color: var(--gold-bright); outline: none; }
@@ -867,11 +901,11 @@
   .dc .dash-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
   .dc .dash-stat { border-radius: 12px; padding: 9px 8px; background: rgba(0,0,0,0.045); text-align: center; }
   .dc .dash-stat b { display: block; font-size: 19px; font-weight: 800; line-height: 1.15; }
-  .dc .dash-stat b small { font-size: 12px; opacity: 0.7; }
-  .dc .dash-stat span { font-size: 11px; opacity: 0.8; font-weight: 600; }
+  .dc .dash-stat b small { font-size: 12px; color: var(--text-dim); }
+  .dc .dash-stat span { font-size: 11px; color: var(--text-dim); font-weight: 600; }
   .dc .dash-people { max-height: calc(100vh - 360px); min-height: 120px; overflow-y: auto; }
   .dc .dp-row { display: grid; grid-template-columns: minmax(0, 1fr) repeat(5, 22px) 26px 34px; align-items: center; gap: 2px; padding: 5px 2px; border-bottom: 1px solid rgba(0,0,0,0.07); font-size: 13px; }
-  .dc .dp-head { font-size: 11px; font-weight: 800; opacity: 0.7; position: sticky; top: 0; background: var(--surface); z-index: 1; }
+  .dc .dp-head { font-size: 11px; font-weight: 800; color: var(--text-dim); position: sticky; top: 0; background: var(--surface); z-index: 1; }
   .dc .dp-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .dc .dp-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
   .dc .dp-av { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft, rgba(0,0,0,0.08)); display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 800; }
@@ -889,14 +923,14 @@
   .dc .dk-text { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; resize: vertical; background: var(--surface); color: var(--text); border: 1px solid rgba(0,0,0,0.18); border-radius: 9px; padding: 8px 10px; }
   .dc .dk-via { display: flex; gap: 14px; flex-wrap: wrap; margin: 6px 0; font-size: 12.5px; }
   .dc .dk-via input { width: auto; margin: 0 4px 0 0; }
-  .dc .dk-hint { font-size: 11.5px; opacity: 0.8; margin-bottom: 6px; }
+  .dc .dk-hint { font-size: 11.5px; color: var(--text-dim); margin-bottom: 6px; }
   .dc .dk-actions { display: flex; justify-content: flex-end; gap: 6px; }
   .dc .dash-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; font-size: 11.5px; }
-  .dc .dash-key { opacity: 0.8; display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .dc .dash-key { color: var(--text-dim); display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .dc .dash-dl { display: inline-flex; gap: 6px; }
   .dc .dash-msg { font-size: 12.5px; margin-top: 6px; min-height: 1em; }
   .dc .dash-msg.err { color: #c53030; }
-  .dc .dash-note { font-size: 13px; opacity: 0.85; }
+  .dc .dash-note { font-size: 13px; }
   .dc .dash-wait { margin: 0 0 14px; padding: 10px 12px; border-radius: 12px; background: rgba(250,178,25,0.12); border: 1px solid rgba(250,178,25,0.45); font-size: 12.5px; }
   .dc .dw-head { font-weight: 800; margin-bottom: 4px; }
   .dc .dash-wait ul { list-style: none; margin: 0; padding: 0; }
@@ -1109,7 +1143,7 @@
   /* Features */
   .feat-search { margin-bottom: 6px; }
   .feat-area { margin: 18px 0 8px; font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--text-dim, inherit); opacity: .9; }
-  html.app-mode .feat-area { color: var(--gold-bright); }
+  html.app-mode .feat-area { color: var(--gold-bright); opacity: 1; }
   .feat-card .card-title .pill { margin-left: 6px; vertical-align: 1px; }
   .feat-what { margin-top: 2px; font-size: 12.5px; line-height: 1.45; }
   .feat-how { margin-top: 8px; font-size: 12.5px; }
@@ -1150,7 +1184,7 @@
       <div class="head-text">
         <h1>Daylens <span class="version-badge" id="version-badge"></span></h1>
         <nav class="crumbs" id="crumbs" aria-label="Where you are" hidden></nav>
-        <div class="sub" id="header-sub">What are you logging status for?</div>
+        <div class="sub" id="header-sub" role="heading" aria-level="1" aria-live="polite">What are you logging status for?</div>
       </div>
       <div class="header-actions">
         <button class="update-link" id="update-link" title="A newer version is available">Update available</button>
@@ -1245,6 +1279,166 @@
     lastScreen = fn ? { fn, args: Array.from(args || []), form: FORM_SCREENS.has(fn.name) } : null;
   }
   function formScreen() { lastScreen = { form: true }; }
+
+  // ==================== 1.10: saved in the background (the outbox) ====================
+  // Submit on a new entry returns at once: the entry is kept on this
+  // computer and sent to the Sheet behind the screen (see "outbox" in
+  // main.js). Until it's there, it shows at the top of its tab's list.
+  // Leave and Excel-routed tabs still wait for the answer: a leave request
+  // can be refused (the same person, the same day), and an Excel file
+  // can't say whether it already has a row.
+  let outboxItems = [];
+  const outboxFor = (tab) => outboxItems.filter((x) => x.tab === tab);
+  const savesInBackground = (tab) => !!window.statusApp.outboxAdd && liveTabTypes[tab] !== 'leave' && liveDataSourceTypes[tab] !== 'Excel';
+  const outboxTabOnScreen = () => {
+    const s = lastScreen;
+    return s && !s.form && s.fn && (s.fn.name === 'showTabEntries' || s.fn.name === 'showTicketBoard') ? { tab: s.args[0], list: s.fn.name === 'showTabEntries' } : null;
+  };
+  async function outboxAct(action, it) {
+    if (action === 'retry') { await window.statusApp.outboxRetry(it.id).catch(() => {}); return; }
+    if (action === 'discard') {
+      const go = await dlDialog({
+        title: 'Discard this entry?',
+        html: `<p>It never reached the Sheet. Discarding removes it from this computer too.</p>`,
+        actions: [{ label: 'Keep it', value: 'keep' }, { label: 'Discard', value: 'go', primary: true }],
+      });
+      if (go === 'go') await window.statusApp.outboxDiscard(it.id).catch(() => {});
+      return;
+    }
+    if (action === 'edit') { // back into the form, with everything that was typed
+      const r = await window.statusApp.outboxDiscard(it.id).catch(() => null);
+      if (!r || !r.ok) return;
+      saveDraft(r.tab, r.values);
+      showForm(r.tab);
+    }
+  }
+  function pendingBlock(tab) {
+    const box = document.createElement('div');
+    box.id = 'outbox-pending';
+    box.className = 'outbox-list';
+    box.setAttribute('role', 'status');
+    const items = outboxFor(tab);
+    box.hidden = !items.length;
+    items.forEach((it) => {
+      const { primary, rest } = entryCardFields(it.values);
+      const bad = it.state === 'failed' || it.state === 'unsure';
+      const chip = it.state === 'failed' ? 'Not saved' : it.state === 'unsure' ? 'Not confirmed' : navigator.onLine === false ? 'Waiting for a connection' : 'Sending…';
+      const card = document.createElement('div');
+      card.className = 'entry-card pending ' + it.state;
+      card.dataset.id = it.id;
+      card.innerHTML = `<div class="entry-card-open pending-body">
+          <span class="entry-card-title">${escapeHtml(primary ? String(it.values[primary]) : '(no details)')}<span class="st-chip ob-chip${bad ? ' bad' : ''}">${chip}</span></span>
+          ${rest.length ? `<span class="entry-card-sub">${rest.map((k) => escapeHtml(String(it.values[k]))).join(' · ')}</span>` : ''}
+          ${bad ? `<span class="ob-why">${escapeHtml(it.error || 'It couldn\'t be saved.')}</span>` : ''}
+        </div>
+        ${bad ? `<div class="ob-actions">${it.state === 'failed' ? '<button type="button" class="mini-btn go" data-a="edit">Edit</button>' : ''}<button type="button" class="mini-btn" data-a="retry">Send again</button><button type="button" class="mini-btn" data-a="discard">Discard</button></div>` : ''}`;
+      card.querySelectorAll('[data-a]').forEach((b) => { b.onclick = () => outboxAct(b.dataset.a, it); });
+      box.appendChild(card);
+    });
+    return box;
+  }
+  async function quietlyRedrawEntries(tab) {
+    const seq = screenSeq;
+    try {
+      const res = await window.statusApp.getTabRows(tab);
+      const now = outboxTabOnScreen();
+      if (seq !== screenSeq || !now || !now.list || now.tab !== tab) return; // moved on meanwhile
+      const search = document.querySelector('#main input[type="search"]');
+      if (search && search.value) return; // mid-search: the list is left alone (Refresh redraws it)
+      renderTabEntries(tab, (res && res.rows) || [], res);
+    } catch { /* the next visit reads it */ }
+  }
+  if (window.statusApp.onOutboxChanged) {
+    window.statusApp.onOutboxChanged((info) => {
+      outboxItems = (info && info.items) || [];
+      const sent = info && info.sent;
+      // (often it lands while the "Submitted" screen is still up: the list that follows marks the row)
+      if (sent && sent.rowIndex) lastSavedRow = { tab: sent.tab, rowIndex: sent.rowIndex };
+      const on = outboxTabOnScreen();
+      if (!on) return;
+      if (sent && sent.tab === on.tab) {
+        if (on.list) {
+          quietlyRedrawEntries(on.tab);
+        } else {
+          screenSeq++;
+          try { lastScreen.fn.apply(null, lastScreen.args); } catch { /* the board shows its own error */ }
+        }
+        return;
+      }
+      const box = document.getElementById('outbox-pending');
+      if (on.list && box) box.replaceWith(pendingBlock(on.tab));
+    });
+    window.statusApp.outboxList().then((r) => { outboxItems = (r && r.items) || []; }).catch(() => {});
+  }
+
+  // ==================== 1.10: Settings → Speed check ====================
+  const SPEED_NAMES = {
+    ping: 'Reaching your team\'s Sheet', teamInfo: 'Reaching your team\'s Sheet', bootstrap: 'Tabs, fields and lists', teamDashboard: 'Home\'s dashboard',
+    getTabRows: 'Opening a tab\'s entries', submit: 'Saving a new entry', updateTabRow: 'Saving an edit', deleteTabRow: 'Removing an entry',
+    listReminders: 'Reminders', todayHighlights: 'Today', searchAll: 'Search', leaveCalendar: 'The leave calendar', login: 'Signing in',
+    speedInfo: 'Counting each tab\'s rows', leaveClashes: 'Checking who else is off', clearCache: 'Refresh', askAssistant: 'Ask Daylens',
+    generateAiDigest: 'The AI digest', viewReport: 'A report', tabs: 'The list of tabs', columns: 'A tab\'s fields', options: 'Drop-down lists',
+  };
+  const speedName = (n) => SPEED_NAMES[n] || String(n).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
+  const secs = (ms) => (ms == null ? '—' : `${(Math.round(ms / 100) / 10).toFixed(1)} s`);
+  const speedChip = (ms) => (ms < 1500 ? '<span class="speed-chip fast">✓ Quick</span>' : ms < 4000 ? '<span class="speed-chip ok">● Normal</span>' : '<span class="speed-chip slow">▲ Slow</span>');
+  async function showSpeedCheck(run) {
+    const scr = beginScreen(showSpeedCheck, []); // (Refresh shows what's been timed, without running the check again)
+    appSection('settings');
+    els.footer.classList.add('hidden');
+    setScreen('Speed check', [{ label: 'Settings', go: () => showSettings() }]);
+    els.main.style.minHeight = '';
+    showLoading(run ? 'Timing your team\'s Sheet… this takes a few seconds.' : 'Loading…');
+    let result = null, stats = null;
+    try {
+      if (run) result = await window.statusApp.speedRun();
+      stats = await window.statusApp.speedStats();
+    } catch (err) {
+      showError(err.message || String(err), () => showSpeedCheck(run));
+      return;
+    }
+    if (scr.stale) return;
+    const session = await window.statusApp.getSessionStatus().catch(() => ({}));
+    if (scr.stale) return;
+    const isAdmin = !!(session && session.loggedIn && session.role === 'Admin');
+    let html = `<div class="speed-card"><h3>How fast is Daylens for you?</h3>
+      <p>Daylens keeps a copy of your tabs, lists and dashboard on this computer and shows that first, so most screens open at once. What takes time is asking your team's Google Sheet. This check times that, right now, from this computer. The timings stay here: nothing is sent anywhere.</p>
+      <button type="button" class="mini-btn go" id="speed-run">${result ? 'Run it again' : 'Run the check'}</button></div>`;
+    if (result) {
+      const steps = result.steps || [];
+      const done = steps.filter((x) => x.ok);
+      const withScript = done.filter((x) => x.script != null);
+      const total = withScript.reduce((a, x) => a + x.ms, 0), script = withScript.reduce((a, x) => a + x.script, 0);
+      let verdict = '';
+      if (!done.length) verdict = result.online === false ? 'This computer is offline, so the Sheet couldn\'t be reached. Daylens is showing the copy saved here.' : 'The Sheet didn\'t answer. Check your connection and run it again.';
+      else if (!withScript.length) verdict = 'Your team\'s Sheet is on an older version, so it can\'t say how long its own work took. An admin can update it in Settings → About Daylens.';
+      else if (script / total >= 0.6) verdict = 'Most of the wait is the Sheet\'s script doing its work. That grows with the number of rows, so clearing old rows (below) is what helps.';
+      else verdict = 'Most of the wait is Google starting the script and the trip over the network, not the amount of data. Daylens can\'t shorten that part, which is why it shows saved copies first and saves new entries in the background.';
+      html += `<div class="speed-card" id="speed-result"><h3>Just now</h3><p id="speed-verdict">${escapeHtml(verdict)}</p>
+        <table class="speed-table"><thead><tr><th scope="col">What</th><th scope="col" class="num">You waited</th><th scope="col" class="num">Script's own work</th></tr></thead><tbody>
+        ${steps.map((x) => `<tr><td>${escapeHtml(x.label)}${x.ok ? speedChip(x.ms) : '<span class="speed-chip slow">✕ No answer</span>'}${x.ok ? '' : `<span class="speed-sub">${escapeHtml(x.error || '')}</span>`}</td><td class="num">${secs(x.ms)}</td><td class="num">${x.ok ? secs(x.script) : '—'}</td></tr>`).join('')}
+        </tbody></table></div>`;
+      if (result.tabs && isAdmin) {
+        const big = result.tabs.bigRows || 3000;
+        const list = result.tabs.list.slice().sort((a, b) => b.rows - a.rows);
+        const anyBig = list.some((t) => t.rows >= big && t.allowed && !t.months);
+        html += `<div class="speed-card" id="speed-tabs"><h3>How big each tab is</h3>
+          <p>Opening a tab reads all of its rows, so a tab that only grows gets slower. ${anyBig ? `Tabs past ${big.toLocaleString()} rows with clean-up off are marked.` : 'None of your tabs is big enough to slow Daylens.'} Clean-up emails older rows to the admins as a backup file, then removes them from the Sheet.</p>
+          <table class="speed-table"><thead><tr><th scope="col">Tab</th><th scope="col" class="num">Rows</th><th scope="col">Clean-up</th></tr></thead><tbody>
+          ${list.map((t) => `<tr><td>${escapeHtml(t.label || t.tab)}${t.rows >= big && t.allowed && !t.months ? '<span class="speed-chip slow">▲ Slowing Daylens</span>' : ''}</td><td class="num">${Number(t.rows).toLocaleString()}</td><td>${!t.allowed ? escapeHtml(t.why || 'Not available') : t.months ? `Keeps ${t.months} months` : 'Off'}</td></tr>`).join('')}
+          </tbody></table><p style="margin-top:10px"><button type="button" class="mini-btn${anyBig ? ' go' : ''}" id="speed-cleanup">Open Clean-up &amp; backups</button></p></div>`;
+      }
+    }
+    const rows = ((stats && stats.rows) || []).slice(0, 12);
+    html += `<div class="speed-card" id="speed-since"><h3>Since Daylens opened</h3>${rows.length
+      ? `<p>The slowest things first. "Usual" is the average wait.</p><table class="speed-table"><thead><tr><th scope="col">What</th><th scope="col" class="num">Times</th><th scope="col" class="num">Usual</th><th scope="col" class="num">Slowest</th></tr></thead><tbody>
+        ${rows.map((r) => `<tr><td>${escapeHtml(speedName(r.name))}${r.fails ? `<span class="speed-sub">${r.fails} got no answer</span>` : ''}</td><td class="num">${r.n}</td><td class="num">${secs(r.avg)}</td><td class="num">${secs(r.max)}</td></tr>`).join('')}</tbody></table>`
+      : '<p>Nothing has been timed yet.</p>'}</div>`;
+    els.main.innerHTML = html;
+    document.getElementById('speed-run').onclick = () => showSpeedCheck(true);
+    const cu = document.getElementById('speed-cleanup');
+    if (cu) cu.onclick = () => window.__appMode && window.__appPost({ type: 'open-section', name: 'manage', sub: 'cleanup-section' });
+  }
 
   // A small pop-up over the screen (1.9): the leave clash warning, the
   // reminder for a requested date. Escape (or the first button) is the
@@ -1757,18 +1951,18 @@
     if (onDone) document.getElementById('result-done-btn').onclick = onDone;
   }
 
-  function showSuccess(tab, note) {
-    showResult({ success: true, title: 'Submitted Successfully!', subtitle: `Saved to "${tab}"` + (note ? `. ${note}` : '') });
+  function showSuccess(tab, note, queued) {
+    showResult({ success: true, title: 'Submitted Successfully!', subtitle: queued ? `Saved. It's on its way to "${tab}" — you can carry on.` : `Saved to "${tab}"` + (note ? `. ${note}` : '') });
     // Back to that tab's entries (so the new row is right there), unless
     // the person already clicked somewhere else in the meantime.
     const shownAt = els.main.firstElementChild;
     setTimeout(() => {
       if (els.main.firstElementChild !== shownAt) return;
       if (isTrendy() && liveTabTypes[tab] === 'leave' && liveDataSourceTypes[tab] !== 'Excel') showLeaveCalendar(tab); // the request shows on the calendar
-      else if (isTrendy() && isTicketTab(tab) && liveDataSourceTypes[tab] !== 'Excel') showTicketBoard(tab);
+      else if (isTrendy() && isTicketTab(tab) && liveDataSourceTypes[tab] !== 'Excel') openTickets(tab);
       else if (isMeetingTab(tab) || isTicketTab(tab) || liveDataSourceTypes[tab] === 'Excel') showTabPicker();
       else showTabEntries(tab);
-    }, 1900);
+    }, queued ? 900 : 1900);
   }
 
   // Range-type sub-fields for the report screen — each returns the HTML
@@ -2282,6 +2476,8 @@
       loggedIn
         ? makeTile({ id: 'logout-btn', icon: '🚪', title: 'Log out', hint: `Signed in as ${who}` })
         : makeTile({ id: 'login-btn', icon: '🔐', title: 'Log in', hint: 'Sign in with the account your admin gave you (needed for admin areas)' }),
+      makeTile({ id: 'setup-btn', icon: '🧭', title: 'Set-up guide', hint: 'How to add, change, remove and connect each feature', onClick: () => { featuresQuery = ''; showFeatures(true); } }),
+      makeTile({ id: 'speed-btn', icon: '⏱', title: 'Speed check', hint: 'Time your team\'s Sheet from this computer, and see what\'s slow', onClick: () => showSpeedCheck(false) }),
       makeTile({ id: 'about-btn', icon: 'ℹ️', title: 'About Daylens', hint: 'Version and app details', onClick: showAbout })
     );
     els.main.appendChild(tileGrid(tiles));
@@ -2778,11 +2974,13 @@
     return sel;
   }
 
-  async function showFeatures() {
+  // setupOnly (1.10, Settings → Set-up guide): only the things that are set
+  // up, each with how to add it, change it, remove it and what it works with.
+  async function showFeatures(setupOnly) {
     const scr = beginScreen(showFeatures, arguments); // a newer screen takes over: this one stops drawing
-    appSection('features');
+    appSection(setupOnly ? 'settings' : 'features');
     els.footer.classList.add('hidden');
-    setScreen('Features', []);
+    setScreen(setupOnly ? 'Set-up guide' : 'Features', setupOnly ? [{ label: 'Settings', go: () => showSettings() }] : []);
     els.main.style.minHeight = '';
     const FX = window.DAYLENS_FEATURES;
     const [st, tabsRes] = await Promise.all([
@@ -2801,9 +2999,9 @@
       return t ? (m[1] === 'board' ? 'board:' : 'tab:') + t : null;
     };
     els.main.innerHTML = `
-      <p class="login-hint">Everything Daylens does, and how to use it. Search for something, or press "Take me there" to go straight to it.</p>
-      <div class="field feat-search"><input type="search" id="features-search" placeholder="Search features, e.g. leave, reminder, report, theme" aria-label="Search features" autocomplete="off" /></div>
-      <div class="card-sub" id="features-count" aria-live="polite"></div>
+      <p class="login-hint">${setupOnly ? 'How each part of Daylens is set up: how to add it, change it and remove it, and which other features it works with. "Take me there" opens the place it\'s set up.' : 'Everything Daylens does, and how to use it. Search for something, or press "Take me there" to go straight to it.'}</p>
+      <div class="field feat-search"><input type="search" id="features-search" placeholder="${setupOnly ? 'Search the set-up guide, e.g. field, leave, category, report' : 'Search features, e.g. leave, reminder, report, theme'}" aria-label="Search features" autocomplete="off" /></div>
+      <div class="card-sub" id="features-count" aria-live="polite" style="color: var(--on-brand-dim)"></div>
       <div id="features-list"></div>`;
     const input = document.getElementById('features-search');
     input.value = featuresQuery;
@@ -2812,12 +3010,13 @@
       featuresQuery = input.value;
       const words = featuresQuery.toLowerCase().split(/\s+/).filter(Boolean);
       const hit = (f) => {
-        const text = [f.title, f.what, f.how.join(' '), f.keywords || '', f.area].join(' ').toLowerCase();
+        const text = [f.title, f.what, f.how.join(' '), f.keywords || '', f.area, setupOnly && f.setup ? [f.setup.change, f.setup.remove, f.setup.links].join(' ') : ''].join(' ').toLowerCase();
         return words.every((w) => text.includes(w));
       };
-      const shown = FX.list.filter(hit);
+      const all = setupOnly ? FX.list.filter((f) => f.setup) : FX.list;
+      const shown = all.filter(hit);
       document.getElementById('features-count').textContent = words.length
-        ? `${shown.length} of ${FX.list.length} features match.` : `${FX.list.length} features.`;
+        ? `${shown.length} of ${all.length} ${setupOnly ? 'things to set up' : 'features'} match.` : `${all.length} ${setupOnly ? 'things to set up' : 'features'}.`;
       list.innerHTML = '';
       if (!shown.length) {
         list.innerHTML = '<p class="entries-empty">Nothing matches that. Try another word, or ask Ask Daylens at the bottom right.</p>';
@@ -2845,9 +3044,13 @@
               <div class="grow"><div class="card-title">${escapeHtml(f.title)} ${tag}</div><div class="card-sub feat-what">${escapeHtml(f.what)}</div></div>
               ${goBtn}
             </div>
-            <details class="feat-how" ${words.length ? 'open' : ''}><summary>How to use it</summary><ol>${f.how.map((h) => `<li>${escapeHtml(h)}</li>`).join('')}</ol></details>`;
+            ${setupOnly
+    ? `<dl class="setup-dl"><dt>Add it</dt><dd><ol>${f.how.map((h) => `<li>${escapeHtml(h)}</li>`).join('')}</ol></dd><dt>Change it</dt><dd>${escapeHtml(f.setup.change)}</dd><dt>Remove it</dt><dd>${escapeHtml(f.setup.remove)}</dd><dt>Works with</dt><dd>${escapeHtml(f.setup.links)}</dd></dl>`
+    : `<details class="feat-how" ${words.length ? 'open' : ''}><summary>How to use it</summary><ol>${f.how.map((h) => `<li>${escapeHtml(h)}</li>`).join('')}</ol>${f.setup ? '<p class="feat-more"><button type="button" class="plain-link feat-setup">Changing or removing it, and what it works with →</button></p>' : ''}</details>`}`;
           const b = card.querySelector('.feat-go');
           if (b) b.onclick = () => window.__appMode && window.__appPost({ type: 'go', target });
+          const more = card.querySelector('.feat-setup');
+          if (more) more.onclick = () => { featuresQuery = f.title; showFeatures(true); };
           list.appendChild(card);
         });
       });
@@ -3990,6 +4193,7 @@
       homeHost.appendChild(todayStripEl());
       renderTodayStrip();
       showSheetNudge();
+      showBigTabNudge();
       // App mode lays the cards out in a responsive grid; the popup keeps
       // its single stacked column (the wrapper has no styling there).
       const homeTiles = groups.map((group) => makeTile({
@@ -4036,6 +4240,31 @@
     strip.insertAdjacentElement('beforebegin', n);
     n.querySelector('#sheet-nudge-go').onclick = () => showAbout();
     n.querySelector('#sheet-nudge-later').onclick = () => { sheetNudgeHidden = true; n.remove(); };
+  }
+
+  // 1.10 — admins: a tab has grown big enough to slow Daylens and nothing
+  // is ever cleared from it. "Not now" hides it for 30 days.
+  const BIG_TABS_LATER_KEY = 'statusApp.bigTabsLater';
+  async function showBigTabNudge() {
+    if (!window.statusApp.bigTabs || document.getElementById('bigtab-nudge')) return;
+    let later = 0;
+    try { later = Number(localStorage.getItem(BIG_TABS_LATER_KEY)) || 0; } catch { /* none */ }
+    if (Date.now() - later < 30 * 86400000) return;
+    const r = await window.statusApp.bigTabs().catch(() => null);
+    const tabs = (r && r.tabs) || [];
+    if (!tabs.length || document.getElementById('bigtab-nudge')) return;
+    const strip = document.querySelector('#main .today-strip');
+    if (!strip || !document.body.contains(strip)) return; // moved on meanwhile
+    const t = tabs[0];
+    const n = document.createElement('div');
+    n.className = 'sheet-nudge';
+    n.id = 'bigtab-nudge';
+    n.setAttribute('role', 'status');
+    n.innerHTML = `<span class="sn-ic" aria-hidden="true">🐢</span><span class="grow"><b>${escapeHtml(t.label || t.tab)} has ${Number(t.rows).toLocaleString()} rows</b>${tabs.length > 1 ? ` (and ${tabs.length - 1} more ${tabs.length === 2 ? 'tab is' : 'tabs are'} big too)` : ''}, and nothing is ever cleared from it, so opening it keeps getting slower. Clean-up emails older rows to the admins as a backup, then removes them.</span>
+      <button type="button" class="mini-btn go" id="bigtab-go">Set up clean-up</button><button type="button" class="mini-btn" id="bigtab-later">Not now</button>`;
+    strip.insertAdjacentElement('beforebegin', n);
+    n.querySelector('#bigtab-go').onclick = () => window.__appMode && window.__appPost({ type: 'open-section', name: 'manage', sub: 'cleanup-section' });
+    n.querySelector('#bigtab-later').onclick = () => { try { localStorage.setItem(BIG_TABS_LATER_KEY, String(Date.now())); } catch { /* hidden for now */ } n.remove(); };
   }
 
   // Lets footer.js's injected logo mark act as a "Home" button — see its
@@ -4544,6 +4773,19 @@
     if (t) showWeeklyConnectEdit(t, true);
     else showTicketBoard(item.tab);
   }
+  // 1.10 — a ticket tab opens as a list (one line a ticket) unless this
+  // person last chose Board; each remembers its own choice on this computer.
+  const TICKET_VIEW_KEY = 'daylens-ticket-view';
+  function ticketView() { try { return localStorage.getItem(TICKET_VIEW_KEY) === 'board' ? 'board' : 'list'; } catch (e) { return 'list'; } }
+  function setTicketView(v) { try { localStorage.setItem(TICKET_VIEW_KEY, v === 'board' ? 'board' : 'list'); } catch (e) { /* this session only */ } }
+  function openTickets(tab) {
+    if (ticketView() === 'board') return showTicketBoard(tab);
+    currentTicketTab = tab;
+    return showWeeklyConnectTickets();
+  }
+  // A ticket tab's tickets are told apart by their Ticket ID. Without that field nothing can be updated or moved.
+  const ticketsLackIds = (list) => list.length > 0 && list.every((t) => t['Ticket ID'] == null || String(t['Ticket ID']).trim() === '');
+  const NO_TICKET_ID_NOTE = 'This tab has no "Ticket ID" field, so Daylens can\'t tell its tickets apart to update or move them. An admin can add a field named Ticket ID (Tabs & fields → Field Types), or set the tab\'s "For" back to Plain tab to use it as an ordinary list.';
   const tbCache = {};
   function tbTitleOf(t) { return stripMarkdown(t.Issue || t.Subject || t.Title || t.Summary || t.Description || '') || '(no description)'; }
   function tbOwnerOf(t) { return String(t.Owner || t['Assigned To'] || t.Assignee || '').trim(); }
@@ -4593,7 +4835,7 @@
     head.className = 'tb-head';
     head.innerHTML = `<div class="lc-seg"><button type="button" class="on" aria-pressed="true">Board</button><button type="button" id="wc-view-tickets">List</button></div><span class="grow"></span><button type="button" class="mini-btn go" id="tb-new">+ New ticket</button>`;
     els.main.appendChild(head);
-    head.querySelector('#wc-view-tickets').onclick = () => showWeeklyConnectTickets();
+    head.querySelector('#wc-view-tickets').onclick = () => { setTicketView('list'); showWeeklyConnectTickets(); };
     head.querySelector('#tb-new').onclick = () => showForm(tab);
     const bar = document.createElement('div');
     bar.className = 'tb-bar';
@@ -4603,6 +4845,7 @@
       <input type="search" class="tb-find" id="tb-find" placeholder="Filter these tickets" value="${escapeHtml(tbState.q)}" aria-label="Filter these tickets" />`;
     els.main.appendChild(bar);
     els.main.insertAdjacentHTML('beforeend', '<div class="inline-msg err tb-msg" id="tb-msg" role="alert" hidden></div>');
+    if (ticketsLackIds(tickets)) els.main.insertAdjacentHTML('beforeend', `<div class="inline-msg err" id="tb-noid" role="note" style="display:block">${escapeHtml(NO_TICKET_ID_NOTE)}</div>`);
     bar.querySelectorAll('.tb-chip').forEach((b) => {
       b.onclick = () => {
         if (b.dataset.f === 'all') Object.assign(tbState, { mine: false, who: '' });
@@ -4678,13 +4921,15 @@
     const c = document.createElement('button');
     c.type = 'button';
     c.className = 'tb-card' + (stuck ? (crit ? ' crit' : ' warn') : '');
-    c.draggable = true;
-    c.dataset.id = String(t['Ticket ID']);
-    c.setAttribute('aria-label', `Ticket ${t['Ticket ID']}: ${tbTitleOf(t)}. ${st}. Press left or right arrow to move it.`);
+    const hasId = t['Ticket ID'] != null && String(t['Ticket ID']).trim() !== '';
+    c.draggable = hasId; // (without an ID it can't be moved: see NO_TICKET_ID_NOTE)
+    c.dataset.id = hasId ? String(t['Ticket ID']) : '';
+    c.title = tbTitleOf(t);
+    c.setAttribute('aria-label', `Ticket${hasId ? ' ' + t['Ticket ID'] : ''}: ${tbTitleOf(t)}. ${st}.${hasId ? ' Press left or right arrow to move it.' : ''}`);
     const badge = TB_CLOSED_RE.test(st) ? '<span class="tb-done">✓ Done</span>'
       : stuck ? `<span class="tb-age ${crit ? 'crit' : 'warn'}">${crit ? '⏱' : '⏳'} ${days} days</span>`
       : days != null ? `<span class="tb-days">${days === 0 ? 'opened today' : days === 1 ? 'opened yesterday' : `opened ${days} days ago`}</span>` : '';
-    c.innerHTML = `<div class="tb-r1"><span class="tb-id">${escapeHtml(t['Ticket ID'])}</span>${pri ? `<span class="tb-pri ${escapeHtml(pri.toLowerCase())}">${/high|urgent/i.test(pri) ? '▲ ' : /low/i.test(pri) ? '▽ ' : '◆ '}${escapeHtml(pri)}</span>` : ''}</div>
+    c.innerHTML = `<div class="tb-r1">${hasId ? `<span class="tb-id">${escapeHtml(t['Ticket ID'])}</span>` : '<span></span>'}${pri ? `<span class="tb-pri ${escapeHtml(pri.toLowerCase())}">${/high|urgent/i.test(pri) ? '▲ ' : /low/i.test(pri) ? '▽ ' : '◆ '}${escapeHtml(pri)}</span>` : ''}</div>
       <div class="tb-ttl">${escapeHtml(tbTitleOf(t))}</div>
       ${t.Requester || t.Group ? `<div class="tb-from">${t.Requester ? 'From ' + escapeHtml(t.Requester) : ''}${t.Requester && t.Group ? ' · ' : ''}${escapeHtml(t.Group || '')}</div>` : ''}
       <div class="tb-r3">${owner ? `<span class="tb-own"><span class="a">${escapeHtml(owner[0].toUpperCase())}</span>${escapeHtml(owner)}</span>` : '<span class="tb-own none">Nobody yet</span>'}${badge}</div>`;
@@ -4955,7 +5200,7 @@
     // Trendy look: Leave opens on its calendar and a ticket tab on its board.
     // Classic (the default) keeps the list / the form, with those one tile away.
     if (isTrendy() && liveTabTypes[tab] === 'leave') { lcState.person = ''; if (lcState.view === 'list') lcState.view = 'month'; return showLeaveCalendar(tab); }
-    if (isTrendy() && isTicketTab(tab) && liveDataSourceTypes[tab] !== 'Excel') return showTicketBoard(tab);
+    if (isTrendy() && isTicketTab(tab) && liveDataSourceTypes[tab] !== 'Excel') return openTickets(tab);
     const skipEntriesList = isTicketTab(tab) || liveDataSourceTypes[tab] === 'Excel';
     return skipEntriesList ? showForm(tab) : showTabEntries(tab);
   }
@@ -5509,7 +5754,7 @@
       // was opened FROM its entries list, so Cancel should land back
       // there, not skip past it to the tab list two screens up.
       const noEntriesList = isTicketTab(tab) || liveDataSourceTypes[tab] === 'Excel';
-      els.cancelBtn.onclick = () => (isTrendy() && isTicketTab(tab) && liveDataSourceTypes[tab] !== 'Excel' ? showTicketBoard(tab) : noEntriesList ? showTabPicker() : showTabEntries(tab));
+      els.cancelBtn.onclick = () => (isTrendy() && isTicketTab(tab) && liveDataSourceTypes[tab] !== 'Excel' ? openTickets(tab) : noEntriesList ? showTabPicker() : showTabEntries(tab));
       els.submitBtn.onclick = async () => {
         const values = {};
         Object.entries(inputs).forEach(([k, el]) => (values[k] = (el.value || '').trim()));
@@ -5529,8 +5774,15 @@
         }
         els.submitBtn.textContent = 'Saving…';
         try {
-          const saved = await window.statusApp.submitEntry(tab, values);
-          lastSavedRow = { tab, rowIndex: saved && saved.rowIndex ? saved.rowIndex : 'last' };
+          // 1.10: kept on this computer and sent behind the screen — Submit doesn't wait for the Sheet.
+          const queued = savesInBackground(tab);
+          if (queued) {
+            const q = await window.statusApp.outboxAdd(tab, values);
+            if (!q || q.ok === false) throw new Error((q && q.error) || 'That couldn\'t be saved.');
+          } else {
+            const saved = await window.statusApp.submitEntry(tab, values);
+            lastSavedRow = { tab, rowIndex: saved && saved.rowIndex ? saved.rowIndex : 'last' };
+          }
           submittedOk = true;
           clearDraft(tab); // it actually made it to the sheet — nothing left to restore next time
           // The catch below already resets these on failure — the success
@@ -5541,7 +5793,7 @@
           // a fresh "stuck on Saving" report on a form nobody had touched yet.
           els.submitBtn.disabled = false;
           els.submitBtn.textContent = 'Submit';
-          showSuccess(tab);
+          showSuccess(tab, '', queued);
         } catch (err) {
           els.submitBtn.disabled = false;
           els.submitBtn.textContent = 'Submit';
@@ -5904,6 +6156,9 @@
       if (scr.stale) return;
       renderTabEntries(tab, (res && res.rows) || [], res);
     } catch (err) {
+      if (scr.stale) return;
+      // 1.10: the Sheet can't be reached, but entries are waiting here — show those (and Add new still works).
+      if (outboxFor(tab).length) { renderTabEntries(tab, [], { unreachable: true }); return; }
       showError(err.message || String(err), () => showTabEntries(tab));
     }
   }
@@ -5943,6 +6198,7 @@
     delBtn.type = 'button';
     delBtn.className = 'entry-delete-btn';
     delBtn.title = 'Remove this entry';
+    delBtn.setAttribute('aria-label', 'Remove this entry' + (primary ? ': ' + String(row.values[primary]) : ''));
     delBtn.textContent = '🗑';
     delBtn.onclick = async (e) => {
       e.stopPropagation();
@@ -5990,10 +6246,12 @@
       makeTile({ id: 'add-new-tile', icon: '＋', title: 'Add new entry', hint: `Opens a blank ${tab} form`, variant: 'add', onClick: () => showForm(tab) }),
     ].concat(liveTabTypes[tab] === 'leave' ? [makeTile({ id: 'lc-tile', icon: '📅', title: 'Leave calendar', hint: 'Who\'s off, and when — month or year, with holidays', onClick: () => { lcState.person = ''; if (lcState.view === 'list') lcState.view = 'month'; showLeaveCalendar(tab); } })] : []), true));
 
+    host.appendChild(pendingBlock(tab)); // 1.10: entries still on their way to the Sheet
+
     if (!rows.length) {
       const empty = document.createElement('div');
       empty.className = 'entries-empty';
-      empty.textContent = 'Nothing here yet — add the first entry above.';
+      empty.textContent = res && res.unreachable ? 'Couldn\'t reach the Sheet, so only what\'s waiting on this computer is shown. Refresh tries again.' : outboxFor(tab).length ? 'Nothing in the Sheet yet.' : 'Nothing here yet — add the first entry above.';
       host.appendChild(empty);
     } else {
       // Long lists: a search box, and the list scrolls in its own box —
@@ -6277,9 +6535,15 @@
   // the badge instead of showing "NaNd open". Purely a display computation:
   // nothing server-side depends on this, same as the existing `stale` flag.
   function daysOpen(dateStr) {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return null;
-    return Math.max(0, Math.floor((Date.now() - d.getTime()) / (24 * 60 * 60 * 1000)));
+    // Calendar days, in this computer's own time zone (1.10). "2026-11-03" used to be read as
+    // midnight in London, so in India a ticket showed one day too few until 5:30 each morning.
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(dateStr || ''));
+    const raw = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(dateStr);
+    if (isNaN(raw.getTime())) return null;
+    const day = new Date(raw.getFullYear(), raw.getMonth(), raw.getDate());
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.max(0, Math.round((today.getTime() - day.getTime()) / (24 * 60 * 60 * 1000)));
   }
 
   function agingBadgeClass(days) {
@@ -6302,7 +6566,7 @@
     const openDays = t.Status === 'Open' ? daysOpen(t.Date) : null;
     btn.innerHTML = `
       <div class="wc-ticket-top">
-        <span class="wc-ticket-id">#${escapeHtml(t['Ticket ID'])}</span>
+        <span class="wc-ticket-id">${t['Ticket ID'] != null && String(t['Ticket ID']).trim() !== '' ? '#' + escapeHtml(t['Ticket ID']) : ''}</span>
         <div class="wc-badges">
           ${openDays != null ? `<span class="badge ${agingBadgeClass(openDays)}">${openDays}d open</span>` : ''}
           ${t.stale ? '<span class="badge stale">Stale</span>' : ''}
@@ -6363,6 +6627,16 @@
 
   function renderWeeklyConnectList() {
     els.main.innerHTML = '';
+    // 1.10: the list has the same top row as the board — Board | List, and "+ New ticket".
+    if (currentTicketTab && isTicketTab(currentTicketTab) && liveDataSourceTypes[currentTicketTab] !== 'Excel') {
+      const head = document.createElement('div');
+      head.className = 'tb-head';
+      head.innerHTML = `<div class="lc-seg"><button type="button" id="wl-board">Board</button><button type="button" class="on" aria-pressed="true">List</button></div><span class="grow"></span><button type="button" class="mini-btn go" id="wl-new">+ New ticket</button>`;
+      els.main.appendChild(head);
+      head.querySelector('#wl-board').onclick = () => { setTicketView('board'); showTicketBoard(currentTicketTab); };
+      head.querySelector('#wl-new').onclick = () => showForm(currentTicketTab);
+      if (ticketsLackIds(wcTickets)) els.main.insertAdjacentHTML('beforeend', `<div class="inline-msg err" id="wl-noid" role="note" style="display:block">${escapeHtml(NO_TICKET_ID_NOTE)}</div>`);
+    }
 
     const tabRow = document.createElement('div');
     tabRow.className = 'wc-filter-row';
@@ -6570,7 +6844,7 @@
 
   function showWeeklyConnectEdit(ticket, fromBoard) {
     formScreen(); // Refresh keeps what's typed here
-    const back = fromBoard ? () => showTicketBoard(currentTicketTab) : () => renderWeeklyConnectList();
+    const back = fromBoard ? () => openTickets(currentTicketTab) : () => renderWeeklyConnectList();
     setScreen(`Ticket #${ticket['Ticket ID']}`, tabTrail().concat(currentTicketTab ? [{ label: currentTicketTab, go: () => openTab(currentTicketTab) }] : [], fromBoard ? [] : [{ label: 'Tickets', go: () => showWeeklyConnectTickets() }]));
     els.main.style.minHeight = '';
     els.footer.classList.add('hidden');
@@ -6927,6 +7201,11 @@
     window.addEventListener('message', (e) => {
       const msg = e.data;
       if (msg && msg.__statusApp && msg.type === 'refresh-screen') { refreshThisScreen(!!msg.offline); return; }
+      if (msg && msg.__statusApp && msg.type === 'outbox-act' && !appGateLocked) { // the shell's "wasn't saved" bar
+        const it = outboxItems.find((x) => x.id === msg.id);
+        if (it) outboxAct(msg.action, it);
+        return;
+      }
       if (!msg || !msg.__statusApp || msg.type !== 'nav' || appGateLocked) return;
       screenSeq++; // whatever was still loading has been left (even for a screen that draws at once)
       switch (msg.screen) {
@@ -6952,6 +7231,8 @@
         case 'change-password': return showChangePassword(false);
         case 'new-reminder': return showReminderForm();
         case 'features': return showFeatures();
+        case 'setup-guide': return showFeatures(true);
+        case 'speed': return showSpeedCheck(false);
         case 'approvals': return showApprovals();
         case 'monthly-ppt': return showMonthlyPpt();
         case 'open-hit': return openSearchHit(msg.tab, msg.rowIndex, msg.title);
