@@ -17,7 +17,7 @@
     'Refresh: the round ⟳ button by Ask (bottom right) — fresh data from the Sheet for the screen you are on (a half-filled form keeps what is typed).',
     'Leave on a day someone else is off: before it is saved a pop-up says who — "Change my plan" or "Submit anyway" (a holiday that day is pointed out too).',
     'Waiting for a date someone asked for: set the entry\'s Status to "Waiting for Requested Date" and a reminder for that day opens, filled in from the entry (admins add that option in one click: Tabs & fields → Dropdown & Multiselect Options → the Status list).',
-    'Themes: Settings → Theme — 15 themes, 7 light (Light is the standard) and 8 dark.',
+    'Themes: Settings → Theme — 19 themes, 10 light (Light is the standard) and 9 dark, including four Gen Z looks (Lo-fi, Y2K, Brat, Neon night).',
     'Reports: menu → Reports → pick the report and the period → View report, Email report or Download (Excel).',
     'AI digest (a written summary of a period): menu → AI digest.',
     'Team dashboard: Home, on the right: who added entries on which day this week (an entry dated this week; signing in does not count), totals, ‹ › for earlier weeks, PDF/Picture download, 🎉 kudos.',

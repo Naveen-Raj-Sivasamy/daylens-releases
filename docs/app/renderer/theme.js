@@ -188,6 +188,67 @@
     paper: {
       label: 'Paper', hint: 'Plain white and grey, black accents — no colour', 'brand': '#f5f5f4', 'brand-hover': '#ebebea', 'chrome': '#ffffff', 'surface': '#ffffff', 'surface-hover': '#f7f7f6', 'tile-hover': '#ffffff', 'chip': '#eeeeec', 'chip-hover': '#e3e3e0', 'border': '#e2e2df', 'text': '#1c1c1a', 'text-dim': '#5f5f5a', 'on-brand': '#1c1c1a', 'on-brand-dim': '#5f5f5a', 'muted': '#6f6f6a', 'gold': '#1c1c1a', 'gold-bright': '#000000', 'on-gold': '#ffffff', 'accent-soft': 'rgba(28,28,26,0.08)', mode: 'light', 'page-bg': '#f5f5f4', 'card-bg': '#ffffff', 'card-bg-2': '#fafaf9', 'card-border': '#e7e7e4', 'card-shadow': '0 8px 24px rgba(0,0,0,0.06)', 'card-text': '#1c1c1a', 'card-text-dim': '#5f5f5a', 'input-bg': '#ffffff', 'input-border': '#d6d6d2', 'input-text': '#1c1c1a', 'accent-grad': 'linear-gradient(135deg, #3a3a36, #111110)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(0,0,0,0.18)', 'strip-bg': 'linear-gradient(90deg, #1c1c1a, #3a3a36)', 'overlay-color': '#3a3a36', 'strip-text': '#ffffff', 'overlay-symbol': '#ffffff'
     },
+    // 1.10.5: four Gen Z looks.
+    lofi: {
+      label: 'Lo-fi', hint: 'Soft lavender and peach, study-playlist mood',
+      brand: '#f5efff', 'brand-hover': '#ebe1fb', chrome: '#ffffff',
+      surface: '#ffffff', 'surface-hover': '#f8f3ff', 'tile-hover': '#ffffff',
+      chip: '#eee6ff', 'chip-hover': '#e2d7f8', border: '#e4d9f7',
+      text: '#2a1f4d', 'text-dim': '#5d527f',
+      'on-brand': '#2a1f4d', 'on-brand-dim': '#5d527f', muted: '#6c6290',
+      gold: '#6a47d9', 'gold-bright': '#5a39c4', 'on-gold': '#ffffff', 'accent-soft': 'rgba(106,71,217,0.12)',
+      mode: 'light', 'page-bg': 'linear-gradient(160deg, #efe7ff, #ffe9dc)',
+      'card-bg': '#ffffff', 'card-bg-2': '#fff3ea', 'card-border': '#eadff8', 'card-shadow': '0 8px 24px rgba(42,31,77,0.09)',
+      'card-text': '#2a1f4d', 'card-text-dim': '#5d527f',
+      'input-bg': '#ffffff', 'input-border': '#d9cdf0', 'input-text': '#2a1f4d',
+      'accent-grad': 'linear-gradient(135deg, #8b6cf0, #5a39c4)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(106,71,217,0.28)',
+      'strip-bg': 'linear-gradient(90deg, #3a2a78, #6a47d9)', 'strip-text': '#ffffff', 'overlay-color': '#5a39c4', 'overlay-symbol': '#ffffff'
+    },
+    y2k: {
+      label: 'Y2K', hint: 'Bubblegum pink and sky blue',
+      brand: '#fdeefa', 'brand-hover': '#f9ddf3', chrome: '#ffffff',
+      surface: '#ffffff', 'surface-hover': '#fff4fb', 'tile-hover': '#ffffff',
+      chip: '#fbe3f5', 'chip-hover': '#f6d2ee', border: '#f1cde8',
+      text: '#2b1740', 'text-dim': '#6a4f80',
+      'on-brand': '#2b1740', 'on-brand-dim': '#6a4f80', muted: '#76608a',
+      gold: '#a21fc4', 'gold-bright': '#8f17ad', 'on-gold': '#ffffff', 'accent-soft': 'rgba(162,31,196,0.12)',
+      mode: 'light', 'page-bg': 'linear-gradient(160deg, #ffe3f5, #dff0ff)',
+      'card-bg': '#ffffff', 'card-bg-2': '#fff7fc', 'card-border': '#f6d9ee', 'card-shadow': '0 8px 24px rgba(43,23,64,0.10)',
+      'card-text': '#2b1740', 'card-text-dim': '#6a4f80',
+      'input-bg': '#ffffff', 'input-border': '#e3c4dc', 'input-text': '#2b1740',
+      'accent-grad': 'linear-gradient(135deg, #c8359f, #8f17ad)', 'on-accent': '#ffffff', 'accent-glow': '0 6px 16px rgba(162,31,196,0.28)',
+      'strip-bg': 'linear-gradient(90deg, #5b1a7a, #a21fc4)', 'strip-text': '#ffffff', 'overlay-color': '#a21fc4', 'overlay-symbol': '#ffffff'
+    },
+    brat: {
+      label: 'Brat', hint: 'Loud lime green with black outlines',
+      brand: '#b7ee4a', 'brand-hover': '#a6dd35', chrome: '#f4ffd0',
+      surface: '#f4ffd0', 'surface-hover': '#eaf9b5', 'tile-hover': '#fbffe6',
+      chip: '#dff59a', 'chip-hover': '#d2ec7d', border: '#2a3a05',
+      text: '#111111', 'text-dim': '#34430a',
+      'on-brand': '#111111', 'on-brand-dim': '#34430a', muted: '#3b4a0c',
+      gold: '#111111', 'gold-bright': '#000000', 'on-gold': '#8ace00', 'accent-soft': 'rgba(17,17,17,0.10)',
+      mode: 'light', 'page-bg': '#8ace00',
+      'card-bg': '#f4ffd0', 'card-bg-2': '#eaf9b5', 'card-border': '#111111', 'card-shadow': '4px 4px 0 #111111',
+      'card-text': '#111111', 'card-text-dim': '#34430a',
+      'input-bg': '#ffffff', 'input-border': '#111111', 'input-text': '#111111',
+      'accent-grad': 'linear-gradient(135deg, #111111, #111111)', 'on-accent': '#8ace00', 'accent-glow': '3px 3px 0 rgba(17,17,17,0.45)',
+      'strip-bg': '#111111', 'strip-text': '#c4f55a', 'overlay-color': '#111111', 'overlay-symbol': '#8ace00'
+    },
+    neon: {
+      label: 'Neon night', hint: 'Dark with electric lime and pink',
+      brand: '#14142a', 'brand-hover': '#1f1f3d', chrome: '#0c0c18',
+      surface: '#f1f1ff', 'surface-hover': '#e6e6fb', 'tile-hover': '#f8f8ff',
+      chip: '#e2e2f7', 'chip-hover': '#d6d6f2', border: '#cfcfee',
+      text: '#17173a', 'text-dim': '#55557a',
+      'on-brand': '#eeeeff', 'on-brand-dim': '#a9a9d6', muted: '#9a9ac8',
+      gold: '#c6ff3d', 'gold-bright': '#d9ff7a', 'on-gold': '#14142a', 'accent-soft': 'rgba(198,255,61,0.16)',
+      mode: 'dark', 'page-bg': 'radial-gradient(1200px 600px at 85% -10%, rgba(255,95,210,0.26), transparent 60%), radial-gradient(900px 500px at 10% 110%, rgba(198,255,61,0.16), transparent 60%), linear-gradient(160deg, #15152e, #090912 70%)',
+      'card-bg': 'rgba(255,255,255,0.07)', 'card-bg-2': 'rgba(255,255,255,0.06)', 'card-border': 'rgba(255,255,255,0.13)', 'card-shadow': '0 10px 30px rgba(0,0,0,0.35)',
+      'card-text': '#ffffff', 'card-text-dim': 'rgba(255,255,255,0.70)',
+      'input-bg': 'rgba(255,255,255,0.09)', 'input-border': 'rgba(255,255,255,0.18)', 'input-text': '#ffffff',
+      'accent-grad': 'linear-gradient(135deg, #c6ff3d, #7be000)', 'on-accent': '#0c1400', 'accent-glow': '0 6px 18px rgba(198,255,61,0.22)',
+      'strip-bg': 'rgba(0,0,0,0.30)', 'strip-text': '#ffffff', 'overlay-color': '#090912', 'overlay-symbol': '#ffffff'
+    },
   };
   var KEY = 'statusApp.theme';
   var DEFAULT = 'light'; // 1.9: light unless the person picks another (Settings → Theme)

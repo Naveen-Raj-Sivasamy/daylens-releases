@@ -159,7 +159,7 @@
       how: ['Open naveen-raj-sivasamy.github.io/daylens-releases/app/ → Join my team → the invite code, your username and password (the invite message has the link too).', 'On a shared computer, untick "Keep me signed in": you\'re signed out when the tab closes.', 'On a phone: Share (or ⋮) → Add to Home Screen, to open it like an app.'],
       keywords: 'web browser website online mac phone mobile iphone android safari chrome no install link' },
     { id: 'themes', area: 'Your settings', title: 'Themes', go: 'theme',
-      what: '15 colour themes: 7 light (Light is the standard one, plus Cloud, Sand, Mint, Blossom, Lilac and Paper) and 8 dark, including high contrast. Your pick is kept on this computer.',
+      what: '19 colour themes: 10 light (Light is the standard one, plus Cloud, Sand, Mint, Blossom, Lilac, Paper, and the Gen Z looks Lo-fi, Y2K and Brat) and 9 dark, including Neon night and high contrast. Your pick is kept on this computer.',
       how: ['Settings → Theme → pick one (light ones first, then dark).'],
       keywords: 'theme colour color dark light mint blossom lilac paper white bright' },
     { id: 'password', area: 'Your settings', title: 'Change your password', go: 'change-password',
