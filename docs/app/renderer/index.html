@@ -742,10 +742,18 @@
   html[data-mode="light"] .home-dash.d2 { --ok-tx: #12804f; --warn-tx: #8a5300; --crit-tx: #b42328; }
   .home-dash.d2[data-look="paper"] { --p-bg: var(--surface); --p-bd: var(--border); --p-tx: var(--text); --p-dim: var(--text-dim);
     --p-line: color-mix(in srgb, var(--text) 12%, transparent); --p-soft: color-mix(in srgb, var(--text) 6%, transparent); --ok-tx: #12804f; --warn-tx: #8a5300; --crit-tx: #b42328; }
-  .d2 .d2-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 20px; align-items: end; margin: 2px 0 18px; color: var(--card-text); }
-  .d2 .d2-headline { font-size: clamp(22px, 2.4vw, 30px); line-height: 1.18; font-weight: 800; letter-spacing: -0.012em; margin: 0; max-width: 32ch; }
+  .d2 .d2-title { font-size: clamp(26px, 2.8vw, 34px); font-weight: 800; letter-spacing: -0.015em; line-height: 1.15; margin: 6px 0 12px; color: var(--card-text); }
+  .d2 .d2-hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 2px 0 16px; color: var(--card-text); }
+  .d2 .d2-top { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 18px; align-items: start; }
+  .d2 .d2-top .d2-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; background: none; border: 0; box-shadow: none; overflow: visible; border-radius: 0; }
+  .d2 .d2-top .dash-stat, .d2 .d2-top .dash-stat.as-btn { background: var(--p-bg); border: 1px solid var(--p-bd); border-radius: 16px; min-height: 108px; }
+  .d2 .d2-top .dash-stat + .dash-stat { border-left: 1px solid var(--p-bd); }
+  html[data-mode="light"] .d2 .d2-top .dash-stat { box-shadow: var(--card-shadow); }
+  .d2 .d2-row.d2-row-all { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  @media (max-width: 900px) { .d2 .d2-top { grid-template-columns: minmax(0, 1fr); } }
+  .d2 .d2-ph p.d2-headline { margin: 3px 0 14px; font-size: 13.5px; line-height: 1.4; font-weight: 600; color: var(--p-dim); }
   .d2 .d2-hero .dash-sub { color: var(--card-text-dim); font-size: 14px; margin-top: 6px; opacity: 1; }
-  .d2 .d2-ctl { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  .d2 .d2-ctl { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-start; }
   .d2 .d2-hero .dash-msg { grid-column: 1 / -1; margin: 0; min-height: 0; }
   .d2 .d2-hero .dash-msg:empty { display: none; }
   .d2 .dash-upd { font-style: italic; }
@@ -4224,7 +4232,7 @@
         dash.id = 'home-dash';
         dash.dataset.look = DASH_LOOK;
         dash.setAttribute('aria-label', 'Team dashboard');
-        dash.innerHTML = '<div class="d2-hero"></div><div class="home-main"></div><div class="d2-body"></div>';
+        dash.innerHTML = '<div class="home-main"></div><h2 class="d2-title">Dashboard</h2><div class="d2-hero"></div><div class="d2-body"></div>';
         homeHost = dash.querySelector('.home-main');
         els.main.appendChild(dash);
         window.statusApp.getSessionStatus().catch(() => ({})).then((st) => {
@@ -4243,8 +4251,9 @@
       }
       // 1.10.1: Week · Month · Custom above the dashboard (only in the app)
       if (window.__appMode && window.DaylensRange) {
-        const dashEl = els.main.querySelector('.home-split') || els.main.querySelector('#home-dash');
-        if (dashEl) window.DaylensRange.mount(els.main, dashEl);
+        const trendyDash = els.main.querySelector('#home-dash.d2');
+        if (trendyDash) window.DaylensRange.mount(trendyDash, trendyDash.querySelector('.d2-hero'), { toggleEl: trendyDash }); // under the Dashboard title
+        else { const sp = els.main.querySelector('.home-split'); if (sp) window.DaylensRange.mount(els.main, sp); }
       }
       homeHost.appendChild(todayStripEl());
       renderTodayStrip();

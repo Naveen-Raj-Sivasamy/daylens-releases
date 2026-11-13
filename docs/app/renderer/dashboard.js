@@ -172,7 +172,7 @@
     const hasPending = people.some((p) => (p.pendingDays || []).some(Boolean));
     const days = d.week.days || [];
     return `<section class="d2-panel d2-week" aria-labelledby="d2-week-h">
-      <div class="d2-ph"><h3 id="d2-week-h">The team's week</h3><p>Entries per person per day</p></div>
+      <div class="d2-ph"><h3 id="d2-week-h">The team's week</h3><p class="d2-headline">${esc(headline(d))}</p></div>
       <div class="dash-people" role="table" aria-label="Entries per person per day">
         <div class="dp-row dp-head" role="row"><span class="dp-name" role="columnheader">Person</span>${DAYS.map((x, i) => `<span class="dp-day${i === today ? ' today' : ''}" role="columnheader">${x} ${dayNum(days[i])}</span>`).join('')}<span class="dp-n" role="columnheader">Total</span><span class="dp-k"></span></div>
         ${people.map((p, idx) => `
@@ -317,7 +317,7 @@
     const hero = host.querySelector('.d2-hero') || host;
     const body = host.querySelector('.d2-body') || host;
     const heroHtml = (title, sub, off) => `
-      <div class="d2-hl"><h2 class="d2-headline">${esc(title)}</h2><div class="dash-sub">${sub}</div></div>
+      <div class="d2-hl"><div class="dash-sub">${sub}</div></div>
       <div class="d2-ctl">
         <div class="dash-nav" role="group" aria-label="Which week">
           <button type="button" class="dash-btn" id="dash-prev" title="The week before" aria-label="The week before">‹</button>
@@ -362,9 +362,10 @@
       wireHero();
       const canKudos = (p) => d.teams || p.canEmail;
       const small = [perDayPanel(d), ticketsPanel(d, opts), offPanel(d, opts)].filter(Boolean);
-      body.innerHTML = `${holidayNudge(d, isAdmin)}${kpis(d)}
-        <div class="d2-row">${weekPanel(d, canKudos)}${waitingPanel(d, opts)}</div>
-        <div class="d2-row d2-row-${small.length}">${small.join('')}</div>
+      // 1.10.3 layout: the week on the left, the four number tiles on its right; the smaller panels underneath
+      const lower = [waitingPanel(d, opts)].concat(small).filter(Boolean);
+      body.innerHTML = `${holidayNudge(d, isAdmin)}<div class="d2-top">${weekPanel(d, canKudos)}${kpis(d)}</div>
+        <div class="d2-row d2-row-all">${lower.join('')}</div>
         ${isAdmin ? notesHtml(d.notes, notesOpen) : ''}
         <div class="d2-tip" id="d2-tip" role="tooltip" hidden></div>`;
       wireBody(d);
@@ -484,8 +485,9 @@
     function skeleton(off) {
       hero.innerHTML = heroHtml(off === 0 ? 'Your team this week' : offsetLabel(off), 'Getting the team\'s week…', off);
       wireHero();
-      body.innerHTML = `<div class="d2-kpis">${['entries', 'people with entries', 'on leave today', 'open tickets'].map((l) => `<div class="dash-stat"><b class="sk">—</b><span>${l}</span></div>`).join('')}</div>
-        <div class="d2-row"><section class="d2-panel d2-week"><div class="d2-ph"><h3>The team's week</h3></div><div class="dash-people">${[1, 2, 3].map(() => '<div class="dp-row"><span class="dp-name"><span class="dp-av sk"> </span><span class="sk-bar"></span></span></div>').join('')}</div></section><section class="d2-panel d2-wait"><div class="d2-ph"><h3>Waiting more than a week</h3></div><span class="sk-bar"></span></section></div>`;
+      const sk = '<div class="d2-kpis">' + ['entries', 'people with entries', 'on leave today', 'open tickets'].map((l) => `<div class="dash-stat"><b class="sk">—</b><span>${l}</span></div>`).join('') + '</div>';
+      body.innerHTML = `<div class="d2-top"><section class="d2-panel d2-week"><div class="d2-ph"><h3>The team's week</h3></div><div class="dash-people">${[1, 2, 3].map(() => '<div class="dp-row"><span class="dp-name"><span class="dp-av sk"> </span><span class="sk-bar"></span></span></div>').join('')}</div></section>${sk}</div>
+        <div class="d2-row d2-row-all"><section class="d2-panel d2-wait"><div class="d2-ph"><h3>Waiting more than a week</h3></div><span class="sk-bar"></span></section></div>`;
     }
     load(0);
   }

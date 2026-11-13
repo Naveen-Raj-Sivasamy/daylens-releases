@@ -51,7 +51,7 @@
   .home-split.range-on { grid-template-columns: minmax(0, 1fr); }
   `;
 
-  function mount(wrapTarget, beforeEl) {
+  function mount(wrapTarget, beforeEl, opts) {
     if (!document.getElementById('range-css')) { const st = document.createElement('style'); st.id = 'range-css'; st.textContent = CSS; document.head.appendChild(st); }
     const bar = document.createElement('div');
     bar.className = 'range-bar';
@@ -76,7 +76,7 @@
 
     let mode = 'week';
     let ticket = 0;
-    const setOn = (on) => { const el = wrapTarget.querySelector('.home-split') || wrapTarget.querySelector('#home-dash'); if (el) el.classList.toggle('range-on', on); };
+    const setOn = (on) => { const el = (opts && opts.toggleEl) || wrapTarget.querySelector('.home-split') || wrapTarget.querySelector('#home-dash'); if (el) el.classList.toggle('range-on', on); };
     const setMode = (m) => {
       mode = m;
       bar.querySelectorAll('.range-seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.m === m)));
