@@ -237,6 +237,25 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* Loading fox: runs left to right across the loading screen. Pure CSS,
+     one tiny inline SVG, drawn in the brand's own colours (light body,
+     brand-coloured details) so it never clashes with the theme. */
+  .fox-track { position: relative; width: min(320px, 80%); height: 46px; overflow: hidden; }
+  .fox-run { position: absolute; left: 0; bottom: 0; width: 56px; height: 40px;
+    color: var(--on-brand); animation: fox-across 2.4s linear infinite; }
+  .fox-run svg { width: 100%; height: 100%; display: block; animation: fox-bob 0.3s ease-in-out infinite alternate; }
+  .fox-run .fx-d { fill: var(--brand); }
+  .fox-run .fx-b { fill: currentColor; }
+  .fox-run .fx-leg { transform-box: fill-box; transform-origin: 50% 0; animation: fox-leg 0.3s ease-in-out infinite alternate; }
+  .fox-run .fx-leg.b { animation-direction: alternate-reverse; }
+  @keyframes fox-across { from { transform: translateX(-64px); } to { transform: translateX(330px); } }
+  @keyframes fox-bob { to { transform: translateY(-3px); } }
+  @keyframes fox-leg { from { transform: rotate(-28deg); } to { transform: rotate(28deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .fox-run { animation: none; left: calc(50% - 28px); }
+    .fox-run svg, .fox-run .fx-leg { animation: none; }
+  }
+
   .result-view { position: relative; overflow: visible; }
   .result-badge {
     width: 88px; height: 88px; border-radius: 50%; display: flex;
@@ -742,13 +761,22 @@
   html[data-mode="light"] .home-dash.d2 { --ok-tx: #12804f; --warn-tx: #8a5300; --crit-tx: #b42328; }
   .home-dash.d2[data-look="paper"] { --p-bg: var(--surface); --p-bd: var(--border); --p-tx: var(--text); --p-dim: var(--text-dim);
     --p-line: color-mix(in srgb, var(--text) 12%, transparent); --p-soft: color-mix(in srgb, var(--text) 6%, transparent); --ok-tx: #12804f; --warn-tx: #8a5300; --crit-tx: #b42328; }
-  .d2 .d2-title { font-size: clamp(26px, 2.8vw, 34px); font-weight: 800; letter-spacing: -0.015em; line-height: 1.15; margin: 6px 0 12px; color: var(--card-text); }
-  .d2 .d2-hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 2px 0 16px; color: var(--card-text); }
+  /* One row: the title (same size as "Your work"), when it was updated, then the controls on the right */
+  .d2 .d2-headrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 4px 0 16px; color: var(--card-text); }
+  .d2 .d2-title { font-size: 21px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.2; margin: 0; color: var(--card-text); }
+  .d2 .d2-hero { display: contents; }
+  .d2 .d2-hl { order: 1; flex: 1 1 200px; min-width: 0; }
+  .d2 .d2-hl .dash-sub { margin-top: 0; }
+  .d2 .d2-headrow .range-bar { order: 2; margin: 0; }
+  .d2 .d2-ctl { order: 3; }
+  .d2 .d2-headrow .dash-msg { order: 4; flex-basis: 100%; }
   .d2 .d2-top { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 18px; align-items: start; }
   .d2 .d2-top .d2-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; background: none; border: 0; box-shadow: none; overflow: visible; border-radius: 0; }
   .d2 .d2-top .dash-stat, .d2 .d2-top .dash-stat.as-btn { background: var(--p-bg); border: 1px solid var(--p-bd); border-radius: 16px; min-height: 108px; }
   .d2 .d2-top .dash-stat + .dash-stat { border-left: 1px solid var(--p-bd); }
   html[data-mode="light"] .d2 .d2-top .dash-stat { box-shadow: var(--card-shadow); }
+  .d2 .d2-daily { width: 100%; } .d2 .dd-col .pd-x { font-size: 10.5px; white-space: nowrap; }
+  .d2 .pd-bar.today { background: var(--gold-bright, var(--gold)); }
   .d2 .d2-row.d2-row-all { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
   @media (max-width: 900px) { .d2 .d2-top { grid-template-columns: minmax(0, 1fr); } }
   .d2 .d2-ph p.d2-headline { margin: 3px 0 14px; font-size: 13.5px; line-height: 1.4; font-weight: 600; color: var(--p-dim); }
@@ -802,7 +830,17 @@
   .d2 .d2-link:hover, .d2 .d2-link:focus-visible { color: var(--gold-bright); outline: none; }
   html[data-mode="light"] .d2 .d2-link:hover, .home-dash.d2[data-look="paper"] .d2-link:hover { color: var(--p-tx); text-decoration-thickness: 3px; }
   /* The team's week: entries per person per day, darker = more. */
-  .d2 .dash-people { max-height: 540px; overflow: auto; }
+  .d2 .dash-people { max-height: 252px; overflow-y: auto; overflow-x: hidden; } /* the header and 5 people; more scroll */
+  .d2 .d2-sort { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--p-dim); margin: 0 0 8px; }
+  .d2 .d2-sort select { font: inherit; font-size: 12.5px; color: var(--p-tx); background: var(--p-bg); border: 1px solid var(--p-bd); border-radius: 8px; padding: 3px 8px; }
+  .d2 .d2-sort select:focus-visible { outline: 2px solid var(--gold-bright, var(--gold)); outline-offset: 2px; }
+  .po-card { max-width: 640px; } .po-modes { display: grid; gap: 10px; margin: 12px 0; }
+  .po-mode { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--card-border); border-radius: 14px; background: var(--card-bg); color: var(--card-text); cursor: pointer; }
+  .po-mode input { margin-top: 3px; } .po-mode b { display: block; } .po-mode span { font-size: 13px; color: var(--card-text-dim); }
+  .po-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; max-width: 420px; }
+  .po-list li { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--card-border); border-radius: 10px; background: var(--card-bg); color: var(--card-text); }
+  .po-list li .po-n { flex: 1 1 auto; font-weight: 700; } .po-list button { border: 1px solid var(--card-border); background: transparent; color: var(--card-text); border-radius: 8px; padding: 3px 9px; cursor: pointer; font: inherit; }
+  .po-list button:disabled { opacity: .35; cursor: default; }
   .d2 .dp-row { display: grid; grid-template-columns: minmax(140px, 1fr) repeat(5, minmax(40px, 54px)) 40px 34px; align-items: center; gap: 7px; padding: 3px 0; font-size: 14px; }
   .d2 .dp-head { font-size: 12px; font-weight: 750; color: var(--p-dim); position: sticky; top: 0; z-index: 1; padding-bottom: 6px; background: var(--p-bg); }
   .home-dash.d2[data-look="glass"] .dp-head { background: transparent; }
@@ -1411,6 +1449,40 @@
   const speedName = (n) => SPEED_NAMES[n] || String(n).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
   const secs = (ms) => (ms == null ? '—' : `${(Math.round(ms / 100) / 10).toFixed(1)} s`);
   const speedChip = (ms) => (ms < 1500 ? '<span class="speed-chip fast">✓ Quick</span>' : ms < 4000 ? '<span class="speed-chip ok">● Normal</span>' : '<span class="speed-chip slow">▲ Slow</span>');
+  // 1.10.4: Settings → People order (admins): how The team's week lists people for everyone.
+  async function showPeopleOrder() {
+    const scr = beginScreen(showPeopleOrder, []);
+    appSection('settings');
+    els.footer.classList.add('hidden');
+    setScreen('People order', [{ label: 'Settings', go: () => showSettings() }]);
+    els.main.style.minHeight = '';
+    showLoading('Loading…');
+    const r = await window.statusApp.getPeopleOrder().catch((e) => ({ ok: false, error: e.message }));
+    if (scr.stale) return;
+    if (!r || r.ok === false) { showError((r && r.error) || 'Couldn\'t load this.', () => showPeopleOrder()); return; }
+    let mode = (r.order && r.order.mode) || 'sheet';
+    const known = (r.people || []).slice();
+    const saved = ((r.order && r.order.names) || []).filter((n) => known.some((k) => k.toLowerCase() === String(n).toLowerCase()));
+    let names = saved.concat(known.filter((k) => !saved.some((n) => n.toLowerCase() === k.toLowerCase())));
+    const modes = [['sheet', 'As the Sheet lists them', 'The order people were added (what you had before).'], ['alpha', 'A to Z', 'Alphabetical by name.'], ['entries', 'Most entries first', 'Whoever has added the most this week is at the top.'], ['manual', 'I\'ll arrange them', 'You choose the order below.']];
+    const draw = () => {
+      els.main.innerHTML = `<div class="po-card"><h3>Order of people in The team's week</h3>
+        <p class="muted">This is the team's order. Anyone can still pick A to Z or most entries first for their own view from the menu on the dashboard.</p>
+        <div class="po-modes" role="radiogroup" aria-label="Order of people">${modes.map((m) => `<label class="po-mode"><input type="radio" name="po-mode" value="${m[0]}"${mode === m[0] ? ' checked' : ''}><span><b>${m[1]}</b><span>${m[2]}</span></span></label>`).join('')}</div>
+        ${mode === 'manual' ? `<ol class="po-list" id="po-list">${names.map((n, i) => `<li><span class="po-n">${escapeHtml(n)}</span><button type="button" data-up="${i}" aria-label="Move ${escapeHtml(n)} up"${i === 0 ? ' disabled' : ''}>↑</button><button type="button" data-down="${i}" aria-label="Move ${escapeHtml(n)} down"${i === names.length - 1 ? ' disabled' : ''}>↓</button></li>`).join('')}</ol>` : ''}
+        <p><button type="button" class="mini-btn go" id="po-save">Save order</button> <span id="po-msg" role="status"></span></p></div>`;
+      els.main.querySelectorAll('input[name="po-mode"]').forEach((i) => { i.onchange = () => { mode = i.value; draw(); }; });
+      els.main.querySelectorAll('[data-up]').forEach((b) => { b.onclick = () => { const i = +b.dataset.up; [names[i - 1], names[i]] = [names[i], names[i - 1]]; draw(); }; });
+      els.main.querySelectorAll('[data-down]').forEach((b) => { b.onclick = () => { const i = +b.dataset.down; [names[i + 1], names[i]] = [names[i], names[i + 1]]; draw(); }; });
+      els.main.querySelector('#po-save').onclick = async () => {
+        const msg = els.main.querySelector('#po-msg'); msg.textContent = 'Saving…';
+        const out = await window.statusApp.savePeopleOrder({ mode, names: mode === 'manual' ? names : [] }).catch((e) => ({ ok: false, error: e.message }));
+        msg.textContent = out && out.ok !== false ? 'Saved. The dashboard uses it now.' : (out && out.error) || 'Couldn\'t save.';
+      };
+    };
+    draw();
+  }
+
   async function showSpeedCheck(run) {
     const scr = beginScreen(showSpeedCheck, []); // (Refresh shows what's been timed, without running the check again)
     appSection('settings');
@@ -1833,7 +1905,7 @@
     els.main.style.minHeight = ''; // see the comment on `main` in <style> above
     els.main.innerHTML = `
       <div id="status-view">
-        <div class="spinner"></div>
+        <div class="fox-track" aria-hidden="true"><div class="fox-run"><svg viewBox="0 0 56 40"><path class="fx-b" d="M15 25C6 28 1 20 3 8c6 3 13 6 18 12z"/><path class="fx-d" d="M3 8c3 1.500 6 3.500 8 6-3-1-6-.5-8.500 1C1.500 12 2 10 3 8z"/><path class="fx-b" d="M14 21c0-6 10-7 20-6l8 1v12c-8 3-20 3-26 0-1.500-2-2-4-2-7z"/><path class="fx-b" d="M37 13l2-9 6 6c3 0 6 2 10 10l-5 3c-4 2-10 1-13-1z"/><path class="fx-b" d="M45 10l3-7 2 9z"/><path class="fx-d" d="M39.500 7.500l.8-3 2.500 2.500zM47.500 6l.8-2 .8 3.500z"/><circle class="fx-d" cx="47" cy="16" r="1.500"/><circle class="fx-d" cx="54.500" cy="20.500" r="1.600"/><g><rect class="fx-b fx-leg" x="17" y="27" width="4" height="11" rx="2"/><rect class="fx-b fx-leg b" x="23" y="27" width="4" height="11" rx="2"/><rect class="fx-b fx-leg b" x="34" y="27" width="4" height="11" rx="2"/><rect class="fx-b fx-leg" x="40" y="27" width="4" height="11" rx="2"/></g></svg></div></div>
         <div class="msg">${msg}</div>
       </div>`;
   }
@@ -2519,6 +2591,7 @@
       startTile,
       soundTile,
       factsTile,
+      ...(isAdminTile ? [makeTile({ id: 'people-order-btn', icon: '↕️', title: 'People order', hint: 'Choose the order of people in The team\'s week on the dashboard', onClick: () => showPeopleOrder() })] : []),
       loggedIn
         ? makeTile({ id: 'logout-btn', icon: '🚪', title: 'Log out', hint: `Signed in as ${who}` })
         : makeTile({ id: 'login-btn', icon: '🔐', title: 'Log in', hint: 'Sign in with the account your admin gave you (needed for admin areas)' }),
@@ -4232,7 +4305,7 @@
         dash.id = 'home-dash';
         dash.dataset.look = DASH_LOOK;
         dash.setAttribute('aria-label', 'Team dashboard');
-        dash.innerHTML = '<div class="home-main"></div><h2 class="d2-title">Dashboard</h2><div class="d2-hero"></div><div class="d2-body"></div>';
+        dash.innerHTML = '<div class="home-main"></div><div class="d2-headrow"><h2 class="d2-title">Dashboard</h2><div class="d2-hero"></div></div><div class="d2-body"></div>';
         homeHost = dash.querySelector('.home-main');
         els.main.appendChild(dash);
         window.statusApp.getSessionStatus().catch(() => ({})).then((st) => {
@@ -4252,7 +4325,7 @@
       // 1.10.1: Week · Month · Custom above the dashboard (only in the app)
       if (window.__appMode && window.DaylensRange) {
         const trendyDash = els.main.querySelector('#home-dash.d2');
-        if (trendyDash) window.DaylensRange.mount(trendyDash, trendyDash.querySelector('.d2-hero'), { toggleEl: trendyDash }); // under the Dashboard title
+        if (trendyDash) window.DaylensRange.mount(trendyDash.querySelector('.d2-headrow'), trendyDash.querySelector('.d2-hero'), { toggleEl: trendyDash, viewBefore: trendyDash.querySelector('.d2-body') }); // beside the Dashboard title
         else { const sp = els.main.querySelector('.home-split'); if (sp) window.DaylensRange.mount(els.main, sp); }
       }
       homeHost.appendChild(todayStripEl());

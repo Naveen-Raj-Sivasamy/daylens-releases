@@ -13,6 +13,7 @@
   if (window.__dlBusy || !window.statusApp || !window.statusApp.onBusy) return;
   window.__dlBusy = true;
   var SHOW_NOTE_MS = 350, SHOW_FACT_MS = 2000, LINGER_MS = 3000;
+  var EMOJI = ['🤔', '💡', '🧠', '📚', '🎓', '🔬', '🚀', '🤖'], emojiTimer = null;
 
   var BUILT_IN = [
     ['AI', 'A token is a small chunk of text, often part of a word, that an AI language model reads and writes. A long word can be several tokens.'],
@@ -66,18 +67,21 @@
     var st = document.createElement('style');
     st.id = 'dl-busy-css';
     st.textContent =
-      '#dl-busy{position:fixed;right:16px;bottom:16px;z-index:2147483000;width:min(340px,calc(100vw - 32px));display:flex;flex-direction:column;gap:8px;pointer-events:none;font:inherit}' +
-      '#dl-busy .dl-note{align-self:flex-end;background:var(--brand,#12372a);color:var(--on-brand,#fff);border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:8px;box-shadow:0 6px 18px rgba(0,0,0,.25)}' +
+      '#dl-busy{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:none;font:inherit}' +
+      '#dl-busy.has-fact{background:rgba(8,16,12,.38)}' +
+      '#dl-busy .dl-note{position:absolute;right:16px;bottom:16px;background:var(--brand,#12372a);color:var(--on-brand,#fff);border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:8px;box-shadow:0 6px 18px rgba(0,0,0,.25)}' +
       '#dl-busy .dl-spin{width:12px;height:12px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:dl-spin .8s linear infinite}' +
-      '#dl-busy .dl-fact{pointer-events:auto;background:var(--brand,#12372a);color:var(--on-brand,#fff);border-radius:14px;padding:14px 16px;box-shadow:0 10px 28px rgba(0,0,0,.3)}' +
-      '#dl-busy .dl-fact .dl-top{font-size:12px;font-weight:800;margin:0 0 6px}' +
-      '#dl-busy .dl-fact .dl-text{font-size:13.5px;line-height:1.45;margin:0;font-weight:500}' +
-      '#dl-busy .dl-fact .dl-acts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}' +
+      '#dl-busy .dl-fact{pointer-events:auto;width:min(470px,100%);text-align:center;background:var(--brand,#12372a);color:var(--on-brand,#fff);border-radius:24px;padding:22px 26px 20px;box-shadow:0 18px 48px rgba(0,0,0,.4)}' +
+      '#dl-busy .dl-emoji{display:block;font-size:64px;line-height:1.1;margin:0 0 6px;animation:dl-bob 1.1s ease-in-out infinite}' +
+      '#dl-busy .dl-fact .dl-top{font-size:13px;font-weight:800;margin:0 0 8px}' +
+      '#dl-busy .dl-fact .dl-text{font-size:17px;line-height:1.5;margin:0;font-weight:600}' +
+      '#dl-busy .dl-fact .dl-saving{display:flex;align-items:center;justify-content:center;gap:8px;margin:14px 0 0;font-size:12.5px;font-weight:700;opacity:.95}' +
+      '#dl-busy .dl-fact .dl-acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;justify-content:center}' +
       '#dl-busy .dl-fact button{background:transparent;color:inherit;border:0;box-shadow:inset 0 0 0 1.5px currentColor;border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}' +
       '#dl-busy .dl-fact button:focus-visible{outline:2px solid currentColor;outline-offset:2px}' +
       '#dl-busy .dl-fact{animation:dl-in .25s ease-out}' +
-      '@keyframes dl-spin{to{transform:rotate(360deg)}}@keyframes dl-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}' +
-      '@media (prefers-reduced-motion:reduce){#dl-busy .dl-spin,#dl-busy .dl-fact{animation:none}}';
+      '@keyframes dl-spin{to{transform:rotate(360deg)}}@keyframes dl-in{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}@keyframes dl-bob{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-10px) rotate(4deg)}}' +
+      '@media (prefers-reduced-motion:reduce){#dl-busy .dl-spin,#dl-busy .dl-fact,#dl-busy .dl-emoji{animation:none}}';
     document.head.appendChild(st);
   }
 
@@ -114,6 +118,9 @@
     factEl.className = 'dl-fact';
     factEl.setAttribute('role', 'complementary');
     factEl.setAttribute('aria-label', 'A fact while you wait');
+    var em = document.createElement('span'); em.className = 'dl-emoji'; em.setAttribute('aria-hidden', 'true'); em.textContent = EMOJI[0];
+    var ei = 0;
+    emojiTimer = setInterval(function () { ei = (ei + 1) % EMOJI.length; em.textContent = EMOJI[ei]; }, 1300);
     var top = document.createElement('p'); top.className = 'dl-top'; top.textContent = 'Did you know? ' + f.topic + when;
     var tx = document.createElement('p'); tx.className = 'dl-text'; tx.textContent = f.text;
     var acts = document.createElement('div'); acts.className = 'dl-acts';
@@ -122,10 +129,13 @@
     var off = document.createElement('button'); off.type = 'button'; off.textContent = 'Stop showing these';
     off.onclick = function () { enabled = false; removeFact(); try { window.statusApp.setFactsOn(false); } catch (e) { /* ignore */ } };
     acts.appendChild(skip); acts.appendChild(off);
-    factEl.appendChild(top); factEl.appendChild(tx); factEl.appendChild(acts);
+    var sv = document.createElement('p'); sv.className = 'dl-saving'; sv.innerHTML = '<span class="dl-spin" aria-hidden="true"></span><span>Still saving…</span>';
+    factEl.appendChild(em); factEl.appendChild(top); factEl.appendChild(tx); factEl.appendChild(sv); factEl.appendChild(acts);
+    box.classList.add('has-fact');
+    if (noteEl) noteEl.style.display = 'none'; // the card says it
     box.insertBefore(factEl, noteEl);
   }
-  function removeFact() { if (factEl && factEl.parentNode) factEl.parentNode.removeChild(factEl); factEl = null; }
+  function removeFact() { clearInterval(emojiTimer); emojiTimer = null; if (factEl && factEl.parentNode) factEl.parentNode.removeChild(factEl); factEl = null; if (box) box.classList.remove('has-fact'); if (noteEl && pending) noteEl.style.display = ''; }
 
   function teardown() {
     clearTimeout(noteTimer); clearTimeout(factTimer); clearTimeout(hideTimer);

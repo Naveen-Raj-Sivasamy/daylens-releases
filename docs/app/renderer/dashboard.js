@@ -164,15 +164,34 @@
     </div>`;
   }
 
+  // The order of people in The team's week: the team's choice (set by an admin in Settings → People order),
+  // or the viewer's own pick from the small menu above the list (kept on this computer only).
+  const SORT_KEY = 'dlPeopleSort';
+  function mySort() { try { const v = localStorage.getItem(SORT_KEY); return ['alpha', 'entries'].includes(v) ? v : 'team'; } catch (e) { return 'team'; } }
+  function teamSort(d) { const m = d.peopleOrder && d.peopleOrder.mode; return ['alpha', 'entries', 'manual'].includes(m) ? m : 'sheet'; }
+  function orderedPeople(d) {
+    const people = (d.people || []).slice();
+    const mode = mySort() === 'team' ? teamSort(d) : mySort();
+    const total = (p) => sum(p.counts || [0]);
+    const byName = (a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' });
+    if (mode === 'alpha') return people.sort(byName);
+    if (mode === 'entries') return people.sort((a, b) => (total(b) - total(a)) || byName(a, b));
+    if (mode === 'manual') {
+      const rank = {}; ((d.peopleOrder && d.peopleOrder.names) || []).forEach((n, i) => { rank[String(n).toLowerCase()] = i; });
+      const at = (p) => (Object.prototype.hasOwnProperty.call(rank, String(p.name).toLowerCase()) ? rank[String(p.name).toLowerCase()] : 1e6);
+      return people.sort((a, b) => (at(a) - at(b)) || byName(a, b));
+    }
+    return people;
+  }
   function weekPanel(d, canKudos) {
-    const people = d.people || [];
+    const people = orderedPeople(d);
     const max = Math.max(1, ...people.map((p) => Math.max(0, ...(p.counts || [0]))));
     const today = d.weekOffset === 0 ? d.week.today : -1;
     const quiet = new Set(quietPeople(d).map((p) => p.name));
     const hasPending = people.some((p) => (p.pendingDays || []).some(Boolean));
     const days = d.week.days || [];
     return `<section class="d2-panel d2-week" aria-labelledby="d2-week-h">
-      <div class="d2-ph"><h3 id="d2-week-h">The team's week</h3><p class="d2-headline">${esc(headline(d))}</p></div>
+      <div class="d2-ph"><h3 id="d2-week-h">The team's week</h3><p class="d2-headline">${esc(headline(d))}</p>${people.length > 1 ? `<label class="d2-sort"><span>Order</span><select id="d2-sort" aria-label="Order of people"><option value="team"${mySort() === 'team' ? ' selected' : ''}>Team's order</option><option value="alpha"${mySort() === 'alpha' ? ' selected' : ''}>A to Z</option><option value="entries"${mySort() === 'entries' ? ' selected' : ''}>Most entries first</option></select></label>` : ''}</div>
       <div class="dash-people" role="table" aria-label="Entries per person per day">
         <div class="dp-row dp-head" role="row"><span class="dp-name" role="columnheader">Person</span>${DAYS.map((x, i) => `<span class="dp-day${i === today ? ' today' : ''}" role="columnheader">${x} ${dayNum(days[i])}</span>`).join('')}<span class="dp-n" role="columnheader">Total</span><span class="dp-k"></span></div>
         ${people.map((p, idx) => `
@@ -361,32 +380,23 @@
       hero.innerHTML = heroHtml(headline(d), [when, state].filter(Boolean).join(' · '), off);
       wireHero();
       const canKudos = (p) => d.teams || p.canEmail;
-      const small = [perDayPanel(d), ticketsPanel(d, opts), offPanel(d, opts)].filter(Boolean);
+      const small = [ticketsPanel(d, opts), offPanel(d, opts)].filter(Boolean);
       // 1.10.3 layout: the week on the left, the four number tiles on its right; the smaller panels underneath
       const lower = [waitingPanel(d, opts)].concat(small).filter(Boolean);
       body.innerHTML = `${holidayNudge(d, isAdmin)}<div class="d2-top">${weekPanel(d, canKudos)}${kpis(d)}</div>
         <div class="d2-row d2-row-all">${lower.join('')}</div>
+        <div class="d2-row d2-row-1"><section class="d2-panel d2-daily" aria-labelledby="d2-daily-h"><div class="d2-ph"><h3 id="d2-daily-h">Entries each day</h3><p id="d2-daily-sub">Counting the last 30 days…</p></div><div id="d2-daily-chart"></div></section></div>
         ${isAdmin ? notesHtml(d.notes, notesOpen) : ''}
         <div class="d2-tip" id="d2-tip" role="tooltip" hidden></div>`;
       wireBody(d);
+      loadDaily();
     };
 
-    function wireBody(d) {
-      const on = (sel, fn) => { const el = body.querySelector(sel); if (el) el.onclick = fn; };
-      on('#dash-k-tickets', () => opts.onOpenBoard && opts.onOpenBoard({}));
-      on('#dash-board', () => opts.onOpenBoard && opts.onOpenBoard({}));
-      on('#dash-all-stuck', () => opts.onOpenBoard && opts.onOpenBoard({ stuck: true }));
-      on('#dash-leave', () => opts.onOpenLeave && opts.onOpenLeave());
-      on('#dash-approvals', () => opts.onApprovals && opts.onApprovals());
-      on('#dash-to-now', () => load(0));
-      const hn = body.querySelector('#dash-holidays');
-      if (hn) hn.onclick = () => opts.onHolidays && opts.onHolidays(Number(hn.dataset.year));
-      const kt = body.querySelector('#dash-k-tickets');
-      if (kt && !opts.ticketTabs) { kt.disabled = true; kt.removeAttribute('title'); }
-      body.querySelectorAll('.wt-item').forEach((b) => { b.onclick = () => opts.onOpenTicket && opts.onOpenTicket(d.stuck[Number(b.dataset.i)]); });
-      // The day chart's numbers on hover / focus.
+    // The day chart's numbers on hover / focus (also used for the last-30-days chart once it arrives)
+    const wireTips = () => {
       const tip = body.querySelector('#d2-tip');
       body.querySelectorAll('.pd-col').forEach((c) => {
+        if (c.dataset.tipWired || !tip) return; c.dataset.tipWired = '1';
         const show = () => {
           tip.textContent = c.dataset.tip;
           tip.hidden = false;
@@ -400,6 +410,54 @@
         c.addEventListener('mouseleave', () => { tip.hidden = true; });
         c.addEventListener('blur', () => { tip.hidden = true; });
       });
+    };
+    // Entries each day over the last 30 days (21 when the screen is narrow); asked for after the dashboard
+    // is on screen, so it never slows the first view. Needs the Sheet's 1.10.2+ script.
+    let dailyCache = null;
+    const loadDaily = async () => {
+      const box = body.querySelector('#d2-daily-chart'); const sub = body.querySelector('#d2-daily-sub');
+      if (!box || !window.statusApp || !window.statusApp.getRangeSummary) { if (box && box.closest('.d2-row')) box.closest('.d2-row').remove(); return; }
+      const narrow = (box.clientWidth || host.clientWidth || 900) < 560;
+      const span = narrow ? 21 : 30;
+      const t0 = new Date(); const from = new Date(t0.getFullYear(), t0.getMonth(), t0.getDate() - (span - 1));
+      const k = (x) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+      const key = `${k(from)}:${k(t0)}`;
+      let r = dailyCache && dailyCache.key === key && Date.now() - dailyCache.at < 120000 ? dailyCache.r : null;
+      if (!r) { r = await window.statusApp.getRangeSummary({ kind: 'custom', from: k(from), to: k(t0) }).catch(() => null); if (r && r.ok) dailyCache = { key, at: Date.now(), r }; }
+      const nowBox = body.querySelector('#d2-daily-chart'); if (!nowBox) return; // moved on to another week
+      const subEl = body.querySelector('#d2-daily-sub');
+      if (!r || !r.ok || !Array.isArray(r.series)) { nowBox.innerHTML = '<p class="d2-empty">This needs the latest update of your team\'s Sheet.</p>'; if (subEl) subEl.textContent = `The last ${span} days`; return; }
+      const n = r.series.length; const max = Math.max(4, ...r.series); const step = Math.max(1, Math.ceil(max / 4)); const ceil = step * 4;
+      const todayKey = k(t0);
+      const best = r.series.reduce((bi, v, i) => (v > r.series[bi] ? i : bi), 0);
+      const dayName = (key2) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key2); return m ? `${WEEKDAYS[new Date(+m[1], +m[2] - 1, +m[3]).getDay()]} ${+m[3]} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+m[2] - 1]}` : key2; };
+      const grid = [0, 1, 2, 3, 4].map((g) => `<span class="pd-grid" style="bottom:${g * 25}%"><em>${g * step}</em></span>`).join('');
+      const cols = r.seriesKeys.map((key2, i) => {
+        const tip = `${dayName(key2)}: ${plural(r.series[i], 'entry', 'entries')}`;
+        const every = n > 16 ? 3 : 1;
+        return `<div class="pd-col dd-col" tabindex="0" data-tip="${esc(tip)}" aria-label="${esc(tip)}"><div class="pd-bars"><span class="pd-bar now${key2 === todayKey ? ' today' : ''}" style="height:${(100 * r.series[i] / ceil).toFixed(1)}%"></span></div>${i % every === 0 ? `<span class="pd-x">${esc(dayName(key2).replace(/^(\w+) (\d+) (\w+)$/, '$2 $3'))}</span>` : ''}</div>`;
+      }).join('');
+      if (subEl) subEl.textContent = r.totals && r.totals.entries ? `The last ${span} days: ${plural(r.totals.entries, 'entry', 'entries')}, busiest ${dayName(r.seriesKeys[best])} (${r.series[best]})` : `The last ${span} days: no entries yet`;
+      nowBox.innerHTML = `<div class="pd-chart dd-chart"><div class="pd-plot">${grid}<div class="pd-cols">${cols}</div></div></div>`;
+      wireTips();
+    };
+    function wireBody(d) {
+      const on = (sel, fn) => { const el = body.querySelector(sel); if (el) el.onclick = fn; };
+      const sortSel = body.querySelector('#d2-sort');
+      if (sortSel) sortSel.onchange = () => { try { localStorage.setItem(SORT_KEY, sortSel.value); } catch (e) { /* not kept */ } draw(); };
+      on('#dash-k-tickets', () => opts.onOpenBoard && opts.onOpenBoard({}));
+      on('#dash-board', () => opts.onOpenBoard && opts.onOpenBoard({}));
+      on('#dash-all-stuck', () => opts.onOpenBoard && opts.onOpenBoard({ stuck: true }));
+      on('#dash-leave', () => opts.onOpenLeave && opts.onOpenLeave());
+      on('#dash-approvals', () => opts.onApprovals && opts.onApprovals());
+      on('#dash-to-now', () => load(0));
+      const hn = body.querySelector('#dash-holidays');
+      if (hn) hn.onclick = () => opts.onHolidays && opts.onHolidays(Number(hn.dataset.year));
+      const kt = body.querySelector('#dash-k-tickets');
+      if (kt && !opts.ticketTabs) { kt.disabled = true; kt.removeAttribute('title'); }
+      body.querySelectorAll('.wt-item').forEach((b) => { b.onclick = () => opts.onOpenTicket && opts.onOpenTicket(d.stuck[Number(b.dataset.i)]); });
+      // The day chart's numbers on hover / focus.
+      wireTips();
       const notes = body.querySelector('#dash-notes');
       if (notes) {
         notes.addEventListener('toggle', () => { notesOpen = notes.open; });

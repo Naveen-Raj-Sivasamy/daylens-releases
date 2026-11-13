@@ -46,7 +46,7 @@
   .rv-tabs .bar i { display: block; height: 100%; background: var(--gold); border-radius: 4px; }
   .range-view details { margin-top: 14px; font-size: 13.5px; }
   .range-view summary { cursor: pointer; font-weight: 700; }
-  .home-dash.range-on > .d2-hero, .home-dash.range-on > .d2-body { display: none; }
+  .home-dash.range-on .d2-hero, .home-dash.range-on > .d2-body { display: none; }
   .home-split.range-on > #home-dash { display: none; }
   .home-split.range-on { grid-template-columns: minmax(0, 1fr); }
   `;
@@ -72,7 +72,8 @@
     view.hidden = true;
     view.setAttribute('aria-live', 'polite');
     wrapTarget.insertBefore(bar, beforeEl || null);
-    wrapTarget.insertBefore(view, beforeEl || null);
+    if (opts && opts.viewBefore && opts.viewBefore.parentNode) opts.viewBefore.parentNode.insertBefore(view, opts.viewBefore);
+    else wrapTarget.insertBefore(view, beforeEl || null);
 
     let mode = 'week';
     let ticket = 0;

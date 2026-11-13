@@ -444,6 +444,11 @@
         Google Sheet
         <svg class="ext" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
       </button>
+      <button class="nav-item" data-action="open-web" id="open-web-item" title="Open Daylens in your browser: the same team, nothing to install">
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+        Daylens on the web
+        <svg class="ext" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
+      </button>
       <button class="nav-item" data-section="settings">
         <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
         Settings
@@ -571,6 +576,8 @@
   // The Google Sheet button: admins only. Teammates work through Daylens
   // (the Sheet isn't shared with them — Google would only ask for access).
   let teamHasSheet = false;
+  // The browser version is for the desktop app's sidebar only (on the web you are already there)
+  (function () { const w = document.getElementById('open-web-item'); if (w && (window.statusApp || {})['isWeb']) w.hidden = true; /* set by the web build's preload */ })();
   function updateSheetItem() {
     const item = document.getElementById('open-sheet-item');
     if (item) item.hidden = !(teamHasSheet && isAdmin);
@@ -596,6 +603,7 @@
     const btn = e.target.closest('.nav-item');
     if (!btn) return;
     if (btn.dataset.action === 'open-sheet') { window.statusApp.openSheet(); return; }
+    if (btn.dataset.action === 'open-web') { window.statusApp.openExternal('https://naveen-raj-sivasamy.github.io/daylens-releases/app/'); return; }
     goSection(btn.dataset.section);
   });
   function openManageSection(sub) {

@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.10.3'; // always the same as the app's version (package.json) — a test keeps them equal
+var BACKEND_VERSION = '1.10.4'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -314,7 +314,7 @@ var ADMIN_ACTIONS_ = {
   renameTab: true, createTab: true, deleteTab: true, setTeamId: true,
   backendIds: true, finishSetup: true, getAuditLog: true, postTodayHighlightsNow: true, setTabHidden: true,
   saveIcons: true, getCleanup: true, saveCleanup: true, previewCleanup: true, runCleanupNow: true,
-  getWeeklyCheck: true, saveWeeklyCheck: true, runWeeklyCheckNow: true, saveDashboardIgnore: true, setUserApprover: true,
+  getWeeklyCheck: true, saveWeeklyCheck: true, runWeeklyCheckNow: true, saveDashboardIgnore: true, getPeopleOrder: true, savePeopleOrder: true, setUserApprover: true,
   importRows: true, recentImports: true, undoImport: true, makeSheetCopy: true, takeOver: true, saveHolidays: true,
   addDirectoryPeople: true, updateDirectoryPerson: true, saveDirectoryGroups: true, ignoreTypedName: true,
   saveDocument: true, deleteDocument: true, saveDocumentCategories: true,
@@ -337,7 +337,7 @@ var VIEWABLE_ACTIONS_ = { getReportSettings: true, getConnectGroups: true, getDa
 var DASH_CHANGERS_ = {
   submit: true, updateTabRow: true, deleteTabRow: true, createUser: true, renameUser: true, setUserActive: true,
   deleteUser: true, saveReportSettings: true, setTabHidden: true, createTab: true, deleteTab: true, renameTab: true,
-  saveFieldSchema: true, saveDashboardIgnore: true, updateWeeklyConnectTicket: true, decideLeave: true, importRows: true, undoImport: true,
+  saveFieldSchema: true, saveDashboardIgnore: true, savePeopleOrder: true, updateWeeklyConnectTicket: true, decideLeave: true, importRows: true, undoImport: true,
   setTabType: true, saveFieldLayout: true, setUserRole: true,
 };
 function doPost(e) {
@@ -1385,6 +1385,26 @@ function doPostInner_(e) {
       setConfigValue('DashboardIgnore', JSON.stringify(igNext));
       logAudit_(body.sessionToken, 'dashboard ignore', '', igNext.names.length + ' names, ' + igNext.tabs.length + ' tabs', 'Success');
       return jsonOut({ ok: true, ignore: igNext });
+    }
+
+    /** The order of people in the dashboard's "The team's week" (1.10.4):
+     * as the Sheet lists them, A to Z, most entries first, or one an admin arranges. */
+    if (body.action === 'getPeopleOrder') {
+      var poNames = [];
+      var poU = usersSheetRows_();
+      poU.rows.forEach(function (row) { var rec = rowToUserRecord_(poU.headers, row); if (isActiveValue_(rec['Active']) && !isDemoRole_(rec['Role'])) poNames.push(String(rec['Username'])); });
+      return jsonOut({ ok: true, order: peopleOrder_(), people: poNames });
+    }
+    if (body.action === 'savePeopleOrder') {
+      var po = body.order || {};
+      var poMode = ['sheet', 'alpha', 'entries', 'manual'].indexOf(po.mode) !== -1 ? po.mode : 'sheet';
+      var poSeen = {};
+      var poList = (Array.isArray(po.names) ? po.names : []).map(function (v) { return String(v == null ? '' : v).trim().slice(0, 200); })
+        .filter(function (v) { var k = v.toLowerCase(); if (!v || poSeen[k]) return false; poSeen[k] = true; return true; }).slice(0, 300);
+      var poNext = { mode: poMode, names: poList };
+      setConfigValue('PeopleOrder', JSON.stringify(poNext));
+      logAudit_(body.sessionToken, 'people order', '', poMode + (poMode === 'manual' ? ', ' + poList.length + ' names' : ''), 'Success');
+      return jsonOut({ ok: true, order: poNext });
     }
 
     /** Friday check-in (Reports): settings + who it would remind right now. */
@@ -7380,6 +7400,7 @@ function weekActivity_(now) {
   return {
     week: { start: dayKey_(week.start), end: dayKey_(week.workdays[4]), days: week.workdays.map(dayKey_), holidays: holidays, today: todayIdx < 5 ? todayIdx : -1 },
     people: list,
+    peopleOrder: peopleOrder_(),
     totals: {
       entries: entriesTotal,
       people: list.length,
@@ -8015,6 +8036,17 @@ function saveDocumentCategories_(session, body) {
  * are never in it — only whether kudos can be emailed to someone. */
 /** Names and tabs an admin told the dashboard to leave alone ("Something
  * missing?" → Ignore): {names: [...], tabs: [...]}, in _Config. */
+function peopleOrder_() {
+  try {
+    var v = JSON.parse(String(getConfigValue('PeopleOrder') || '{}'));
+    var mode = ['sheet', 'alpha', 'entries', 'manual'].indexOf(v && v.mode) !== -1 ? v.mode : 'sheet';
+    var names = Array.isArray(v && v.names) ? v.names.map(String).filter(Boolean).slice(0, 300) : [];
+    return { mode: mode, names: names };
+  } catch (e) {
+    return { mode: 'sheet', names: [] };
+  }
+}
+
 function dashboardIgnore_() {
   try {
     var v = JSON.parse(String(getConfigValue('DashboardIgnore') || '{}'));
