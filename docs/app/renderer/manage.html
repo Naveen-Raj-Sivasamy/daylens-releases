@@ -426,6 +426,8 @@
   #fs-rows .fs-row .opt-row { margin: 8px 0 2px; align-items: flex-start; }
   #fs-rows .fs-row .field-label { font-size: 11px; }
   #fs-rows .fs-row .fs-col { min-height: 36px; box-sizing: border-box; display: flex; align-items: center; }
+  .fs-rename-box { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .fs-rename-box input { min-width: 160px; flex: 1 1 160px; }
   .fs-new-note { font-size: 12px; color: var(--card-text-dim); margin: 2px 0 8px; }
   .fs-layout { display: inline-flex; gap: 4px; align-items: center; align-self: flex-end; flex: none; }
   .fs-layout button { width: auto; margin: 0; padding: 6px 10px; font-size: 12px; font-weight: 800; border-radius: 8px; cursor: pointer;
@@ -1665,6 +1667,59 @@
     };
     box.querySelector('.fs-up').onclick = () => move(-1);
     box.querySelector('.fs-down').onclick = () => move(1);
+    // 1.10.1 — Rename: the column heading in the Sheet changes, and the field's type,
+    // choices and hidden state follow. It saves at once, so other changes are saved first.
+    if (window.statusApp.renameField) {
+      const ren = document.createElement('button');
+      ren.type = 'button';
+      ren.className = 'plain-btn fs-rename';
+      ren.textContent = 'Rename';
+      ren.setAttribute('aria-label', 'Rename ' + col);
+      if (keep) { ren.disabled = true; ren.title = `Daylens finds this field by its name on a ${(window.TAB_TYPE_LABELS || {})[kind] || ''} tab, so it keeps its name.`; }
+      ren.onclick = () => {
+        const err = document.getElementById('fs-err');
+        err.textContent = '';
+        const sec = group.closest('.section');
+        if (sec && sec.querySelector('.save-state.dirty')) { err.textContent = 'Save Field Types first (or reopen the page to drop your changes), then rename.'; return; }
+        const nameEl = row.querySelector('.fs-col');
+        if (row.querySelector('.fs-rename-box')) return;
+        const wrap = document.createElement('span');
+        wrap.className = 'fs-rename-box';
+        wrap.innerHTML = `<input type="text" class="fs-rename-input" maxlength="100" aria-label="New name for ${esc(col)}"><button type="button" class="plain-btn fs-rename-ok">Save name</button><button type="button" class="plain-btn fs-rename-no">Cancel</button>`;
+        nameEl.hidden = true;
+        nameEl.after(wrap);
+        const input = wrap.querySelector('input');
+        input.value = col;
+        input.focus(); input.select();
+        const close = () => { wrap.remove(); nameEl.hidden = false; ren.focus(); };
+        const go = async () => {
+          const to = input.value.trim();
+          if (!to || to === col) { close(); return; }
+          wrap.querySelectorAll('button, input').forEach((b) => { b.disabled = true; });
+          let r;
+          try { r = await window.statusApp.renameField(group.dataset.tab, col, to); } catch (e2) { r = { ok: false, error: String(e2 && e2.message || e2) }; }
+          if (!r || r.ok === false) {
+            err.textContent = (r && r.error) || 'That couldn\'t be renamed.';
+            wrap.querySelectorAll('button, input').forEach((b) => { b.disabled = false; });
+            input.focus();
+            return;
+          }
+          const mine = fieldSchemaMap[group.dataset.tab];
+          if (mine) {
+            if (mine[col] && !mine[to]) { mine[to] = mine[col]; delete mine[col]; }
+            Object.keys(mine).forEach((c) => { if (mine[c] && mine[c].basedOn === col) mine[c].basedOn = to; });
+          }
+          fieldLayoutP = window.statusApp.getFieldLayout().then((x) => (x && x.ok ? x.layout : null)).catch(() => null);
+          if (window.__appMode) window.__appPost({ type: 'tabs-changed' });
+          renderFieldSchema();
+          document.getElementById('fs-ok').textContent = `Renamed "${col}" to "${to}".`;
+        };
+        wrap.querySelector('.fs-rename-ok').onclick = go;
+        wrap.querySelector('.fs-rename-no').onclick = close;
+        input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } else if (e.key === 'Escape') { e.preventDefault(); close(); } };
+      };
+      box.appendChild(ren);
+    }
     row.querySelector('.group-header').appendChild(box);
     row.appendChild(note);
   }

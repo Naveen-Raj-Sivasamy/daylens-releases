@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.10.0'; // always the same as the app's version (package.json) — a test keeps them equal
+var BACKEND_VERSION = '1.10.1'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -312,7 +312,7 @@ var ADMIN_ACTIONS_ = {
   importRows: true, recentImports: true, undoImport: true, makeSheetCopy: true, takeOver: true, saveHolidays: true,
   addDirectoryPeople: true, updateDirectoryPerson: true, saveDirectoryGroups: true, ignoreTypedName: true,
   saveDocument: true, deleteDocument: true, saveDocumentCategories: true,
-  setTabType: true, saveFieldLayout: true, speedInfo: true,
+  setTabType: true, saveFieldLayout: true, speedInfo: true, renameField: true,
 };
 /** Anything that can change the team directory's name lists. */
 var DIR_CHANGERS_ = {
@@ -1094,6 +1094,8 @@ function doPostInner_(e) {
     if (body.action === 'takeOver') return jsonOut(takeOver_(callerSession, body));
     /** The leave calendar (everyone) and the year's holidays (admins). */
     if (body.action === 'leaveCalendar') return jsonOut(leaveCalendar_(body.year, new Date()));
+    /** 1.10.1 (admins): rename one field of a tab — its column heading, type, choices and hidden state follow. */
+    if (body.action === 'renameField') return jsonOut(renameField_(body.tab, body.from, body.to));
     /** 1.10 (admins): how many rows each tab has, for Settings → Speed check. Counts only. */
     if (body.action === 'speedInfo') return jsonOut({ ok: true, tabs: tabSizes_(), bigRows: BIG_TAB_ROWS_ });
     /** 1.9: before a leave entry is saved — who else is off that day (and is it a holiday)? */
@@ -3909,6 +3911,57 @@ function saveFieldLayout_(session, body) {
   }
   logAudit_(body.sessionToken, 'field layout', tabs.join(', '), (moved.length ? 'Fields moved in ' + moved.join(', ') + '. ' : '') + 'Hidden fields saved.', 'Success');
   return { ok: true, moved: moved, added: added, message: 'Saved.' };
+}
+
+// ==================== renaming a field (1.10.1) ====================
+// A field IS its column heading, so retyping the heading in the Sheet
+// "works" — but the field's type, its list of choices and whether it's
+// hidden are all kept under the old name and get left behind. This renames
+// the heading and carries those over. Entries aren't touched. Fields the
+// tab's purpose depends on by name (a Leave tab's Name and Date, a
+// ticket's Status and ID, a meeting tab's columns) can't be renamed here.
+function renameField_(tab, from, to) {
+  tab = String(tab || '').trim(); from = String(from || '').trim(); to = String(to || '').trim().slice(0, 100);
+  var sheet = tab && tab.charAt(0) !== '_' ? getSheetByName(tab) : null;
+  if (!sheet) return { ok: false, error: 'That tab isn\'t in the Sheet.' };
+  if (!from || !to) return { ok: false, error: 'Both the current and the new field name are needed.' };
+  if (to.charAt(0) === '_' || to === TIMESTAMP_COLUMN || from === TIMESTAMP_COLUMN) return { ok: false, error: 'That name can\'t be used for a field.' };
+  if (from === to) return { ok: true, message: 'Nothing to change.' };
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(LOCK_WAIT_MS)) return { ok: false, error: 'Server is busy — please try again in a few seconds.' };
+  try {
+    var headers = getHeaderRow(sheet).map(function (h) { return String(h).trim(); });
+    var idx = headers.indexOf(from);
+    if (idx === -1) return { ok: false, error: '"' + from + '" isn\'t a field of ' + tab + ' any more. Refresh and try again.' };
+    var clash = headers.some(function (h, i) { return i !== idx && h.toLowerCase() === to.toLowerCase(); });
+    if (clash) return { ok: false, error: tab + ' already has a field called "' + to + '".' };
+    if (tabKeyColumns_(tab, headers).indexOf(from) !== -1) {
+      return { ok: false, error: 'Daylens finds "' + from + '" by its name on this kind of tab, so it can\'t be renamed here. Set the tab\'s "For" to Plain tab first if you really need to.' };
+    }
+    sheet.getRange(1, idx + 1).setValue(to);
+    // its type and choices (and any "week from" field that points at it)
+    var schema = getFieldSchemaMap();
+    var mine = schema[tab];
+    if (mine) {
+      var touched = false;
+      if (mine[from] && !mine[to]) { mine[to] = mine[from]; delete mine[from]; touched = true; }
+      Object.keys(mine).forEach(function (c) { if (mine[c] && mine[c].basedOn === from) { mine[c].basedOn = to; touched = true; } });
+      if (touched) writeFieldSchemaMap(schema);
+    }
+    // hidden from the form
+    try {
+      var hf = JSON.parse(String(getConfigValue('HiddenFields') || '{}'));
+      var at = hf && Array.isArray(hf[tab]) ? hf[tab].indexOf(from) : -1;
+      if (at !== -1) { hf[tab][at] = to; setConfigValue('HiddenFields', JSON.stringify(hf)); }
+    } catch (hfErr) { /* nothing hidden */ }
+    var cache = CacheService.getScriptCache();
+    cache.removeAll(['fieldSchema', 'hiddenFields', 'columns:' + tab, 'bigTabs']);
+    forgetDashboard_();
+    bumpSearch_(tab);
+    return { ok: true, tab: tab, from: from, to: to, message: 'Renamed.' };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function createTab_(body) {
@@ -6981,6 +7034,26 @@ function sheetMonthFirst_() {
   try { return /_US$|^en_PH$/i.test(String(SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetLocale() || '')); } catch (e) { return false; }
 }
 /** "Priya  Raman" / "priya.raman" → "priyaraman". */
+// 1.10.1 — several people in one entry. A "pick several" field (or a cell
+// typed as "A, B and C") names more than one person: each of them gets the
+// entry. If the whole cell is one person's name it's that person; else it's
+// split on , ; / & "and" and new lines. Returns [{raw, acct}] (acct null
+// when nobody in People has that name), each person once.
+function entryPeople_(raw, whoIs) {
+  var whole = whoIs(raw);
+  if (whole) return [{ raw: raw, acct: whole }];
+  var parts = String(raw).split(/\s*(?:[,;\n\/&]|\band\b)\s*/i).map(function (x) { return x.trim(); }).filter(Boolean);
+  if (parts.length < 2) return [{ raw: raw, acct: null }];
+  var seen = {}, out = [];
+  parts.slice(0, 30).forEach(function (n) {
+    var a = whoIs(n);
+    var k = a ? 'a:' + a.name.toLowerCase() : 'n:' + personKey_(n);
+    if (seen[k]) return;
+    seen[k] = true;
+    out.push({ raw: n, acct: a });
+  });
+  return out;
+}
 function personKey_(name) {
   return String(name == null ? '' : name).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
 }
@@ -7158,7 +7231,12 @@ function weekActivity_(now) {
         week.workdays.forEach(function (wd, i) { if (dayKey_(wd) === dayKey_(d)) into[i] = true; });
         return;
       }
-      if (p && (!lastByPerson[key] || d > lastByPerson[key])) lastByPerson[key] = d;
+      // (1.10.1) everyone named in the entry gets it; the team's totals count the entry once
+      var named = entryPeople_(who, whoIs);
+      named.forEach(function (n) {
+        var nk = n.acct ? n.acct.name.toLowerCase() : '';
+        if (n.acct && n.acct.active && people[nk] && (!lastByPerson[nk] || d > lastByPerson[nk])) lastByPerson[nk] = d;
+      });
       if (d >= prevStart && d < week.start) {
         var pdow = (d.getDay() + 6) % 7;
         if (pdow < 5) prevDays[pdow]++;
@@ -7168,12 +7246,15 @@ function weekActivity_(now) {
       var tdow = (d.getDay() + 6) % 7;
       if (tdow < 5) dayTotals[tdow]++;
       byTab[tab] = (byTab[tab] || 0) + 1;
-      if (!acct) { if (!ignoredNames[personKey_(who)] && !demoKeys[personKey_(who)]) unmatched[who] = (unmatched[who] || 0) + 1; return; }
-      if (!p) return; // a deactivated account
-      p.entries++;
-      p.tabs[tab] = (p.tabs[tab] || 0) + 1;
       var dow = (d.getDay() + 6) % 7;
-      if (dow < 5) { p.days[dow] = true; p.counts[dow]++; }
+      named.forEach(function (n) {
+        if (!n.acct) { if (!ignoredNames[personKey_(n.raw)] && !demoKeys[personKey_(n.raw)]) unmatched[n.raw] = (unmatched[n.raw] || 0) + 1; return; }
+        var np = n.acct.active ? people[n.acct.name.toLowerCase()] : null;
+        if (!np) return; // a deactivated account
+        np.entries++;
+        np.tabs[tab] = (np.tabs[tab] || 0) + 1;
+        if (dow < 5) { np.days[dow] = true; np.counts[dow]++; }
+      });
     });
     if (unreadable && !readable) tabNotes.push({ tab: tab, why: 'its dates (column "' + headers[dIdx] + '") aren\'t written in a way Daylens can read' });
   });
@@ -8473,6 +8554,10 @@ function monthlyDeckData_(key, now, opts) {
     if (nameIdx === -1) return;
     var statusIdx = type === 'leave' ? findColumnIndex(headers, 'Status') : -1;
     var typeIdx = type === 'leave' ? findColumnIndex(headers, 'Type') : -1;
+    // (1.10.1) everyone named in an entry gets it, as on the dashboard
+    var monthPeople = function (cell) {
+      return entryPeople_(cell, who).map(function (n) { return n.acct && n.acct.active ? people[n.acct.name.toLowerCase()] : null; }).filter(Boolean);
+    };
     values.forEach(function (r) {
       var raw = String(r[nameIdx] == null ? '' : r[nameIdx]).trim();
       if (!raw) return;
@@ -8502,12 +8587,12 @@ function monthlyDeckData_(key, now, opts) {
         byTab[tab] = (byTab[tab] || 0) + 1;
         var wi = Math.floor((d - firstMon) / (7 * 86400000));
         if (weeks[wi]) weeks[wi].cur++;
-        if (p) { p.entries++; p.days[dayKey_(d)] = true; p.tabs[tab] = (p.tabs[tab] || 0) + 1; }
+        monthPeople(raw).forEach(function (mp) { mp.entries++; mp.days[dayKey_(d)] = true; mp.tabs[tab] = (mp.tabs[tab] || 0) + 1; });
       } else {
         totals.prevEntries++;
         var pwi = Math.floor((d - prevFirstMon) / (7 * 86400000));
         if (weeks[pwi]) weeks[pwi].prev++;
-        if (p) { p.prevEntries++; p.prevDays[dayKey_(d)] = true; }
+        monthPeople(raw).forEach(function (mp) { mp.prevEntries++; mp.prevDays[dayKey_(d)] = true; });
       }
     });
   });
