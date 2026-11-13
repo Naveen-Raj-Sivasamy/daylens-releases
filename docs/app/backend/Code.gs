@@ -611,7 +611,7 @@ function doPostInner_(e) {
       try {
         // Only the settings this save actually carries — a screen that
         // doesn't show a setting must never blank it out (Hidden tabs live
-        // in Tabs & fields → Tabs now, not in App Settings).
+        // in Tabs & fields → Tabs now, not in Connections & keys).
         var settings = body.settings || {};
         var has = function (k) { return Object.prototype.hasOwnProperty.call(settings, k); };
         if (has('reportTabs')) setConfigValue('ReportTabs', (settings.reportTabs || []).join(', '));
@@ -964,7 +964,7 @@ function doPostInner_(e) {
       var digestText = String(body.summary || '').trim();
       if (!digestText) return jsonOut({ ok: false, error: 'Nothing to post — generate a digest first.' });
       var digestWebhookUrl = getTeamsWebhookUrl();
-      if (!digestWebhookUrl) return jsonOut({ ok: false, error: 'No Teams channel set yet — an admin can add one in Tabs & fields → App Settings.' });
+      if (!digestWebhookUrl) return jsonOut({ ok: false, error: 'No Teams channel set yet — an admin can add one in Tabs & fields → Connections & keys.' });
       var digestCardBody = [
         // The title says the period that was picked ("Monthly digest"), sent
         // back by the app from step 1; an older app sends none → "Digest".
@@ -2508,7 +2508,7 @@ function callGemini_(promptText, opts) {
   opts = opts || {};
   var apiKey = getConfigValue('GeminiApiKey');
   if (!apiKey) {
-    throw new Error('NO_GEMINI_KEY: AI digest needs a free Gemini key — add one in Tabs & fields → App Settings.');
+    throw new Error('NO_GEMINI_KEY: AI digest needs a free Gemini key — add one in Tabs & fields → Connections & keys.');
   }
   var model = getConfigValue('GeminiModel') || 'gemini-3.6-flash';
   // Key goes in the x-goog-api-key header, not a ?key= query param —
@@ -3276,7 +3276,7 @@ function listUsersPublic_() {
   });
 }
 
-/** App Settings for someone who may only look: the same shape, every
+/** Settings for someone who may only look: the same shape, every
  * secret blanked, and just whether each one is set. */
 /** Text a regular user may see: any web link or email address in it is
  * replaced (webhook links and keys are secrets; emails are admins-only). */
@@ -5606,7 +5606,7 @@ function sendTimeFromToday_(config, currentDay) {
 
 /** The heads-up before a report goes out: email to the people this
  * report reminds (or its recipients, if none are listed), and a post to
- * the team's Teams channel if one is set in App Settings. */
+ * the team's Teams channel if one is set in Connections & keys. */
 function sendReportReminder_(config, sendAt, now) {
   var when = sendTimeLabel_(sendAt, now || new Date());
   var subject = 'Reminder: ' + config.name + ' goes out ' + when;
@@ -6078,7 +6078,7 @@ function bigTabs_() {
   return out;
 }
 
-/** Who gets the backups: the admin contact emails (App Settings), else the
+/** Who gets the backups: the admin contact emails (Contacts & backups), else the
  * Sheet's owner. */
 function cleanupRecipients_() {
   var list = getConfigList_('AdminContactEmails').filter(function (e) { return EMAIL_RE_.test(e); });
@@ -6107,7 +6107,7 @@ function runCleanup_(now, opts) {
     } else {
       var to = cleanupRecipients_();
       if (!to.length) {
-        result = { ok: false, error: 'No one to send the backup to — add an admin contact email in Tabs & fields → App Settings.', rows: counts, total: total };
+        result = { ok: false, error: 'No one to send the backup to — add an admin contact email in Tabs & fields → Contacts & backups.', rows: counts, total: total };
       } else {
         var tz = Session.getScriptTimeZone();
         var month = Utilities.formatDate(now, tz, 'yyyy-MM');
@@ -8064,7 +8064,7 @@ function sendKudos_(session, body) {
   var viaTeams = body.teams !== false, viaEmail = body.email !== false;
   var hook = getTeamsWebhookUrl();
   var email = userEmail_(to);
-  if ((!viaTeams || !hook) && (!viaEmail || !email)) return { ok: false, error: hook ? 'Choose Teams or email.' : 'Kudos need a Teams channel (App Settings) or ' + to + '\'s email (People).' };
+  if ((!viaTeams || !hook) && (!viaEmail || !email)) return { ok: false, error: hook ? 'Choose Teams or email.' : 'Kudos need a Teams channel (Connections & keys) or ' + to + '\'s email (People).' };
   var cache = CacheService.getScriptCache();
   var countKey = 'kudos:' + String(session.username).toLowerCase() + ':' + dayKey_(new Date());
   var n = Number(cache.get(countKey) || 0);
@@ -8274,7 +8274,7 @@ function askAssistant_(session, body) {
     raw = callGemini_('', { system: system, contents: contents, json: true });
   } catch (err) {
     var em = String(err && err.message || err);
-    if (/^NO_GEMINI_KEY/.test(em)) return { ok: false, noKey: true, error: 'The assistant needs your team\'s free Gemini key — an admin adds it in Tabs & fields → App Settings.' };
+    if (/^NO_GEMINI_KEY/.test(em)) return { ok: false, noKey: true, error: 'The assistant needs your team\'s free Gemini key — an admin adds it in Tabs & fields → Connections & keys.' };
     return { ok: false, error: em.slice(0, 300) };
   }
   cache.put(rateKey, String(used + 1), 3600);
@@ -8290,7 +8290,7 @@ function askAssistant_(session, body) {
 
 // ==================== Leave approval (1.4) ====================
 //
-// Switched on in App Settings ("Leave needs an approver's OK"); approvers
+// Switched on in Team rules ("Leave needs an approver's OK"); approvers
 // are the people an admin marks in People. A request is one Leave row, as
 // before, with four more columns the app fills in: Approver (who's asked;
 // later who decided), Status (Pending / Approved / Rejected), Decided on,
@@ -8479,7 +8479,7 @@ function leaveRequestsFor_(session) {
  * admin). Each row must still be as the approver saw it, and pending. */
 function decideLeave_(session, items, decision, note) {
   if (decision !== LEAVE_APPROVED_ && decision !== LEAVE_REJECTED_) return { ok: false, error: 'Approve or reject?' };
-  if (!leaveApprovalOn_()) return { ok: false, error: 'Leave approval is switched off (App Settings).' };
+  if (!leaveApprovalOn_()) return { ok: false, error: 'Leave approval is switched off (Team rules).' };
   items = (items || []).slice(0, 60);
   if (!items.length) return { ok: false, error: 'Nothing to decide.' };
   var approvers = approverNames_();

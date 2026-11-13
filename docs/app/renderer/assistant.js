@@ -33,7 +33,7 @@
     'People: menu → People → Add user (gives a ready-to-send invite), Reset password, Rename, Email, role Admin/User, Deactivate/Delete.',
     'Scheduled report emails (with a reminder message): Reports → Scheduled reports. Friday check-in: Reports → Friday check-in.',
     'Clean-up & backups (older rows emailed to admins monthly, then removed): Tabs & fields → Clean-up & backups.',
-    'Activity log (who did what): menu → Activity log. Gemini key, Teams channel, admin contact emails: Tabs & fields → App Settings.',
+    'Activity log (who did what): menu → Activity log. Gemini key and Teams channel: Tabs & fields → Connections & keys. Admin contact emails: Contacts & backups. Leave approval: Team rules.',
     'Update the team\'s Sheet: Settings → About Daylens → Your team\'s Sheet → Update.',
   ];
 
@@ -51,7 +51,7 @@
     [{ id: 'users', label: 'People' }, { id: 'directory', label: 'Team directory' }, { id: 'manage', label: 'Tabs & fields' }, { id: 'logs', label: 'Activity log' },
       { id: 'manage:tabs-section', label: 'Tabs' }, { id: 'manage:categories-section', label: 'Landing-Screen Categories' },
       { id: 'manage:options-section', label: 'Dropdown & Multiselect Options' }, { id: 'manage:field-types-section', label: 'Field Types' },
-      { id: 'manage:app-settings-section', label: 'App Settings' }, { id: 'manage:cleanup-section', label: 'Clean-up & backups' },
+      { id: 'manage:app-settings-section', label: 'Connections & keys' }, { id: 'manage:team-rules-section', label: 'Team rules' }, { id: 'manage:contacts-section', label: 'Contacts & backups' }, { id: 'manage:cleanup-section', label: 'Clean-up & backups' },
       { id: 'manage:report-configs-section', label: 'Scheduled reports' }, { id: 'manage:weekly-check-section', label: 'Friday check-in' },
     ].forEach((n) => nav.push({ id: n.id, label: n.label + vo }));
     nav.push({ id: 'documents', label: 'Document Centre' });
@@ -264,7 +264,7 @@
       }
       busy = false;
       if (!r || !r.ok) {
-        messages.push({ role: 'assistant', error: true, text: (r && r.error) || 'Something went wrong — try again.', actions: r && r.noKey && isAdmin ? [{ type: 'open', target: 'manage:app-settings-section', label: 'Open App Settings' }] : [] });
+        messages.push({ role: 'assistant', error: true, text: (r && r.error) || 'Something went wrong — try again.', actions: r && r.noKey && isAdmin ? [{ type: 'open', target: 'manage:app-settings-section', label: 'Open Connections & keys' }] : [] });
       } else {
         // A newer draft replaces any earlier one that wasn't saved.
         if (r.draft) messages.forEach((m) => { if (m.draft && !m.draft.saved) m.draft.dismissed = true; });

@@ -1,0 +1,29 @@
+name: Refresh Daylens facts
+
+# Once a day (and on demand from the Actions tab), read a few public tech-news
+# feeds and publish docs/facts.json: the "Did you know?" items Daylens shows
+# while a save is waiting. Headlines only, with their source and date.
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  facts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build facts.json
+        run: node scripts/build-facts.mjs
+      - name: Publish if it changed
+        run: |
+          git config user.name "daylens-facts[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/facts.json
+          if git diff --cached --quiet; then echo "No change."; else git commit -m "Facts: daily refresh" && git push; fi

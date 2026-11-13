@@ -10,6 +10,7 @@
 <meta charset="utf-8" />
 <script src="theme.js"></script>
 <script src="a11y.js"></script>
+<script src="busy.js"></script>
 <script src="demo-guard.js"></script>
 <title>Daylens</title>
 <script src="setup-guide.js"></script>
@@ -385,6 +386,14 @@
   .ob-why { display: block; margin-top: 4px; font-size: 12px; color: var(--text); }
   .ob-actions { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 10px 8px 14px; flex: 1 1 100%; }
   .ob-actions .mini-btn { margin: 0; }
+  .site-card { background: var(--brand); color: var(--on-brand); border-radius: 14px; padding: 18px 20px; margin: 0 0 12px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .site-card .site-mark { width: 44px; height: 44px; border-radius: 12px; background: var(--gold); color: var(--on-gold); display: grid; place-items: center; font-size: 22px; font-weight: 800; flex: none; }
+  .site-card .site-text { flex: 1 1 220px; min-width: 0; }
+  .site-card .site-name { font-size: 16px; font-weight: 800; }
+  .site-card .site-sub { font-size: 12.5px; font-weight: 500; margin-top: 2px; opacity: 0.92; }
+  .site-card .site-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .site-card .mini-btn { margin: 0; padding: 8px 14px; font-size: 12.5px; }
+  .site-card .mini-btn.ghost { background: transparent; color: var(--on-brand); box-shadow: inset 0 0 0 1.5px currentColor; }
   .speed-card { background: var(--surface); border-radius: 14px; padding: 14px 16px; margin: 0 0 12px; color: var(--text); }
   html[data-mode="light"] .speed-card { border: 1px solid var(--card-border); box-shadow: var(--card-shadow); }
   .speed-card h3 { margin: 0 0 4px; font-size: 14px; }
@@ -1835,12 +1844,12 @@
       <div class="card" id="digest-needs-key" style="margin-top:10px;">
         <div class="card-title" style="margin-bottom:6px;">AI digest needs a free Gemini key</div>
         <p class="card-sub" style="margin:0 0 8px;">${isAdmin
-          ? 'Google gives these away free, with no credit card. Get one, then paste it in Tabs &amp; fields → App Settings.'
+          ? 'Google gives these away free, with no credit card. Get one, then paste it in Tabs &amp; fields → Connections &amp; keys.'
           : 'Your team admin can switch it on: Google gives these keys away free.'}</p>
         <p class="card-sub" style="margin:0 0 10px;">Good to know: on Google's free tier, Google may use what's sent to improve its products, and people there may read it. Don't use the free tier for confidential work.</p>
         ${isAdmin ? `<div class="card-row">
           <button type="button" class="mini-btn go" id="digest-get-key">Get a free key ↗</button>
-          <button type="button" class="mini-btn" id="digest-open-settings">Open App Settings</button>
+          <button type="button" class="mini-btn" id="digest-open-settings">Open Connections &amp; keys</button>
         </div>` : ''}
       </div>`;
     const getKey = document.getElementById('digest-get-key');
@@ -2185,7 +2194,7 @@
       if (r && r.canceled) { msg(''); return; }
       if (!r || !r.ok) { msg(friendlyBackendError(r && r.error, 'Couldn\'t make it just now.'), true); return; }
       const aiLine = document.getElementById('ppt-ai').checked && !r.highlights
-        ? (r.highlightsNote === 'no-key' ? ' The highlights are left for you to fill in: your team has no Gemini key yet (an admin adds one in App Settings).' : ' The AI couldn\'t draft the highlights this time, so they\'re left for you to fill in.')
+        ? (r.highlightsNote === 'no-key' ? ' The highlights are left for you to fill in: your team has no Gemini key yet (an admin adds one in Connections & keys).' : ' The AI couldn\'t draft the highlights this time, so they\'re left for you to fill in.')
         : '';
       msg(`Saved: ${r.filePath}.${aiLine}`);
       document.getElementById('ppt-done').innerHTML = '<button type="button" class="secondary" id="ppt-open">Open it</button>';
@@ -2470,6 +2479,15 @@
       hint: soundIsOn ? "The reminder alarm (it repeats until you Snooze, Stop or Done) and a soft chime for today's leave card. Click to turn off." : 'Click to hear the reminder alarm (it repeats until you Snooze, Stop or Done) and a soft chime for today\'s leave card.',
       variant: soundIsOn ? 'is-on' : '',
     });
+    const factsInfo = await window.statusApp.getFacts().catch(() => ({ on: true }));
+    if (scr.stale) return;
+    const factsIsOn = !factsInfo || factsInfo.on !== false;
+    const factsTile = makeTile({
+      id: 'facts-btn', icon: factsIsOn ? '💡' : '🌑', title: `Facts while saving: ${factsIsOn ? 'On' : 'Off'}`,
+      hint: factsIsOn ? 'When a save takes more than a couple of seconds, a small AI and IT fact fills the wait (you can skip it). Click to turn off.' : 'Saving still says "Saving…", with no fact. Click to turn the facts back on.',
+      variant: factsIsOn ? 'is-on' : '',
+    });
+    factsTile.onclick = async () => { factsTile.disabled = true; await window.statusApp.setFactsOn(!factsIsOn).catch(() => {}); showSettings(); };
     soundTile.onclick = async () => {
       soundTile.disabled = true;
       const on = await window.statusApp.setSound(!soundIsOn).catch(() => soundIsOn);
@@ -2480,6 +2498,7 @@
       makeTile({ id: 'clear-cache-btn', icon: '🔄', title: 'Refresh tabs & fields', hint: 'Re-read tabs, columns and dropdowns from the Sheet right now' }),
       startTile,
       soundTile,
+      factsTile,
       loggedIn
         ? makeTile({ id: 'logout-btn', icon: '🚪', title: 'Log out', hint: `Signed in as ${who}` })
         : makeTile({ id: 'login-btn', icon: '🔐', title: 'Log in', hint: 'Sign in with the account your admin gave you (needed for admin areas)' }),
@@ -2887,7 +2906,7 @@
     if (scr.stale) return;
     if (!r || !r.ok) { showError(friendlyBackendError(r && r.error, 'Could not load the leave requests.'), () => showApprovals()); return; }
     if (!r.on) {
-      els.main.innerHTML = '<p class="login-hint" id="approvals-off">Leave approval is switched off. An admin switches it on in Tabs &amp; fields → App Settings, and marks approvers in People.</p>';
+      els.main.innerHTML = '<p class="login-hint" id="approvals-off">Leave approval is switched off. An admin switches it on in Tabs &amp; fields → Team rules, and marks approvers in People.</p>';
       return;
     }
     const waiting = groupLeave(r.toDecide || []);
@@ -3198,7 +3217,7 @@
           <button type="button" class="mini-btn rename-btn">Rename</button>
           <button type="button" class="mini-btn email-btn">Email</button>
           ${dirGroups ? '<button type="button" class="mini-btn groups-btn" title="Their groups in the team directory">Groups</button>' : ''}
-          <button type="button" class="mini-btn approver-btn" title="Approvers can approve or reject leave requests (when leave approval is on in App Settings)">${u.approver ? 'Not an approver' : 'Make approver'}</button>
+          <button type="button" class="mini-btn approver-btn" title="Approvers can approve or reject leave requests (when leave approval is on in Team rules)">${u.approver ? 'Not an approver' : 'Make approver'}</button>
           <button type="button" class="mini-btn reset-btn">Reset password</button>
           <button type="button" class="mini-btn danger delete-btn" ${isMe ? 'disabled title="You can\'t delete your own account"' : ''}>Delete</button>
         </div>
@@ -3615,6 +3634,17 @@
       const firstUsedLabel = isNaN(firstUsed.getTime()) ? 'Unknown' : firstUsed.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
       els.main.innerHTML = `
         <div class="narrow" style="max-width:660px;">
+        <div class="site-card">
+          <div class="site-mark" aria-hidden="true">D</div>
+          <div class="site-text">
+            <div class="site-name">Daylens on the web</div>
+            <div class="site-sub">Download the app, open the browser version, read the privacy notice or ask for help.</div>
+          </div>
+          <div class="site-actions">
+            <button type="button" class="mini-btn go" id="ab-site">Open the website</button>
+            <button type="button" class="mini-btn ghost" id="ab-help">Get help</button>
+          </div>
+        </div>
         <div class="card">
           <div class="card-title" style="margin-bottom:8px;">Daylens app</div>
           <ul class="status-list">
@@ -3636,6 +3666,8 @@
         e.preventDefault();
         window.statusApp.openExternal('https://www.linkedin.com/in/naveen-raj-sivasamy-603826196');
       };
+      document.getElementById('ab-site').onclick = () => window.statusApp.openExternal('https://naveen-raj-sivasamy.github.io/daylens-releases/');
+      document.getElementById('ab-help').onclick = () => window.statusApp.openExternal('mailto:support.daylens@gmail.com?subject=' + encodeURIComponent('Daylens help (v' + info.version + ')'));
       if (isAdmin) renderBackendStatus();
       const note = document.getElementById('ab-app-note');
       const checkBtn = document.getElementById('ab-check');
@@ -4455,7 +4487,9 @@
       tile.onclick = () => {
         host.innerHTML = `<div class="card" id="dir-add-card">
           <div class="card-title" style="margin-bottom:8px;">Add people</div>
-          <textarea id="dir-add-names" rows="4" placeholder="One name a line — or paste a column from a sheet" aria-label="Names, one a line"></textarea>
+          <div class="card-sub" style="margin:0 0 6px;">Add as many people as you like at once, all into the groups you pick below. Put one name on each line, or separate them with commas, or paste a column from a sheet.</div>
+          <textarea id="dir-add-names" rows="6" placeholder="Grant&#10;Priya&#10;Marcus" aria-label="Names: one a line, or separated by commas"></textarea>
+          <div class="card-sub" id="dir-add-count" role="status" aria-live="polite" style="margin-top:6px;"></div>
           <div class="card-sub" style="margin:10px 0 6px;">Their groups — pick any, or type a new one (e.g. Client, Vendor, Migration team):</div>
           <div id="dir-add-groups"></div>
           <div class="card-row" style="margin-top:10px;"><button type="button" class="mini-btn go" id="dir-add-save">Add to the directory</button><button type="button" class="mini-btn" id="dir-add-cancel">Cancel</button></div>
@@ -4464,8 +4498,22 @@
         document.getElementById('dir-add-groups').appendChild(gp);
         document.getElementById('dir-add-names').focus();
         document.getElementById('dir-add-cancel').onclick = () => showDirectory();
+        // One name a line, or commas / semicolons / tabs (a pasted sheet row), each name once.
+        const readNames = () => {
+          const seen = new Set();
+          return document.getElementById('dir-add-names').value.split(/[\n\r,;\t]+/).map((x) => x.trim()).filter((x) => { const k = x.toLowerCase(); if (!x || seen.has(k)) return false; seen.add(k); return true; });
+        };
+        const showCount = () => {
+          const n = readNames().length, g = gp.value;
+          document.getElementById('dir-add-count').textContent = n ? `${n} ${n === 1 ? 'person' : 'people'} ready to add${g && g.length ? ' to ' + g.join(', ') : ', in no group'}.` : '';
+          document.getElementById('dir-add-save').textContent = n > 1 ? `Add ${n} people to the directory` : 'Add to the directory';
+        };
+        document.getElementById('dir-add-names').addEventListener('input', showCount);
+        gp.addEventListener('click', () => setTimeout(showCount, 0));
+        gp.addEventListener('input', () => setTimeout(showCount, 0));
+        showCount();
         document.getElementById('dir-add-save').onclick = () => {
-          const names = document.getElementById('dir-add-names').value.split(/\n/).map((x) => x.trim()).filter(Boolean);
+          const names = readNames();
           if (!names.length) return msg('Type at least one name.', true);
           run(() => window.statusApp.addDirectoryPeople(names, gp.value), (r) => r.message || 'Added.');
         };

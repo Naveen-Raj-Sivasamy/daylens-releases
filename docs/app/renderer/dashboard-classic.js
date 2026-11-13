@@ -186,7 +186,7 @@
             <label><input type="checkbox" class="dk-teams" ${data.teams ? 'checked' : 'disabled'} /> Teams channel</label>
             <label><input type="checkbox" class="dk-email" ${p.canEmail ? 'checked' : 'disabled'} /> Email ${esc(p.name)}</label>
           </div>
-          ${!data.teams || !p.canEmail ? `<div class="dk-hint">${!data.teams ? 'No Teams channel is set (App Settings).' : ''} ${!p.canEmail ? `${esc(p.name)} has no email in People.` : ''}</div>` : ''}
+          ${!data.teams || !p.canEmail ? `<div class="dk-hint">${!data.teams ? 'No Teams channel is set (Connections & keys).' : ''} ${!p.canEmail ? `${esc(p.name)} has no email in People.` : ''}</div>` : ''}
           <div class="dk-actions"><button type="button" class="mini-btn" id="dk-cancel">Cancel</button><button type="button" class="mini-btn go" id="dk-send">Send kudos</button></div>`;
         const ta = box.querySelector('.dk-text');
         ta.value = `Thanks for the great work this week, ${p.name}! 🎉`;

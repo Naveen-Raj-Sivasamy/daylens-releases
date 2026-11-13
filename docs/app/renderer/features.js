@@ -210,7 +210,7 @@
       keywords: 'directory team members groups people names client vendor dev cms testing migration retire remove pick choose list other' },
     { id: 'set-up-approval', area: 'Admin', title: 'Set up leave approval', go: 'manage:app-settings-section', admin: true,
       what: 'Choose who can approve leave, and switch approval on for the whole team.',
-      how: ['People → "Make approver" on each person who approves leave.', 'Tabs & fields → App Settings → tick "Leave needs an approver\'s OK" → Save App Settings.', 'Daylens adds the Approver, Status, Decided on and Decision note columns to your Leave tab by itself.'],
+      how: ['People → "Make approver" on each person who approves leave.', 'Tabs & fields → Team rules → tick "Leave needs an approver\'s OK" → Save Team rules.', 'Daylens adds the Approver, Status, Decided on and Decision note columns to your Leave tab by itself.'],
       keywords: 'leave approval approver setup switch on manager' },
     { id: 'invite', area: 'Admin', title: 'Invite code', go: 'team', admin: true,
       what: 'A code teammates paste into Daylens to join the team.',
@@ -244,9 +244,9 @@
       what: 'Change the order of a tab\'s fields, or take a field you don\'t need off the form. Moving a field moves its column in the Sheet too, so old entries stay lined up. A hidden field keeps its column and old entries in the Sheet; Show brings it back.',
       how: ['Tabs & fields → Field Types → the category → the tab → ↑ ↓ next to a field, or Hide → Save Field Types.', 'Fields Daylens needs can\'t be hidden (a Leave tab\'s Name and Date, a ticket\'s Status and ID).'],
       keywords: 'field remove delete hide show move order reorder up down column form' },
-    { id: 'app-settings', area: 'Admin', title: 'App Settings', go: 'manage:app-settings-section', admin: true,
-      what: 'The team\'s Teams channel, the Gemini key (for the AI digest and Ask Daylens) and who "Contact Admin" emails. Microsoft stopped the old Teams "Incoming Webhook" links in May 2026: Daylens warns you if yours is one — make a Workflows link in Teams instead ("Post to a channel when a webhook request is received").',
-      how: ['Tabs & fields → App Settings → fill in → Save App Settings.'],
+    { id: 'app-settings', area: 'Admin', title: 'Connections & keys', go: 'manage:app-settings-section', admin: true,
+      what: 'The team\'s Teams channel and the Gemini key (for the AI digest and Ask Daylens). Who "Contact Admin" emails is in Contacts & backups, and team rules such as leave approval are in Team rules. Microsoft stopped the old Teams "Incoming Webhook" links in May 2026: Daylens warns you if yours is one — make a Workflows link in Teams instead ("Post to a channel when a webhook request is received").',
+      how: ['Tabs & fields → Connections & keys → fill in → Save Connections & keys.'],
       keywords: 'settings teams webhook gemini key admin contact email' },
     { id: 'ticket-groups', area: 'Admin', title: 'Ticket groups', go: 'manage:ticket-groups-section', admin: true,
       what: 'Each group posts its tickets to its own Teams channel.',
@@ -340,7 +340,7 @@
       links: 'A Dropdown or Pick several field can take its names from chosen groups (Field Types). These people don\'t sign in; they\'re names to pick.' },
     'set-up-approval': {
       change: 'People → Make approver / Remove approver on a person.',
-      remove: 'Tabs & fields → App Settings → untick "Leave needs an approver\'s OK" → Save App Settings. Requests already decided stay as they are.',
+      remove: 'Tabs & fields → Team rules → untick "Leave needs an approver\'s OK" → Save Team rules. Requests already decided stay as they are.',
       links: 'Needs a tab set "For: Leave". Pending requests show on the leave calendar and under Approvals; rejected leave is left out of "Who\'s off".' },
     'holidays': {
       change: 'Leave calendar → "Edit <year> holidays" → change a date or a name → Save.',
@@ -363,7 +363,7 @@
       remove: '✕ on the group → Save. Tickets keep their group\'s name.',
       links: 'A ticket\'s Group decides which Teams channel its posts go to. The Teams link is a Workflows link from that channel.' },
     'app-settings': {
-      change: 'Tabs & fields → App Settings → change a value → Save App Settings.',
+      change: 'Tabs & fields → Connections & keys → change a value → Save Connections & keys.',
       remove: 'Clear the box and Save: a cleared Teams link stops the posts; a cleared Gemini key switches off the AI digest and Ask Daylens\' answers.',
       links: 'The Teams link is used by Today\'s update and the AI digest post. The Gemini key is used by the AI digest, Ask Daylens and the Monthly PPT\'s highlights. The admin contact emails get Contact Admin messages and the Clean-up backups.' },
     'data-sources': {

@@ -10,6 +10,7 @@
 <meta charset="utf-8" />
 <script src="theme.js"></script>
 <script src="a11y.js"></script>
+<script src="busy.js"></script>
 <script src="demo-guard.js"></script>
 <title>Tabs &amp; fields</title>
 <style>
@@ -256,10 +257,10 @@
 
   /* buttons */
   button { border-radius: 12px; font-family: inherit; }
-  button:not(.secondary):not(.icon-btn):not(.chip):not(.m-tile):not(.opt-x):not(.text-btn):not(.new-list-tile):not(.plain-btn) {
+  button:not(.secondary):not(.icon-btn):not(.chip):not(.m-tile):not(.opt-x):not(.text-btn):not(.new-list-tile):not(.plain-btn):not(.fs-tile) {
     background: var(--accent-grad); color: var(--on-accent); box-shadow: var(--accent-glow); font-weight: 800; padding: 10px 18px;
   }
-  button:not(.secondary):not(.icon-btn):not(.chip):not(.m-tile):not(.opt-x):not(.text-btn):not(.new-list-tile):not(.plain-btn):hover { filter: brightness(1.06); }
+  button:not(.secondary):not(.icon-btn):not(.chip):not(.m-tile):not(.opt-x):not(.text-btn):not(.new-list-tile):not(.plain-btn):not(.fs-tile):hover { filter: brightness(1.06); }
   button.secondary { background: var(--input-bg); color: var(--card-text); border: 1px dashed var(--input-border); font-weight: 700; }
   button.secondary:hover { border-color: var(--gold-bright); color: var(--card-text); }
   button.icon-btn { background: transparent; color: #ff8f8f; border: 1px solid transparent; font-weight: 700; padding: 6px 10px; }
@@ -607,8 +608,8 @@
     </div>
 
     <div class="section" id="app-settings-section">
-      <h3>App Settings</h3>
-      <p class="hint">Your team's Teams channel, the AI digest key, and who "Contact Admin" emails. Report reminders are set on each report in Reports → Scheduled reports; which tabs show in the app is in "Tabs".</p>
+      <h3>Connections &amp; keys</h3>
+      <p class="hint">Your team's Teams channel and the Gemini key that powers the AI digest and Ask Daylens. Who "Contact Admin" emails is in Contacts &amp; backups; report reminders are set on each report in Reports → Scheduled reports.</p>
 
       <div class="field-label">Teams channel (report reminders)</div>
       <p class="hint" style="margin: -2px 0 6px;">Optional. Paste a Teams channel's webhook link to also post each report's reminder there. Ticket trackers post to their own channels (Ticket Groups). Leave blank for email only.</p>
@@ -623,21 +624,42 @@
       <p class="hint" style="margin: -2px 0 6px;">Google renames/retires these more often than you'd expect (a "flash" model getting swapped for a newer one is normal) — if the digest ever starts failing with a 404 "model not found/no longer available" error, the error message itself names the replacement model to use; paste it here, no code change needed.</p>
       <input id="gemini-model" type="text" placeholder="gemini-3.6-flash" style="width:100%;" />
 
-      <div class="field-label" style="margin-top:14px;">Leave approval</div>
+      <div class="row-actions">
+        <button id="save-report-settings-btn">Save Connections &amp; keys</button>
+      </div>
+      <div class="err" id="report-settings-err"></div>
+      <div class="ok" id="report-settings-ok"></div>
+    </div>
+
+    <div class="section" id="team-rules-section">
+      <h3>Team rules</h3>
+      <p class="hint">Rules that change how your whole team uses Daylens. Switch one on or off here; it applies to everyone once saved.</p>
+
+      <div class="field-label">Leave approval</div>
       <p class="hint" style="margin: -2px 0 6px;">When on, a leave request goes to the approver the person picks (mark approvers in People → Make approver). It shows as pending until they approve it, and only approved leave counts on the dashboard and in the weekly check-in. Both sides get a pop-up.</p>
       <label class="wc-check" style="margin-bottom:4px;"><input type="checkbox" id="leave-approval" /> <span>Leave needs an approver's OK</span></label>
 
-      <div class="field-label" style="margin-top:14px;">Admin contact emails</div>
+      <div class="row-actions">
+        <button id="save-team-rules-btn">Save Team rules</button>
+      </div>
+      <div class="err" id="team-rules-err"></div>
+      <div class="ok" id="team-rules-ok"></div>
+    </div>
+
+    <div class="section" id="contacts-section">
+      <h3>Contacts &amp; backups</h3>
+      <p class="hint">Who "Contact Admin" emails, and who gets the monthly backups and the weekly check-in list.</p>
+
+      <div class="field-label">Admin contact emails</div>
       <p class="hint" style="margin: -2px 0 6px;">Who the "Contact Admin" footer (every screen) emails when someone submits an issue — and who gets the monthly backups (Clean-up &amp; backups) and the weekly check-in list. Every submission is also logged on _SupportTickets regardless of whether this list is empty.</p>
       <div id="admin-contact-emails-rows"></div>
       <button class="icon-btn" type="button" id="add-admin-contact-email-btn">+ Add email</button>
 
       <div class="row-actions">
-        <button id="save-report-settings-btn">Save App Settings</button>
+        <button id="save-contacts-btn">Save Contacts &amp; backups</button>
       </div>
-      <div class="err" id="report-settings-err"></div>
-      <div class="ok" id="report-settings-ok"></div>
-
+      <div class="err" id="contacts-err"></div>
+      <div class="ok" id="contacts-ok"></div>
     </div>
 
     <div class="section" id="cleanup-section">
@@ -2195,20 +2217,26 @@
     document.getElementById('admin-contact-emails-rows').appendChild(buildEmailRow(''));
   });
 
-  document.getElementById('save-report-settings-btn').addEventListener('click', async () => {
-    // Only what this screen shows — the backend leaves every other setting
-    // (hidden tabs, older keys) exactly as it is.
-    const settings = {
-      teamsWebhookUrl: document.getElementById('teams-webhook-url').value.trim(),
-      geminiApiKey: document.getElementById('gemini-api-key').value.trim(),
-      geminiModel: document.getElementById('gemini-model').value.trim(),
-      adminContactEmails: Array.from(document.querySelectorAll('#admin-contact-emails-rows input')).map((i) => i.value.trim()).filter(Boolean),
-      leaveApproval: document.getElementById('leave-approval').checked,
-    };
-    const saved = await saveSection('save-report-settings-btn', 'report-settings-err', 'report-settings-ok', () => window.statusApp.saveReportSettings(settings));
+  // Three sections, three Saves. Each sends only the settings it shows, and
+  // the Sheet leaves every other one exactly as it is.
+  async function saveSettingsPart(btnId, errId, okId, pick) {
+    const settings = pick();
+    const saved = await saveSection(btnId, errId, okId, () => window.statusApp.saveReportSettings(settings));
     reportSettings = Object.assign({}, reportSettings, settings);
+    return saved;
+  }
+  document.getElementById('save-report-settings-btn').addEventListener('click', () => saveSettingsPart('save-report-settings-btn', 'report-settings-err', 'report-settings-ok', () => ({
+    teamsWebhookUrl: document.getElementById('teams-webhook-url').value.trim(),
+    geminiApiKey: document.getElementById('gemini-api-key').value.trim(),
+    geminiModel: document.getElementById('gemini-model').value.trim(),
+  })));
+  document.getElementById('save-team-rules-btn').addEventListener('click', async () => {
+    const saved = await saveSettingsPart('save-team-rules-btn', 'team-rules-err', 'team-rules-ok', () => ({ leaveApproval: document.getElementById('leave-approval').checked }));
     if (saved && window.__appMode) window.__appPost({ type: 'approvals-changed' }); // the Approvals item may appear or go
   });
+  document.getElementById('save-contacts-btn').addEventListener('click', () => saveSettingsPart('save-contacts-btn', 'contacts-err', 'contacts-ok', () => ({
+    adminContactEmails: Array.from(document.querySelectorAll('#admin-contact-emails-rows input')).map((i) => i.value.trim()).filter(Boolean),
+  })));
 
   // -------------------- Report Configs --------------------
   //
@@ -2484,7 +2512,7 @@
     const remHint = document.createElement('p');
     remHint.className = 'hint';
     remHint.style.cssText = 'margin:6px 0 6px;';
-    remHint.textContent = 'Who to remind: the people who add the updates. Leave empty to remind this report\'s recipients. It also posts to your Teams channel, if one is set in App Settings.';
+    remHint.textContent = 'Who to remind: the people who add the updates. Leave empty to remind this report\'s recipients. It also posts to your Teams channel, if one is set in Connections & keys.';
     remWho.appendChild(remHint);
     const remList = document.createElement('div');
     remList.className = 'rc-reminder-recipients';
@@ -2782,7 +2810,7 @@
   // messages exactly as before — this only changes how you get to them.
   const SECTION_ICONS = [
     [/where can i/i, '❓'], [/dropdown|option/i, '🔽'], [/field type/i, '🧩'], [/categor/i, '🗂️'],
-    [/app settings/i, '⚙️'], [/^tabs$/i, '📑'], [/report config/i, '📊'], [/ticket group/i, '🤝'], [/data source/i, '🔌'], [/clean-up/i, '🧹'], [/import/i, '📥'],
+    [/connections/i, '🔑'], [/team rules/i, '📜'], [/contacts/i, '📇'], [/app settings/i, '⚙️'], [/^tabs$/i, '📑'], [/report config/i, '📊'], [/ticket group/i, '🤝'], [/data source/i, '🔌'], [/clean-up/i, '🧹'], [/import/i, '📥'],
   ];
   function buildSectionTiles() {
     const content = document.getElementById('content');
@@ -2918,10 +2946,10 @@
     });
     const cuCount = Number(r.recipientCount) || 0;
     document.getElementById('cleanup-to').innerHTML = viewOnly
-      ? (cuCount ? `Backups are emailed to <b>${cuCount}</b> admin address${cuCount === 1 ? '' : 'es'} (only admins see them).` : 'No one to send backups to yet — an admin adds that in App Settings.')
+      ? (cuCount ? `Backups are emailed to <b>${cuCount}</b> admin address${cuCount === 1 ? '' : 'es'} (only admins see them).` : 'No one to send backups to yet — an admin adds that in Contacts & backups.')
       : (r.recipients || []).length
-        ? `Backups go to <b>${esc(r.recipients.join(', '))}</b> (change it in App Settings → Admin contact emails).`
-        : 'No one to send backups to yet — add an admin contact email in App Settings.';
+        ? `Backups go to <b>${esc(r.recipients.join(', '))}</b> (change it in Contacts & backups).`
+        : 'No one to send backups to yet — add an admin contact email in Contacts & backups.';
     document.getElementById('cleanup-last').innerHTML = cuLastText(r.lastResult);
     renderCopies(r.copies);
     refreshCleanupPreview();
