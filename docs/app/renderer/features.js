@@ -316,7 +316,7 @@
       links: 'Home shows one tile per category. Field Types is arranged by the same categories; a tab in none of them is under Miscellaneous there. Each category can have its own report in Scheduled reports.' },
     'field-types': {
       change: 'Pick another type any time; entries already saved keep what they hold. Rename on a field changes its name everywhere: the column heading in the Sheet, and its type, choices and hidden state follow (do it here rather than in the Sheet, where those are left behind).',
-      remove: 'Hide takes a field off the form and keeps its column and old entries. "Clear this tab\'s types" turns every field of the tab back to plain text. To delete a field for good, delete its column in the Google Sheet.',
+      remove: 'Hide takes a field off the form and keeps its column and old entries. "Clear this tab\'s types" turns every field of the tab back to plain text. Delete removes the field\'s column from the Sheet for good, with what the entries hold in it; it asks first and says how many entries that is.',
       links: 'A Dropdown or Pick several field gets its choices from a list in Dropdown & Multiselect Options (two fields can share one list) or from the team directory. A "Week (from a date)" field fills itself from a date field. Name and Date fields are what put a tab on the dashboard.' },
     'field-order': {
       change: '↑ ↓ and Hide / Show on the field → Save Field Types. The columns move in the Sheet too.',

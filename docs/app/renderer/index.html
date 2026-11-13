@@ -1412,8 +1412,15 @@
       let verdict = '';
       if (!done.length) verdict = result.online === false ? 'This computer is offline, so the Sheet couldn\'t be reached. Daylens is showing the copy saved here.' : 'The Sheet didn\'t answer. Check your connection and run it again.';
       else if (!withScript.length) verdict = 'Your team\'s Sheet is on an older version, so it can\'t say how long its own work took. An admin can update it in Settings → About Daylens.';
-      else if (script / total >= 0.6) verdict = 'Most of the wait is the Sheet\'s script doing its work. That grows with the number of rows, so clearing old rows (below) is what helps.';
+      else if (script / total >= 0.6) {
+        const sizes = result.tabs && result.tabs.list;
+        const anyBigTab = sizes && sizes.some((t) => t.rows >= (result.tabs.bigRows || 3000));
+        verdict = anyBigTab ? 'Most of the wait is the Sheet\'s script doing its work. That grows with the number of rows, so clearing old rows (below) is what helps.'
+          : sizes ? 'Most of the wait is the Sheet\'s script doing its work, and your tabs are small, so it isn\'t the amount of data: each read of the Sheet is slow at Google\'s end. The script keeps what it reads about your set-up for 30 minutes, so run the check again; the second run shows the usual wait.'
+          : 'Most of the wait is the Sheet\'s script doing its work. An admin\'s Speed check also shows each tab\'s size, which tells whether that\'s the amount of data.';
+      }
       else verdict = 'Most of the wait is Google starting the script and the trip over the network, not the amount of data. Daylens can\'t shorten that part, which is why it shows saved copies first and saves new entries in the background.';
+      if (done.length && steps.some((x) => !x.ok)) verdict += ' One step got no answer in time; Daylens tries again by itself in normal use.';
       html += `<div class="speed-card" id="speed-result"><h3>Just now</h3><p id="speed-verdict">${escapeHtml(verdict)}</p>
         <table class="speed-table"><thead><tr><th scope="col">What</th><th scope="col" class="num">You waited</th><th scope="col" class="num">Script's own work</th></tr></thead><tbody>
         ${steps.map((x) => `<tr><td>${escapeHtml(x.label)}${x.ok ? speedChip(x.ms) : '<span class="speed-chip slow">✕ No answer</span>'}${x.ok ? '' : `<span class="speed-sub">${escapeHtml(x.error || '')}</span>`}</td><td class="num">${secs(x.ms)}</td><td class="num">${x.ok ? secs(x.script) : '—'}</td></tr>`).join('')}

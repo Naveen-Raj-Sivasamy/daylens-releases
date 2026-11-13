@@ -114,7 +114,13 @@ var REPORT_DATE_COLUMN = 'Date';
 // minutes on every open. 60 keeps the same clear-and-it's-instant path
 // for app-driven changes while shrinking the "I edited the Sheet
 // directly, why hasn't anyone else's app noticed" window app-wide.
-var CACHE_SECONDS = 60;
+// How long the script remembers the team's set-up (tabs, fields, lists…)
+// between reads of the Sheet. It was 60 s until 1.10.1 — so on a quiet team
+// nearly every request re-read everything, and each read of a Sheet costs
+// a noticeable fraction of a second. Now 30 minutes: every change made
+// through Daylens drops what it changed at once, a change typed straight
+// into the Sheet drops it too (onEdit below), and Refresh drops it all.
+var CACHE_SECONDS = 1800;
 // When this run of the script began (1.10): every answer says how long the
 // script itself worked (_ms), so the app's Speed check can tell Google's
 // start-up and the network apart from the script's own work.
@@ -312,7 +318,7 @@ var ADMIN_ACTIONS_ = {
   importRows: true, recentImports: true, undoImport: true, makeSheetCopy: true, takeOver: true, saveHolidays: true,
   addDirectoryPeople: true, updateDirectoryPerson: true, saveDirectoryGroups: true, ignoreTypedName: true,
   saveDocument: true, deleteDocument: true, saveDocumentCategories: true,
-  setTabType: true, saveFieldLayout: true, speedInfo: true, renameField: true,
+  setTabType: true, saveFieldLayout: true, speedInfo: true, renameField: true, deleteField: true,
 };
 /** Anything that can change the team directory's name lists. */
 var DIR_CHANGERS_ = {
@@ -1096,6 +1102,8 @@ function doPostInner_(e) {
     if (body.action === 'leaveCalendar') return jsonOut(leaveCalendar_(body.year, new Date()));
     /** 1.10.1 (admins): rename one field of a tab — its column heading, type, choices and hidden state follow. */
     if (body.action === 'renameField') return jsonOut(renameField_(body.tab, body.from, body.to));
+    /** 1.10.1 (admins): delete one field of a tab for good — asked twice: the first answer says how many entries hold something in it. */
+    if (body.action === 'deleteField') return jsonOut(deleteField_(body.tab, body.field, body.confirm === true, body.sessionToken));
     /** 1.10 (admins): how many rows each tab has, for Settings → Speed check. Counts only. */
     if (body.action === 'speedInfo') return jsonOut({ ok: true, tabs: tabSizes_(), bigRows: BIG_TAB_ROWS_ });
     /** 1.9: before a leave entry is saved — who else is off that day (and is it a holiday)? */
@@ -1985,10 +1993,24 @@ function tmAbout() {
 
 /** Run manually any time you add/rename a tab or column and don't want
  * to wait out CACHE_SECONDS for the widget to notice. */
+// Someone typed in the Sheet itself (a heading, a list, a setting): what
+// the script remembers about that tab and the team's set-up is dropped, so
+// the app sees the change at its next read. One cache call, no reads of
+// the Sheet — this runs on every hand edit. (A simple trigger: it needs no
+// permission, and doesn't run for changes Daylens itself makes.)
+var SETUP_CACHE_KEYS_ = ['tabs', 'options', 'fieldSchema', 'categories', 'dataSourceTypes', 'tabTypes', 'dirOptions', 'dirKnown', 'hiddenFields', 'icons', 'bigTabs', 'renamedUsers', 'handover', 'minAppVersion'];
+function onEdit(e) {
+  try {
+    var name = e && e.range ? e.range.getSheet().getName() : '';
+    CacheService.getScriptCache().removeAll(SETUP_CACHE_KEYS_.concat(name ? ['columns:' + name] : []));
+    forgetDashboard_();
+  } catch (err) { /* the next Refresh, or 30 minutes, catches it up */ }
+}
+
 function clearCache() {
   CacheService.getScriptCache().removeAll(
     listVisibleTabsUncached().map(function (t) { return 'columns:' + t; })
-      .concat(['tabs', 'options', 'fieldSchema', 'categories', 'dataSourceTypes', 'tabTypes', 'dirOptions', 'dirKnown', 'hiddenFields', 'icons', 'bigTabs'])
+      .concat(SETUP_CACHE_KEYS_)
   );
   Logger.log('Cache cleared.');
 }
@@ -3959,6 +3981,59 @@ function renameField_(tab, from, to) {
     forgetDashboard_();
     bumpSearch_(tab);
     return { ok: true, tab: tab, from: from, to: to, message: 'Renamed.' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ==================== deleting a field (1.10.1) ====================
+// Removes the field's column from the Sheet, with whatever the entries
+// hold in it — that can't be undone from Daylens (Google Sheets' own
+// version history is the only way back), so it's asked twice: without
+// `confirm` this only answers how many entries have something in the
+// field. Hide is the safe way to take a field off the form. Fields the
+// tab's purpose depends on can't be deleted, nor can a tab's last field.
+function deleteField_(tab, field, confirm, sessionToken) {
+  tab = String(tab || '').trim(); field = String(field || '').trim();
+  var sheet = tab && tab.charAt(0) !== '_' ? getSheetByName(tab) : null;
+  if (!sheet) return { ok: false, error: 'That tab isn\'t in the Sheet.' };
+  if (!field || field === TIMESTAMP_COLUMN) return { ok: false, error: 'That field can\'t be deleted.' };
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(LOCK_WAIT_MS)) return { ok: false, error: 'Server is busy — please try again in a few seconds.' };
+  try {
+    var headers = getHeaderRow(sheet).map(function (h) { return String(h).trim(); });
+    var idx = headers.indexOf(field);
+    if (idx === -1) return { ok: false, error: '"' + field + '" isn\'t a field of ' + tab + ' any more. Refresh and try again.' };
+    if (tabKeyColumns_(tab, headers).indexOf(field) !== -1) {
+      return { ok: false, error: 'Daylens needs "' + field + '" on this kind of tab, so it can\'t be deleted. Set the tab\'s "For" to Plain tab first if you really need to.' };
+    }
+    if (headers.filter(function (h) { return h && h !== TIMESTAMP_COLUMN; }).length <= 1) return { ok: false, error: 'A tab needs at least one field. Delete the tab instead (Tabs).' };
+    var lastRow = sheet.getLastRow();
+    var filled = 0;
+    if (lastRow > 1) {
+      sheet.getRange(2, idx + 1, lastRow - 1, 1).getValues().forEach(function (r) { if (String(r[0] == null ? '' : r[0]).trim() !== '') filled++; });
+    }
+    if (!confirm) return { ok: true, needsConfirm: true, tab: tab, field: field, filled: filled, entries: Math.max(0, lastRow - 1) };
+    sheet.deleteColumn(idx + 1);
+    var schema = getFieldSchemaMap();
+    var mine = schema[tab];
+    if (mine) {
+      var touched = false;
+      if (mine[field]) { delete mine[field]; touched = true; }
+      Object.keys(mine).forEach(function (c) { if (mine[c] && mine[c].basedOn === field) { delete mine[c]; touched = true; } }); // a "week from" field with nothing to read
+      if (!Object.keys(mine).length) delete schema[tab];
+      if (touched) writeFieldSchemaMap(schema);
+    }
+    try {
+      var hf = JSON.parse(String(getConfigValue('HiddenFields') || '{}'));
+      var at = hf && Array.isArray(hf[tab]) ? hf[tab].indexOf(field) : -1;
+      if (at !== -1) { hf[tab].splice(at, 1); if (!hf[tab].length) delete hf[tab]; setConfigValue('HiddenFields', JSON.stringify(hf)); }
+    } catch (hfErr) { /* nothing hidden */ }
+    CacheService.getScriptCache().removeAll(['fieldSchema', 'hiddenFields', 'columns:' + tab, 'bigTabs']);
+    forgetDashboard_();
+    bumpSearch_(tab);
+    try { logAudit_(sessionToken, 'deleteField', tab, 'Field "' + field + '" deleted (' + filled + ' entries had something in it).'); } catch (auditErr) { /* the log is best-effort */ }
+    return { ok: true, deleted: true, tab: tab, field: field, filled: filled, message: 'Deleted.' };
   } finally {
     lock.releaseLock();
   }
@@ -5966,19 +6041,41 @@ var BIG_TAB_ROWS_ = 3000;
 function tabSizes_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var cfg = getCleanupConfig_();
+  var byName = {};
+  ss.getSheets().forEach(function (sh) { byName[sh.getName()] = sh; });
   return cleanupTabs_().map(function (t) {
-    var sheet = ss.getSheetByName(t.tab);
+    var sheet = byName[t.tab];
     return { tab: t.tab, label: t.label, rows: sheet ? Math.max(0, sheet.getLastRow() - 1) : 0, cols: sheet ? sheet.getLastColumn() : 0,
       allowed: !!t.allowed, months: t.allowed ? Number(cfg[t.tab]) || 0 : 0, why: t.why || '' };
   });
 }
-/** Tabs past BIG_TAB_ROWS_ rows that clean-up could shorten but isn't switched on for. */
+/** Tabs past BIG_TAB_ROWS_ rows that clean-up could shorten but isn't switched on for.
+ * It rides on every admin's bootstrap, so it must cost next to nothing
+ * (1.10.1; in 1.10.0 it read every tab's headings each minute, which on a
+ * slow Sheet took longer than the app waits): one row count per tab, the
+ * headings only for a tab that IS big, and the answer is kept 6 hours. */
 function bigTabs_() {
-  return cached('bigTabs', function () {
-    return tabSizes_().filter(function (t) { return t.allowed && !t.months && t.rows >= BIG_TAB_ROWS_; })
-      .sort(function (a, b) { return b.rows - a.rows; }).slice(0, 5)
-      .map(function (t) { return { tab: t.tab, label: t.label, rows: t.rows }; });
+  var cache = CacheService.getScriptCache();
+  var hit = cache.get('bigTabs');
+  if (hit !== null) return JSON.parse(hit);
+  var big = [];
+  SpreadsheetApp.getActiveSpreadsheet().getSheets().forEach(function (sh) {
+    var name = sh.getName();
+    if (name.charAt(0) === '_' && name !== AUDIT_LOG_TAB_NAME) return;
+    var rows = sh.getLastRow() - 1;
+    if (rows >= BIG_TAB_ROWS_) big.push({ tab: name, rows: rows });
   });
+  var out = [];
+  if (big.length) {
+    var cfg = getCleanupConfig_();
+    var known = {};
+    cleanupTabs_().forEach(function (t) { known[t.tab] = t; });
+    out = big.filter(function (b) { var t = known[b.tab]; return t && t.allowed && !(Number(cfg[b.tab]) || 0); })
+      .sort(function (a, b) { return b.rows - a.rows; }).slice(0, 5)
+      .map(function (b) { return { tab: b.tab, label: known[b.tab].label, rows: b.rows }; });
+  }
+  cache.put('bigTabs', JSON.stringify(out), 21600);
+  return out;
 }
 
 /** Who gets the backups: the admin contact emails (App Settings), else the

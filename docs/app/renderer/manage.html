@@ -426,6 +426,11 @@
   #fs-rows .fs-row .opt-row { margin: 8px 0 2px; align-items: flex-start; }
   #fs-rows .fs-row .field-label { font-size: 11px; }
   #fs-rows .fs-row .fs-col { min-height: 36px; box-sizing: border-box; display: flex; align-items: center; }
+  .fs-delete { color: #c53030 !important; }
+  .fs-delete-box { margin-top: 8px; padding: 10px 12px; border: 2px solid #c53030; border-radius: 12px; background: var(--input-bg); color: var(--card-text); font-size: 13px; line-height: 1.5; }
+  .fs-delete-box p { margin: 0 0 8px; }
+  .fs-delete-box button { margin-right: 8px; }
+  .fs-delete-box .fs-delete-yes { background: #c53030 !important; color: #fff !important; border-color: #c53030 !important; }
   .fs-rename-box { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .fs-rename-box input { min-width: 160px; flex: 1 1 160px; }
   .fs-new-note { font-size: 12px; color: var(--card-text-dim); margin: 2px 0 8px; }
@@ -1719,6 +1724,56 @@
         input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } else if (e.key === 'Escape') { e.preventDefault(); close(); } };
       };
       box.appendChild(ren);
+    }
+    // 1.10.1 — Delete: the column leaves the Sheet with whatever the entries hold in it.
+    // Asked twice (the Sheet first says how many entries have something in the field).
+    if (window.statusApp.deleteField) {
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'plain-btn fs-delete';
+      del.textContent = 'Delete';
+      del.setAttribute('aria-label', 'Delete ' + col);
+      if (keep) { del.disabled = true; del.title = `Daylens needs this field on a ${(window.TAB_TYPE_LABELS || {})[kind] || ''} tab, so it can't be deleted.`; }
+      del.onclick = async () => {
+        const err = document.getElementById('fs-err');
+        err.textContent = '';
+        const sec = group.closest('.section');
+        if (sec && sec.querySelector('.save-state.dirty')) { err.textContent = 'Save Field Types first (or reopen the page to drop your changes), then delete.'; return; }
+        if (row.querySelector('.fs-delete-box')) return;
+        del.disabled = true;
+        let q;
+        try { q = await window.statusApp.deleteField(group.dataset.tab, col, false); } catch (e2) { q = { ok: false, error: String(e2 && e2.message || e2) }; }
+        del.disabled = false;
+        if (!q || q.ok === false) { err.textContent = (q && q.error) || 'That couldn\'t be checked.'; return; }
+        const panel = document.createElement('div');
+        panel.className = 'fs-delete-box';
+        panel.setAttribute('role', 'alertdialog');
+        panel.setAttribute('aria-label', 'Delete ' + col);
+        const n = Number(q.filled) || 0;
+        panel.innerHTML = `<p><b>Delete "${esc(col)}" for good?</b> ${n ? `${n.toLocaleString()} ${n === 1 ? 'entry has' : 'entries have'} something in this field, and that will be erased.` : 'No entry has anything in this field.'} Its column is removed from the Sheet and Daylens can't bring it back. To take it off the form and keep the data, use Hide instead.</p>
+          <button type="button" class="plain-btn fs-delete-no">Keep it</button><button type="button" class="plain-btn fs-delete-yes">Delete this field</button>`;
+        row.appendChild(panel);
+        panel.querySelector('.fs-delete-no').focus();
+        panel.querySelector('.fs-delete-no').onclick = () => { panel.remove(); del.focus(); };
+        panel.onkeydown = (e) => { if (e.key === 'Escape') { panel.remove(); del.focus(); } };
+        panel.querySelector('.fs-delete-yes').onclick = async () => {
+          panel.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+          let r;
+          try { r = await window.statusApp.deleteField(group.dataset.tab, col, true); } catch (e3) { r = { ok: false, error: String(e3 && e3.message || e3) }; }
+          if (!r || r.ok === false) { err.textContent = (r && r.error) || 'That couldn\'t be deleted.'; panel.remove(); return; }
+          const mine = fieldSchemaMap[group.dataset.tab];
+          if (mine) {
+            delete mine[col];
+            Object.keys(mine).forEach((c) => { if (mine[c] && mine[c].basedOn === col) delete mine[c]; });
+            if (!Object.keys(mine).length) delete fieldSchemaMap[group.dataset.tab];
+          }
+          fieldLayoutP = window.statusApp.getFieldLayout().then((x) => (x && x.ok ? x.layout : null)).catch(() => null);
+          if (window.__appMode) window.__appPost({ type: 'tabs-changed' });
+          renderFieldSchema();
+          document.getElementById('fs-ok').textContent = `Deleted "${col}".`;
+        };
+      };
+      box.appendChild(del);
     }
     row.querySelector('.group-header').appendChild(box);
     row.appendChild(note);
