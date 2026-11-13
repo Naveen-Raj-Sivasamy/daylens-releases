@@ -49,7 +49,7 @@
 <noscript>Daylens needs JavaScript. Turn it on for this site, or use the Daylens desktop app.</noscript>
 <script>
   try { if (/^(forest|ocean|sunset|royal|berry|lagoon|graphite|contrast)$/.test(localStorage.getItem('statusApp.theme') || '')) document.documentElement.classList.add('dl-dark'); } catch (e) { /* private mode: light */ }
-  window.__DAYLENS_VERSION__ = '1.10.1';
+  window.__DAYLENS_VERSION__ = '1.10.2';
   window.__DAYLENS_ENV__ = {};
   // Daylens never runs inside another site's page (someone else's frame could trick a tap).
   if (window.top !== window.self) { document.documentElement.innerHTML = '<body style="font-family:sans-serif;padding:24px">Open Daylens directly: <a href="' + location.href + '" target="_top">' + location.href + '</a></body>'; throw new Error('framed'); }
@@ -65,6 +65,6 @@
     }).observe(document.getElementById('dl-windows'), { subtree: true, attributes: true, childList: true });
   })();
 </script>
-<script src="daylens-core.js?v=1.10.1"></script>
+<script src="daylens-core.js?v=1.10.2"></script>
 </body>
 </html>
