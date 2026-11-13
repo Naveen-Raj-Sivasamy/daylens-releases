@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.10.4'; // always the same as the app's version (package.json) — a test keeps them equal
+var BACKEND_VERSION = '1.10.5'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -316,14 +316,14 @@ var ADMIN_ACTIONS_ = {
   saveIcons: true, getCleanup: true, saveCleanup: true, previewCleanup: true, runCleanupNow: true,
   getWeeklyCheck: true, saveWeeklyCheck: true, runWeeklyCheckNow: true, saveDashboardIgnore: true, getPeopleOrder: true, savePeopleOrder: true, setUserApprover: true,
   importRows: true, recentImports: true, undoImport: true, makeSheetCopy: true, takeOver: true, saveHolidays: true,
-  addDirectoryPeople: true, updateDirectoryPerson: true, saveDirectoryGroups: true, ignoreTypedName: true,
+  addDirectoryPeople: true, updateDirectoryPerson: true, saveDirectoryGroups: true, ignoreTypedName: true, setReportsTo: true,
   saveDocument: true, deleteDocument: true, saveDocumentCategories: true,
   setTabType: true, saveFieldLayout: true, speedInfo: true, renameField: true, deleteField: true,
 };
 /** Anything that can change the team directory's name lists. */
 var DIR_CHANGERS_ = {
   createUser: true, setUserActive: true, deleteUser: true, renameUser: true, saveFieldSchema: true, createTab: true, deleteTab: true, renameTab: true,
-  addDirectoryPeople: true, updateDirectoryPerson: true, saveDirectoryGroups: true,
+  addDirectoryPeople: true, updateDirectoryPerson: true, saveDirectoryGroups: true, setReportsTo: true,
   setUserRole: true, // a Demo account leaves the directory (1.7)
 };
 
@@ -1347,8 +1347,10 @@ function doPostInner_(e) {
     }
     /** Leave approval (1.4). */
     if (body.action === 'listApprovers') {
-      return jsonOut({ ok: true, on: leaveApprovalOn_(), approvers: approverNames_() });
+      var laRoute = leaveRouteFor_(String((body.name != null && callerSession.role === 'Admin') ? body.name : callerSession.username));
+      return jsonOut({ ok: true, on: leaveApprovalOn_(), approvers: laRoute.approvers, self: laRoute.self, hierarchy: laRoute.hierarchy, manager: laRoute.approvers[0] || '' });
     }
+    if (body.action === 'setReportsTo') return jsonOut(setReportsTo_(callerSession, body));
     if (body.action === 'leaveRequests') {
       return jsonOut(leaveRequestsFor_(callerSession));
     }
@@ -1726,11 +1728,12 @@ function doPostInner_(e) {
           return jsonOut({ ok: false, error: 'This entry changed since you opened it — refresh the list and try again.' });
         }
         var updValues = currentNamesIn_(body.values || {});
-        var updAskAgain = false, updApprovers = [];
+        var updAskAgain = false, updApprovers = [], updRoute = null;
         if (isTabOfType_(body.tab, 'leave') && leaveApprovalOn_()) {
           updHeaders = ensureLeaveApprovalColumns_(updSheet, updHeaders);
-          updApprovers = approverNames_();
-          var updLeave = leaveEditValues_(updHeaders, updCurrent, updValues, updApprovers, callerSession);
+          var updRoute = leaveRouteFor_(String(updValues['Name'] || ''));
+          updApprovers = updRoute.approvers;
+          var updLeave = leaveEditValues_(updHeaders, updCurrent, updValues, updApprovers, callerSession, updRoute);
           updValues = updLeave.values;
           updAskAgain = updLeave.ask;
         }
@@ -1753,7 +1756,7 @@ function doPostInner_(e) {
           return updValues[h] ? h + ': ' + String(updValues[h]).slice(0, 40) : null;
         }).filter(Boolean).join(', ');
         logAudit_(body.sessionToken, 'edit', body.tab, updSummary || 'Entry updated.');
-        if (updAskAgain) notifyLeaveRequest_(updValues, updApprovers);
+        if (updAskAgain) { if (updRoute && updRoute.self) notifySelfApproved_(updValues); else notifyLeaveRequest_(updValues, updApprovers); }
         return jsonOut({ ok: true, message: 'Updated.' });
       } finally {
         updLock.releaseLock();
@@ -1816,10 +1819,11 @@ function doPostInner_(e) {
     // Leave approval: every request starts Pending (whatever the form, or
     // an older Daylens, sent), with a real approver or none.
     var leaveAsk = isTabOfType_(body.tab, 'leave') && leaveApprovalOn_();
-    var leaveApprovers = leaveAsk ? approverNames_() : [];
+    var leaveRoute = leaveAsk ? leaveRouteFor_(String(values['Name'] || '')) : null;
+    var leaveApprovers = leaveAsk ? leaveRoute.approvers : [];
     if (leaveAsk) {
       headers = ensureLeaveApprovalColumns_(sheet, headers);
-      values = leaveRequestValues_(values, leaveApprovers);
+      values = leaveRequestValues_(values, leaveApprovers, leaveRoute);
     }
     var rowFor = function (hs) {
       return hs.map(function (col) {
@@ -1947,7 +1951,10 @@ function doPostInner_(e) {
       resultObj.ok ? (auditSummary || 'New entry added.') : (resultObj.error || 'Submit failed.'),
       resultObj.ok ? 'Success' : 'Failed'
     );
-    if (leaveAsk && resultObj.ok) notifyLeaveRequest_(values, leaveApprovers);
+    if (leaveAsk && resultObj.ok) {
+      if (leaveRoute.self) { notifySelfApproved_(values); logAudit_(body.sessionToken, 'leave self-approved', body.tab, String(values['Name'] || '') + ' ' + leaveDateText_(values['Date']), 'Success'); }
+      else notifyLeaveRequest_(values, leaveApprovers);
+    }
 
     return jsonOut(resultObj);
   } catch (err) {
@@ -7703,10 +7710,11 @@ function noteTypedNames_(tab, values) {
 /** What the Team directory screen shows. Names typed under "Other…" are for admins. */
 function getDirectory_(session) {
   var dir = directory_();
+  var reports = reportsMap_();
   var out = {
     ok: true,
     groups: dir.groups.map(function (g) { return { name: g.name, status: g.status, members: g.members }; }),
-    people: dir.people.map(function (p) { return { name: p.name, groups: p.groups, status: p.status, note: p.note, account: p.account }; }),
+    people: dir.people.map(function (p) { return { name: p.name, groups: p.groups, status: p.status, note: p.note, account: p.account, reportsTo: managerOf_(reports, p.name) }; }),
     accountsGroup: DIR_ACCOUNTS_GROUP_,
     accounts: dir.people.filter(function (p) { return p.account && p.status === 'Active'; }).length,
     viewOnly: !(session && session.role === 'Admin'),
@@ -8547,7 +8555,7 @@ function leaveCounts_(status) {
 }
 /** A new request's values: always Pending, never pre-decided; the
  * approver only if they really are one (and not the person on leave). */
-function leaveRequestValues_(values, approvers) {
+function leaveRequestValues_(values, approvers, route) {
   var out = Object.assign({}, values);
   var who = out['Name'];
   var asked = String(out['Approver'] || '').trim();
@@ -8556,7 +8564,128 @@ function leaveRequestValues_(values, approvers) {
   out['Status'] = LEAVE_PENDING_;
   out['Decided on'] = '';
   out['Decision note'] = '';
+  if (route && route.self) return leaveSelfApproved_(out);
+  // With a team tree, no pick means the person's own manager.
+  if (route && route.hierarchy && !out['Approver'] && approvers.length) out['Approver'] = approvers[0];
   return out;
+}
+/** The top of the team tree takes their own leave: approved at once, by
+ * themselves, and marked so. */
+function leaveSelfApproved_(out) {
+  out['Approver'] = String(out['Name'] || '').trim();
+  out['Status'] = LEAVE_APPROVED_;
+  out['Decided on'] = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  out['Decision note'] = LEAVE_SELF_NOTE_;
+  return out;
+}
+var LEAVE_SELF_NOTE_ = 'Self-approved (top of the team tree)';
+/** Tell the other admins about leave someone approved for themselves. */
+function notifySelfApproved_(values) {
+  var who = String(values['Name'] || '').trim() || 'Someone';
+  var to = adminNames_().filter(function (a) { return !sameName_(a, who); });
+  leaveNotice_(to, who + ' took leave on ' + leaveDateText_(values['Date']) + (values['Type'] ? ' (' + values['Type'] + ')' : '') + ' — self-approved', '');
+}
+function adminNames_() {
+  var data = usersSheetRows_();
+  return data.rows.map(function (r) { return rowToUserRecord_(data.headers, r); })
+    .filter(function (u) { return isActiveValue_(u['Active']) && String(u['Role'] || '').trim() === 'Admin'; })
+    .map(function (u) { return String(u['Username']).trim(); });
+}
+
+// ---- The team tree (1.10.5) ----
+// "Reports to" for each person, set in the Team directory by an admin and
+// kept as one setting: { "Person": "Their manager" }. Leave goes to your
+// manager, or anyone above them; the top of the tree approves for
+// themselves (and says so). A team with no tree set up works as before.
+function reportsMap_() {
+  try {
+    var v = JSON.parse(String(getConfigValue('DirectoryReports') || '{}'));
+    var out = {};
+    if (v && typeof v === 'object') Object.keys(v).forEach(function (k) { var m = String(v[k] || '').trim(); if (k && m) out[personKey_(k)] = m; });
+    return out;
+  } catch (e) {
+    return {};
+  }
+}
+/** Who someone reports to, as the name the directory uses ('' if nobody). */
+function managerOf_(map, name) {
+  return map[personKey_(name)] || '';
+}
+/** The people above someone, nearest first — only those with a Daylens
+ * account that's switched on (the others can't approve anything). */
+function managerChain_(name) {
+  var map = reportsMap_();
+  var ud = usersSheetRows_();
+  var users = ud.rows.map(function (r) { return rowToUserRecord_(ud.headers, r); });
+  var live = {};
+  users.forEach(function (u) { if (isActiveValue_(u['Active'])) live[personKey_(u['Username'])] = String(u['Username']).trim(); });
+  var out = [], seen = {}, cur = name;
+  seen[personKey_(name)] = 1;
+  for (var i = 0; i < 12; i++) {
+    var m = managerOf_(map, cur);
+    var k = personKey_(m);
+    if (!k || seen[k]) break;
+    seen[k] = 1;
+    if (live[k]) out.push(live[k]);
+    cur = m;
+  }
+  return out;
+}
+/** Who can approve this person's leave: { approvers, self, hierarchy }. */
+function leaveRouteFor_(name) {
+  var map = reportsMap_();
+  var hierarchy = Object.keys(map).length > 0;
+  if (!hierarchy) return { approvers: approverNames_().filter(function (a) { return !sameName_(a, name); }), self: false, hierarchy: false };
+  var chain = managerChain_(name);
+  if (chain.length) return { approvers: chain, self: false, hierarchy: true };
+  // Nobody above them: an admin or approver approves their own; anyone else falls back to the approvers.
+  var data = usersSheetRows_();
+  var rec = data.rows.map(function (r) { return rowToUserRecord_(data.headers, r); }).filter(function (u) { return sameName_(u['Username'], name) && isActiveValue_(u['Active']); })[0];
+  var leads = Object.keys(map).some(function (k) { return personKey_(map[k]) === personKey_(name); }); // somebody reports to them
+  var top = !!rec && (leads || String(rec['Role'] || '').trim() === 'Admin' || String(rec['Approver'] || '').trim().toUpperCase() === 'TRUE');
+  if (top) return { approvers: [], self: true, hierarchy: true };
+  return { approvers: approverNames_().filter(function (a) { return !sameName_(a, name); }), self: false, hierarchy: true };
+}
+/** Admins: set or clear who one person reports to. */
+function setReportsTo_(session, body) {
+  var auth = requireAdminSession_(body);
+  if (auth.error) return { ok: false, error: auth.error };
+  var dir = directory_();
+  var byKey = {};
+  dir.people.forEach(function (p) { byKey[personKey_(p.name)] = p; });
+  var who = byKey[personKey_(body.name)];
+  if (!who) return { ok: false, error: 'No one called "' + dirCleanName_(body.name) + '" in the directory.' };
+  var boss = String(body.reportsTo == null ? '' : body.reportsTo).trim();
+  var mgr = null;
+  if (boss) {
+    mgr = byKey[personKey_(boss)];
+    if (!mgr) return { ok: false, error: 'No one called "' + dirCleanName_(boss) + '" in the directory.' };
+    if (personKey_(mgr.name) === personKey_(who.name)) return { ok: false, error: who.name + ' can\'t report to themselves.' };
+    if (!mgr.account || mgr.status !== 'Active') return { ok: false, error: mgr.name + ' needs a Daylens account that\'s switched on to approve leave. Add one in People.' };
+  }
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(LOCK_WAIT_MS)) return { ok: false, error: 'Server is busy — please try again in a few seconds.' };
+  try {
+    var map = reportsMap_();
+    if (mgr) {
+      // No loops: nobody can end up above themselves.
+      var cur = mgr.name, guard = 0;
+      while (cur && guard++ < 20) {
+        if (personKey_(cur) === personKey_(who.name)) return { ok: false, error: mgr.name + ' already reports (directly or not) to ' + who.name + '. That would make a loop.' };
+        cur = managerOf_(map, cur);
+      }
+    }
+    // Keep the names the directory uses, one entry per person.
+    var next = {};
+    Object.keys(map).forEach(function (k) { var p = byKey[k]; if (p && k !== personKey_(who.name)) next[p.name] = (byKey[personKey_(map[k])] || { name: map[k] }).name; });
+    if (mgr) next[who.name] = mgr.name;
+    setConfigValue('DirectoryReports', JSON.stringify(next));
+  } finally {
+    lock.releaseLock();
+  }
+  forgetDirectory_();
+  logAudit_(body.sessionToken, 'team tree', DIRECTORY_TAB_, who.name + (mgr ? ' reports to ' + mgr.name : ' reports to nobody'), 'Success');
+  return { ok: true, message: mgr ? who.name + ' reports to ' + mgr.name + '.' : who.name + ' reports to nobody now.' };
 }
 /** "Thu 29 Oct" for a leave date (a Date, or yyyy-mm-dd). */
 function leaveDateText_(v) {
@@ -8613,7 +8742,7 @@ function notifyLeaveCancelled_(headers, row, session) {
 /** An edit of a leave row: the approval columns keep what they had — only
  * decideLeave changes them — except that changing the date or the type
  * asks again (back to Pending, the approver is told). */
-function leaveEditValues_(headers, current, values, approvers, session) {
+function leaveEditValues_(headers, current, values, approvers, session, route) {
   var out = Object.assign({}, values);
   var cur = function (c) { var i = findColumnIndex(headers, c); return i === -1 || i >= current.length ? '' : current[i]; };
   var day = function (v) { return normalizeDateForCompare(v, Session.getScriptTimeZone()); };
@@ -8631,6 +8760,7 @@ function leaveEditValues_(headers, current, values, approvers, session) {
     out['Status'] = LEAVE_PENDING_;
     out['Decided on'] = '';
     out['Decision note'] = '';
+    if (route && route.self) return { values: leaveSelfApproved_(out), ask: true };
     return { values: out, ask: true };
   }
   return { values: out, ask: false };

@@ -3074,7 +3074,7 @@
     ]);
     if (!r || !r.ok || !r.on) return null;
     const myName = String((me && me.username) || '');
-    return { approvers: (r.approvers || []).filter((a) => a.toLowerCase() !== myName.toLowerCase()), me: myName };
+    return { approvers: (r.approvers || []).filter((a) => a.toLowerCase() !== myName.toLowerCase()), me: myName, self: !!r.self, hierarchy: !!r.hierarchy, manager: String(r.manager || '') };
   }
   function leaveColumns(columns, la) {
     if (!la) return columns;
@@ -3085,11 +3085,12 @@
   function approverSelect(la, value, enabled) {
     const sel = document.createElement('select');
     sel.className = 'leave-approver';
-    sel.appendChild(new Option(la.approvers.length ? '— choose who approves —' : 'No approver set up yet (an admin marks them in People)', ''));
-    la.approvers.forEach((a) => sel.appendChild(new Option(a, a)));
+    sel.appendChild(new Option(la.self ? 'Self — you approve your own leave' : la.approvers.length ? '— choose who approves —' : 'No approver set up yet (an admin marks them in People)', ''));
+    la.approvers.forEach((a, i) => sel.appendChild(new Option(la.hierarchy && i === 0 ? a + ' (your manager)' : a, a)));
     if (value && !la.approvers.some((a) => a === value)) sel.appendChild(new Option(value, value));
     if (value) sel.value = value;
-    sel.disabled = !enabled;
+    else if (la.hierarchy && la.manager && la.approvers.includes(la.manager)) sel.value = la.manager; // your manager unless you pick someone above them
+    sel.disabled = !enabled || (la.self && !value); // at the top there's nobody else to pick
     return sel;
   }
 
@@ -4681,16 +4682,29 @@
         card.innerHTML = `<div class="card-row">
             <span class="avatar-sm">${escapeHtml(p.name.slice(0, 2).toUpperCase())}</span>
             <div class="grow"><div class="card-title">${escapeHtml(p.name)}${p.account ? '<span class="dir-badge" title="Has a Daylens account">Daylens user</span>' : ''}</div>
-              <div class="card-sub"><span class="grp-chips">${p.groups.map((g) => `<span class="gchip">${escapeHtml(g)}</span>`).join('') || 'No group'}</span>${p.note ? ' · ' + escapeHtml(p.note) : ''}</div></div>
+              <div class="card-sub"><span class="grp-chips">${p.groups.map((g) => `<span class="gchip">${escapeHtml(g)}</span>`).join('') || 'No group'}</span>${p.note ? ' · ' + escapeHtml(p.note) : ''}${p.reportsTo ? ` · <span class="dir-rt-line">Reports to ${escapeHtml(p.reportsTo)}</span>` : ''}</div></div>
             <span class="pill ${p.status === 'Active' ? 'user' : 'off'}">${escapeHtml(statusLabel)}</span>
-            ${admin ? `<button type="button" class="mini-btn dir-groups-btn">Groups</button>
+            ${admin ? `<button type="button" class="mini-btn dir-groups-btn">Groups</button>${p.status === 'Active' ? '<button type="button" class="mini-btn dir-rt-btn" title="Who this person reports to. Their leave goes to them.">Reports to</button>' : ''}
               ${p.account ? '<span class="card-sub" title="Switch accounts on or off in People">on/off in People</span>' : p.status === 'Active'
                 ? '<button type="button" class="mini-btn dir-retire">Retire</button><button type="button" class="mini-btn danger dir-remove">Remove</button>'
                 : '<button type="button" class="mini-btn go dir-restore">Bring back</button>'}` : ''}
           </div>
-          <div class="dir-edit" hidden></div>`;
+          <div class="dir-edit" hidden></div><div class="dir-rt" hidden></div>`;
         if (admin) {
           const edit = card.querySelector('.dir-edit');
+          const rtBtn = card.querySelector('.dir-rt-btn');
+          if (rtBtn) {
+            const rt = card.querySelector('.dir-rt');
+            rtBtn.onclick = () => {
+              rt.hidden = !rt.hidden;
+              if (rt.hidden || rt.firstChild) return;
+              const opts = people.filter((x) => x.account && x.status === 'Active' && x.name !== p.name);
+              rt.innerHTML = `<div class="card-sub" style="margin:8px 0 4px;">${escapeHtml(p.name)}'s leave goes to this person, or anyone above them. Only people with a Daylens account can approve.</div>
+                <div class="card-row"><select class="dir-rt-select" aria-label="Reports to"><option value="">Nobody — top of the team</option>${opts.map((x) => `<option value="${escapeHtml(x.name)}"${x.name === p.reportsTo ? ' selected' : ''}>${escapeHtml(x.name)}</option>`).join('')}</select>
+                <button type="button" class="mini-btn go dir-rt-save">Save</button></div>`;
+              rt.querySelector('.dir-rt-save').onclick = () => run(() => window.statusApp.setReportsTo({ name: p.name, reportsTo: rt.querySelector('.dir-rt-select').value }), (r) => r.message || 'Saved.');
+            };
+          }
           let gp = null;
           card.querySelector('.dir-groups-btn').onclick = () => {
             edit.hidden = !edit.hidden;
@@ -5853,7 +5867,9 @@
         const note = document.createElement('div');
         note.className = 'inline-msg leave-ap-msg';
         note.id = 'leave-ap-msg';
-        note.textContent = la.approvers.length ? 'It goes to the approver you pick, and counts as leave once they approve it.' : 'Nobody is set up as an approver yet, so this goes to any approver an admin marks in People.';
+        note.textContent = la.self ? 'You are at the top of the team tree, so this counts as leave at once, marked self-approved. The other admins are told.'
+          : la.hierarchy ? 'It goes to your manager, or pick someone above them. It counts as leave once they approve it.'
+          : la.approvers.length ? 'It goes to the approver you pick, and counts as leave once they approve it.' : 'Nobody is set up as an approver yet, so this goes to any approver an admin marks in People.';
         formHost.appendChild(note);
       }
       if (pane) { linkInputsToPane(pane, inputs); pane.reload(); }
