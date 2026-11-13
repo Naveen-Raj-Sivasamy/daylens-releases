@@ -1,4 +1,83 @@
 {
-  "updated": "",
-  "items": []
+  "updated": "2026-11-13",
+  "items": [
+    {
+      "text": "ChatGPT’s new Wallet lets AI agents shop and check out for you (TechCrunch, 13 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-13"
+    },
+    {
+      "text": "Most affairs don't matter except to the people involved. Ex-Nvidia CEO Jensen's blunder will rock the world (The Register, 13 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-13"
+    },
+    {
+      "text": "Israel’s VCs see opportunity for challengers in Nvidia’s turmoil (TechCrunch, 13 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-13"
+    },
+    {
+      "text": "Ex-Nvidia CEO Jensen Huang summoned to testify before Congress about affair with alleged Chinese spy (BBC Technology, 13 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-13"
+    },
+    {
+      "text": "Claude’s Duet agent is a little neurotic and surprisingly helpful (The Verge, 13 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-13"
+    },
+    {
+      "text": "The rise of 'housefishing' - when does using AI go from enhancing to misleading? (BBC Technology, 13 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-13"
+    },
+    {
+      "text": "FAA expands AI advice to manage air traffic congestion across entire US airspace (Ars Technica, 12 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-12"
+    },
+    {
+      "text": "A third of US AI chatters are hot at bots, hurling insults at LLMs (The Register, 12 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-12"
+    },
+    {
+      "text": "OpenAI launches security products, tells orgs they’re doomed if they don’t use them (The Register, 12 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-12"
+    },
+    {
+      "text": "Google rolls out Gemini 4 Hydrogen, finally replacing 3.8 Flash (Ars Technica, 12 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-12"
+    },
+    {
+      "text": "Nectar launches an AI agent to automate creator discovery and outreach for brands (TechCrunch, 12 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-12"
+    },
+    {
+      "text": "Google faces calls for AI moratoriums in schools after Gemini pilot backlash (Ars Technica, 12 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-12"
+    },
+    {
+      "text": "How AI visionary Jensen Huang was undone by his own bad decisions (BBC Technology, 12 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-12"
+    }
+  ]
 }
