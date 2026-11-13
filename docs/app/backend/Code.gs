@@ -1412,6 +1412,10 @@ function doPostInner_(e) {
     if (body.action === 'teamDashboard') {
       return jsonOut(Object.assign({ ok: true }, teamDashboard_(new Date(), body.weekOffset)));
     }
+    /** The dashboard over a month or chosen dates (1.10.1); read-only. */
+    if (body.action === 'rangeSummary') {
+      return jsonOut(rangeSummary_(new Date(), body));
+    }
     if (body.action === 'sendKudos') {
       return jsonOut(sendKudos_(callerSession, body));
     }
@@ -3040,7 +3044,7 @@ function isDemoRole_(r) { return String(r || '').trim().toLowerCase() === 'demo'
 var DEMO_READS_ = {
   logout: true, listReminders: true, getTabRows: true, getReportConfigs: true, getReportSettings: true,
   getConnectGroups: true, getDataSources: true, viewReport: true, logAppOpened: true, logNavigation: true,
-  getCleanup: true, previewCleanup: true, getWeeklyCheck: true, previewWeeklyCheck: true, teamDashboard: true,
+  getCleanup: true, previewCleanup: true, getWeeklyCheck: true, previewWeeklyCheck: true, teamDashboard: true, rangeSummary: true,
   searchAll: true, meetingOpenActions: true, leaveCalendar: true, getDocuments: true, getFieldLayout: true, recentImports: true,
 };
 
@@ -6043,9 +6047,20 @@ function tabSizes_() {
   var cfg = getCleanupConfig_();
   var byName = {};
   ss.getSheets().forEach(function (sh) { byName[sh.getName()] = sh; });
-  return cleanupTabs_().map(function (t) {
+  // (1.10.1) The Speed check only needs the row counts. cleanupTabs_() reads
+  // every tab's headings (about 1.4 s each on a slow Sheet, 17 s in all),
+  // which the check then blamed on "counting rows". Here a tab is told apart
+  // by its type alone; the headings-based reasons (no date column…) stay on
+  // the Clean-up screen, which does read them.
+  var types = getTabTypes();
+  var tabs = [{ tab: AUDIT_LOG_TAB_NAME, label: 'Activity log', allowed: true, why: '' }];
+  teamTabNames_(ss).forEach(function (name) {
+    var leave = types[name] === 'leave';
+    tabs.push({ tab: name, label: name, allowed: !leave, why: leave ? 'Leave records are kept for good.' : '' });
+  });
+  return tabs.map(function (t) {
     var sheet = byName[t.tab];
-    return { tab: t.tab, label: t.label, rows: sheet ? Math.max(0, sheet.getLastRow() - 1) : 0, cols: sheet ? sheet.getLastColumn() : 0,
+    return { tab: t.tab, label: t.label, rows: sheet ? Math.max(0, sheet.getLastRow() - 1) : 0,
       allowed: !!t.allowed, months: t.allowed ? Number(cfg[t.tab]) || 0 : 0, why: t.why || '' };
   });
 }
@@ -8048,6 +8063,167 @@ function teamDashboard_(now, weekOffset) {
   // in the Sheet.
   try { cache.put(key, JSON.stringify(a), off ? 1800 : 300); } catch (e) { /* too big to cache: fine */ }
   return a;
+}
+
+/** The dashboard over a month or any dates (1.10.1): the same team, the
+ * same counting rules as the week (hidden/ignored tabs and names, shared
+ * entries counted for each person named, approved leave only), set against
+ * the period of the same length just before it. body: {kind:'month',
+ * offset: 0..-12} or {kind:'custom', from:'yyyy-mm-dd', to:'yyyy-mm-dd'}
+ * (up to 186 days). Read-only; nothing here is written to the Sheet. */
+function rangeSummary_(now, body) {
+  body = body || {};
+  var today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var parse = function (v) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v || ''));
+    if (!m) return null;
+    var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return d.getFullYear() === Number(m[1]) && d.getMonth() === Number(m[2]) - 1 && d.getDate() === Number(m[3]) ? d : null;
+  };
+  var from, to, kind, label;
+  if (body.kind === 'custom') {
+    kind = 'custom';
+    from = parse(body.from); to = parse(body.to);
+    if (!from || !to) return { ok: false, error: 'Pick a start and an end date.' };
+    if (to > today0) to = today0;
+    if (from > to) return { ok: false, error: 'The start date is after the end date.' };
+    if (Math.round((to - from) / 86400000) + 1 > 186) return { ok: false, error: 'Pick up to 6 months at a time.' };
+    label = formatShortDay_(dayKey_(from)) + ' – ' + formatShortDay_(dayKey_(to));
+  } else {
+    kind = 'month';
+    var off = Math.max(-12, Math.min(0, Math.round(Number(body.offset) || 0)));
+    from = new Date(now.getFullYear(), now.getMonth() + off, 1);
+    to = new Date(now.getFullYear(), now.getMonth() + off + 1, 0);
+    if (to > today0) to = today0;
+    label = ['January','February','March','April','May','June','July','August','September','October','November','December'][from.getMonth()] + ' ' + from.getFullYear();
+  }
+  var days = Math.round((to - from) / 86400000) + 1;
+  var prevTo = new Date(from.getFullYear(), from.getMonth(), from.getDate() - 1);
+  var prevFrom = new Date(prevTo.getFullYear(), prevTo.getMonth(), prevTo.getDate() - days + 1);
+  var fromKey = dayKey_(from), toKey = dayKey_(to);
+  var key = 'range:' + dashGen_() + ':' + fromKey + ':' + toKey;
+  var cache = CacheService.getScriptCache();
+  var hit = cache.get(key);
+  if (hit) return JSON.parse(hit);
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var types = getTabTypes();
+  var schema = getFieldSchemaMap();
+  var users = usersSheetRows_();
+  var monthFirst = sheetMonthFirst_();
+  var people = {}, order = [], byKey = {}, demoKeys = {};
+  users.rows.forEach(function (row) {
+    var rec = rowToUserRecord_(users.headers, row);
+    var name = String(rec['Username']).trim();
+    if (!name) return;
+    if (isDemoRole_(rec['Role'])) { demoKeys[personKey_(name)] = true; return; }
+    var active = isActiveValue_(rec['Active']);
+    byKey[personKey_(name)] = { name: name, active: active };
+    if (!active) return;
+    people[name.toLowerCase()] = { name: name, entries: 0, prevEntries: 0, daySet: {}, leaveSet: {} };
+    order.push(name.toLowerCase());
+  });
+  var renamed = cached('renamedUsers', getRenamedUsers_);
+  var whoMemo = {};
+  var whoIs = function (raw) {
+    var sv = String(raw).trim();
+    if (Object.prototype.hasOwnProperty.call(whoMemo, sv)) return whoMemo[sv];
+    var hit2 = byKey[personKey_(renamed[sv.toLowerCase()] || sv)] || null;
+    whoMemo[sv] = hit2;
+    return hit2;
+  };
+  var ignored = dashboardIgnore_();
+  var ignoredTabs = {};
+  ignored.tabs.forEach(function (t) { ignoredTabs[String(t).toLowerCase()] = true; });
+  var holSet = {};
+  var yrs = {};
+  [from, to].forEach(function (d) { yrs[d.getFullYear()] = true; });
+  try { holidaysOfYear_(Object.keys(yrs).map(Number), monthFirst).forEach(function (h) { holSet[h.date] = true; }); } catch (e) { /* no holiday tab */ }
+
+  var weekly = days > 62; // per day up to ~2 months, per week beyond
+  var seriesKeys = [], seriesIdx = {};
+  for (var sd = new Date(from.getFullYear(), from.getMonth(), from.getDate()); sd <= to; sd = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate() + 1)) {
+    var bk = weekly ? dayKey_(weekOf_(sd).start) : dayKey_(sd);
+    if (!weekly && (sd.getDay() === 0 || sd.getDay() === 6)) continue;
+    if (!Object.prototype.hasOwnProperty.call(seriesIdx, bk)) { seriesIdx[bk] = seriesKeys.length; seriesKeys.push(bk); }
+  }
+  var series = seriesKeys.map(function () { return 0; });
+  var workdays = 0;
+  for (var wd = new Date(from.getFullYear(), from.getMonth(), from.getDate()); wd <= to; wd = new Date(wd.getFullYear(), wd.getMonth(), wd.getDate() + 1)) {
+    if (wd.getDay() !== 0 && wd.getDay() !== 6 && !holSet[dayKey_(wd)]) workdays++;
+  }
+  var entries = 0, prevEntries = 0, opened = 0, prevOpened = 0;
+  var byTab = {}, prevByTab = {};
+  var inRange = function (d) { return d >= from && d <= new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59); };
+  var inPrev = function (d) { return d >= prevFrom && d < from; };
+  cached('tabs', listVisibleTabs).forEach(function (tab) {
+    if (ignoredTabs[String(tab).toLowerCase()]) return;
+    var sheet = ss.getSheetByName(tab);
+    if (!sheet || sheet.getLastRow() <= 1) return;
+    var headers = getHeaderRow(sheet);
+    var type = types[tab] || 'custom';
+    if (type === 'weekly-meeting' || type === 'holiday') return;
+    var nameIdx = activityPersonColumn_(headers, type);
+    var dIdx = activityDateColumn_(headers, schema[tab] || {}, type);
+    if (nameIdx === -1 || dIdx === -1) return;
+    var values = type === 'leave'
+      ? sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues()
+      : activityRows_(sheet, headers.length, dIdx, prevFrom, monthFirst);
+    var statusIdx = type === 'leave' ? findColumnIndex(headers, 'Status') : (type === 'ticket-tracker' ? findColumnIndex(headers, 'Status') : -1);
+    values.forEach(function (r) {
+      var who = String(r[nameIdx] == null ? '' : r[nameIdx]).trim();
+      if (!who) return;
+      var d = activityCellDate_(r[dIdx], monthFirst);
+      if (!d) return;
+      if (type === 'leave') {
+        if (!inRange(d)) return;
+        var lst = statusIdx === -1 ? '' : String(r[statusIdx] == null ? '' : r[statusIdx]).trim();
+        if (lst === LEAVE_REJECTED_ || lst === LEAVE_PENDING_) return;
+        var acct = whoIs(who);
+        var lp = acct && acct.active ? people[acct.name.toLowerCase()] : null;
+        if (lp && d.getDay() !== 0 && d.getDay() !== 6 && !holSet[dayKey_(d)]) lp.leaveSet[dayKey_(d)] = true;
+        return;
+      }
+      var now1 = inRange(d), prev1 = inPrev(d);
+      if (!now1 && !prev1) return;
+      if (type === 'ticket-tracker' && statusIdx !== -1 && String(r[statusIdx] == null ? '' : r[statusIdx]).trim()) {
+        if (now1) opened++; else prevOpened++;
+      }
+      if (prev1) {
+        prevEntries++; prevByTab[tab] = (prevByTab[tab] || 0) + 1;
+        entryPeople_(who, whoIs).forEach(function (n) {
+          var pp = n.acct && n.acct.active ? people[n.acct.name.toLowerCase()] : null;
+          if (pp) pp.prevEntries++;
+        });
+        return;
+      }
+      entries++; byTab[tab] = (byTab[tab] || 0) + 1;
+      var bk2 = weekly ? dayKey_(weekOf_(d).start) : dayKey_(d);
+      if (Object.prototype.hasOwnProperty.call(seriesIdx, bk2)) series[seriesIdx[bk2]]++;
+      entryPeople_(who, whoIs).forEach(function (n) {
+        var np = n.acct && n.acct.active ? people[n.acct.name.toLowerCase()] : null;
+        if (!np) return;
+        np.entries++; np.daySet[dayKey_(d)] = true;
+      });
+    });
+  });
+  var list = order.map(function (k) {
+    var pp = people[k];
+    return { name: pp.name, entries: pp.entries, prevEntries: pp.prevEntries, activeDays: Object.keys(pp.daySet).length, leaveDays: Object.keys(pp.leaveSet).length };
+  }).sort(function (a, b) { return (b.entries - a.entries) || (a.name < b.name ? -1 : 1); });
+  var tabs = Object.keys(byTab).map(function (t) { return { tab: t, n: byTab[t], prev: prevByTab[t] || 0 }; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 12);
+  var out = {
+    ok: true, kind: kind, label: label, from: fromKey, to: toKey, days: days, workdays: workdays,
+    prev: { from: dayKey_(prevFrom), to: dayKey_(prevTo) },
+    unit: weekly ? 'week' : 'day', seriesKeys: seriesKeys, series: series,
+    totals: { entries: entries, prevEntries: prevEntries, people: list.length, logged: list.filter(function (x) { return x.entries > 0; }).length, ticketsOpened: opened, prevTicketsOpened: prevOpened },
+    people: list, byTab: tabs,
+    partial: to.getTime() === today0.getTime() && (kind === 'custom' || from.getMonth() === now.getMonth() && from.getFullYear() === now.getFullYear()),
+    at: now.getTime(),
+    teamName: PropertiesService.getScriptProperties().getProperty('TEAM_NAME') || '',
+  };
+  try { cache.put(key, JSON.stringify(out), to.getTime() >= today0.getTime() ? 300 : 1800); } catch (e) { /* too big: fine */ }
+  return out;
 }
 
 /** Kudos from the dashboard: to the team's Teams channel and/or the

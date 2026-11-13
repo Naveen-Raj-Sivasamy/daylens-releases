@@ -21,6 +21,7 @@
 <script src="icons.js"></script>
 <script src="dashboard.js"></script>
 <script src="dashboard-classic.js"></script>
+<script src="dashboard-range.js"></script>
 <script src="features.js"></script>
 <style>
   :root {
@@ -999,6 +1000,17 @@
      tabs, add-new, report/digest actions, settings options) uses this one
      card style, laid out in a responsive grid. One look everywhere
      instead of a mix of full-width bars and gold pills. ---- */
+  /* "Your work" (1.10.1): the categories as their own section */
+  .work-panel { margin: 6px 0 22px; padding: 20px 22px 6px; border-radius: 24px; background: var(--card-bg-2); border: 1px solid var(--card-border); color: var(--card-text); }
+  .work-panel .wp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; margin: 0 0 16px; }
+  .work-panel .wp-head h2 { margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -0.01em; }
+  .work-panel .wp-sub { font-size: 13px; color: var(--card-text); font-weight: 600; }
+  .work-panel .tile { --h: var(--h1); min-height: 104px; border-radius: 18px; padding: 18px 20px; }
+  .work-panel .tile:nth-child(6n+2) { --h: var(--h2); } .work-panel .tile:nth-child(6n+3) { --h: var(--h3); } .work-panel .tile:nth-child(6n+4) { --h: var(--h4); }
+  .work-panel .tile:nth-child(6n+5) { --h: var(--h5); } .work-panel .tile:nth-child(6n) { --h: var(--h6); }
+  .work-panel .tile .tile-icon { width: 60px; height: 60px; border-radius: 18px; background: color-mix(in srgb, var(--h) 34%, var(--surface)); color: var(--text); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--h) 70%, transparent); }
+  .work-panel .tile:hover, .work-panel .tile:focus-visible { border-color: var(--h); }
+  .work-panel .tile-count { align-self: flex-start; margin-top: 6px; font-size: 11.5px; font-weight: 800; color: var(--text); background: color-mix(in srgb, var(--h) 22%, var(--surface)); border-radius: 999px; padding: 2px 10px; }
   .tile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 18px; }
   .tile-grid.wide { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
   .tile {
@@ -4229,6 +4241,11 @@
           }));
         });
       }
+      // 1.10.1: Week · Month · Custom above the dashboard (only in the app)
+      if (window.__appMode && window.DaylensRange) {
+        const dashEl = els.main.querySelector('.home-split') || els.main.querySelector('#home-dash');
+        if (dashEl) window.DaylensRange.mount(els.main, dashEl);
+      }
       homeHost.appendChild(todayStripEl());
       renderTodayStrip();
       showSheetNudge();
@@ -4242,7 +4259,27 @@
         onClick: () => showTabPicker(group),
       }));
       if (leaveTab && window.__appMode && trendy) homeTiles.push(makeTile({ id: 'home-leave-cal', icon: '📅', title: 'Leave calendar', hint: 'Who\'s off, and when', onClick: () => { lcState.person = ''; if (lcState.view === 'list') lcState.view = 'month'; showLeaveCalendar(leaveTab); } }));
-      homeHost.appendChild(tileGrid(homeTiles, true));
+      // The categories are their own section ("Your work"): a tinted panel
+      // with a heading, tiles in six fixed colours and a tab count, so they
+      // don't read as one more part of the dashboard (1.10.1).
+      const work = document.createElement('section');
+      work.className = 'work-panel';
+      work.id = 'work-panel';
+      work.setAttribute('aria-labelledby', 'work-panel-title');
+      work.innerHTML = '<div class="wp-head"><h2 id="work-panel-title">Your work</h2><span class="wp-sub">Pick a category to add an entry or open a tab.</span></div>';
+      const workGrid = tileGrid(homeTiles, true);
+      Array.from(workGrid.children).forEach((tile, i) => {
+        const g = groups[i];
+        if (!g) return;
+        const n = g.tabs.length;
+        const c = document.createElement('span');
+        c.className = 'tile-count';
+        c.textContent = `${n} ${n === 1 ? 'tab' : 'tabs'}`;
+        const text = tile.querySelector('.tile-text');
+        if (text) text.appendChild(c);
+      });
+      work.appendChild(workGrid);
+      homeHost.appendChild(work);
 
       // Size to actual content, same as every other screen — a fixed
       // floor here used to force this box to a hand-picked height (chosen
