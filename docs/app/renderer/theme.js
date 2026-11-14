@@ -251,7 +251,7 @@
     },
   };
   var KEY = 'statusApp.theme';
-  var DEFAULT = 'light'; // 1.9: light unless the person picks another (Settings → Theme)
+  var DEFAULT = 'brat'; // 1.10.7: Brat unless the person picks another (Settings → Theme). 1.9–1.10.6 it was Light.
 
   var styleEl = document.createElement('style');
   styleEl.id = 'theme-vars';

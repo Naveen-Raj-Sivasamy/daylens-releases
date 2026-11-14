@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.10.6'; // always the same as the app's version (package.json) — a test keeps them equal
+var BACKEND_VERSION = '1.10.7'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -1452,6 +1452,8 @@ function doPostInner_(e) {
       if (emAuth.error) return jsonOut({ ok: false, error: emAuth.error });
       var emValue = String(body.email || '').trim();
       if (emValue && !EMAIL_RE_.test(emValue)) return jsonOut({ ok: false, error: 'That doesn\'t look like an email address.' });
+      var emPersonal = body.personalEmail == null ? null : String(body.personalEmail).trim();
+      if (emPersonal && !EMAIL_RE_.test(emPersonal)) return jsonOut({ ok: false, error: 'The personal email doesn\'t look like an email address.' });
       var emLock = LockService.getScriptLock();
       if (!emLock.tryLock(LOCK_WAIT_MS)) return jsonOut({ ok: false, error: 'Server is busy — please try again in a few seconds.' });
       try {
@@ -1460,11 +1462,35 @@ function doPostInner_(e) {
         var emIdx = findUserRowIndex_(emData.headers, emData.rows, body.username);
         if (emIdx === -1) return jsonOut({ ok: false, error: 'No such account: ' + body.username });
         emData.sheet.getRange(emIdx + 2, findColumnIndex(emData.headers, 'Email') + 1).setValue(emValue);
+        var pcol = findColumnIndex(emData.headers, 'PersonalEmail');
+        if (emPersonal !== null && pcol !== -1) emData.sheet.getRange(emIdx + 2, pcol + 1).setValue(emPersonal);
       } finally {
         emLock.releaseLock();
       }
-      logAudit_(body.sessionToken, 'user email', '_Users', String(body.username) + (emValue ? ': set' : ': cleared'), 'Success');
-      return jsonOut({ ok: true, email: emValue, message: emValue ? 'Email saved.' : 'Email removed.' });
+      logAudit_(body.sessionToken, 'user email', '_Users', String(body.username) + (emValue ? ': set' : ': cleared') + (emPersonal === null ? '' : (emPersonal ? ', personal set' : ', personal cleared')), 'Success');
+      return jsonOut({ ok: true, email: emValue, personalEmail: emPersonal || '', message: emValue || emPersonal ? 'Email saved.' : 'Email removed.' });
+    }
+    // 1.10.7: each person's own second address (for password codes only).
+    if (body.action === 'getMyPersonalEmail' || body.action === 'setMyPersonalEmail') {
+      if (isDemoRole_(callerSession.role)) return jsonOut({ ok: false, error: 'Demo accounts can\'t save this.' });
+      var myLock = LockService.getScriptLock();
+      if (!myLock.tryLock(LOCK_WAIT_MS)) return jsonOut({ ok: false, error: 'Server is busy — please try again in a few seconds.' });
+      try {
+        var myData = usersSheetRows_();
+        var myIdx = findUserRowIndex_(myData.headers, myData.rows, callerSession.username);
+        if (myIdx === -1) return jsonOut({ ok: false, error: 'No such account.' });
+        var myCol = findColumnIndex(myData.headers, 'PersonalEmail');
+        if (body.action === 'getMyPersonalEmail') return jsonOut({ ok: true, email: myCol === -1 ? '' : String(myData.rows[myIdx][myCol] || '').trim(), workEmail: !!String(rowToUserRecord_(myData.headers, myData.rows[myIdx])['Email'] || '').trim() });
+        var myValue = String(body.email || '').trim();
+        if (myValue && !EMAIL_RE_.test(myValue)) return jsonOut({ ok: false, error: 'That doesn\'t look like an email address.' });
+        if (myCol === -1) { ensureUsersTab(); myData = usersSheetRows_(); myCol = findColumnIndex(myData.headers, 'PersonalEmail'); }
+        if (myCol === -1) return jsonOut({ ok: false, error: 'The Sheet needs its latest update first (Settings → About Daylens).' });
+        myData.sheet.getRange(myIdx + 2, myCol + 1).setValue(myValue);
+      } finally {
+        myLock.releaseLock();
+      }
+      logAudit_(body.sessionToken, 'personal email', '_Users', callerSession.username + (myValue ? ' set their personal email' : ' cleared their personal email'), 'Success');
+      return jsonOut({ ok: true, email: myValue, message: myValue ? 'Personal email saved.' : 'Personal email removed.' });
     }
     if (body.action === 'setUserRole') {
       var roleAuth = requireAdminSession_(body);
@@ -2959,7 +2985,7 @@ function postRowToExcelWebhook_(webhookUrl, tab, headers, values) {
 // admin made at setup). Passwords are salted + hashed; sessions are random
 // tokens. Admin-only actions re-check the role here on every call.
 var USERS_TAB_NAME = '_Users';
-var USERS_COLUMNS = ['Username', 'PasswordHash', 'Salt', 'Role', 'Active', 'CreatedAt', 'LastLoginAt', 'MustChangePassword', 'Email', 'Approver', 'Groups'];
+var USERS_COLUMNS = ['Username', 'PasswordHash', 'Salt', 'Role', 'Active', 'CreatedAt', 'LastLoginAt', 'MustChangePassword', 'Email', 'Approver', 'Groups', 'PersonalEmail'];
 var SESSIONS_TAB_NAME = '_Sessions';
 var SESSIONS_COLUMNS = ['SessionToken', 'Username', 'CreatedAt'];
 
@@ -2969,6 +2995,7 @@ function ensureUsersTab() {
     ensureColumnExists_(USERS_TAB_NAME, 'MustChangePassword'); // self-heal a pre-2.0 _Users tab
     ensureColumnExists_(USERS_TAB_NAME, 'Email'); // 1.3: optional, for nudges and kudos
     ensureColumnExists_(USERS_TAB_NAME, 'Approver'); // 1.4: may approve leave
+    ensureColumnExists_(USERS_TAB_NAME, 'PersonalEmail'); // 1.10.7: a second address, only for password codes
     var uc = CacheService.getScriptCache();
     if (!uc.get('usersGroupsCol')) { ensureColumnExists_(USERS_TAB_NAME, 'Groups'); uc.put('usersGroupsCol', '1', 21600); } // 1.5.1: team directory groups
     return;
@@ -3098,21 +3125,31 @@ function requestPasswordCode_(username) {
   var idx = findUserRowIndex_(data.headers, data.rows, name);
   if (idx === -1) return { ok: true, message: PW_CODE_SENT_ };
   var rec = rowToUserRecord_(data.headers, data.rows[idx]);
-  var email = String(rec['Email'] || '').trim();
-  if (!isActiveValue_(rec['Active']) || isDemoRole_(rec['Role']) || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: true, message: PW_CODE_SENT_ };
+  // The work address and the personal one, together: whichever arrives first works.
+  var addrs = [], seenAddr = {};
+  [rec['Email'], rec['PersonalEmail']].forEach(function (a) {
+    a = String(a || '').trim();
+    if (EMAIL_RE_.test(a) && !seenAddr[a.toLowerCase()]) { seenAddr[a.toLowerCase()] = 1; addrs.push(a); }
+  });
+  if (!isActiveValue_(rec['Active']) || isDemoRole_(rec['Role']) || !addrs.length) return { ok: true, message: PW_CODE_SENT_ };
   var code = String(Math.floor(100000 + Math.random() * 900000));
   var salt = Utilities.getUuid();
   cache.put(pwKey_('pwcode', name), JSON.stringify({ h: hashPassword_(code, salt), s: salt, tries: 0 }), PW_CODE_TTL_S);
   var team = PropertiesService.getScriptProperties().getProperty('TEAM_NAME') || 'your team';
   try {
-    MailApp.sendEmail(email, 'Your Daylens code: ' + code,
+    MailApp.sendEmail(addrs.join(','), 'Your Daylens code: ' + code,
       'Hi ' + rec['Username'] + ',\n\nYour code to set a new Daylens password for ' + team + ' is:\n\n    ' + code +
       '\n\nIt works once, for the next 15 minutes. If you didn\'t ask for it, ignore this email: your password hasn\'t changed.\n\n— Daylens');
   } catch (mailErr) {
     return { ok: false, error: 'The code couldn\'t be emailed just now — try again later, or ask your admin to reset your password.' };
   }
-  logAudit_('', 'password code', 'People', 'A code to set a new password was emailed to ' + rec['Username'] + '.');
-  return { ok: true, message: PW_CODE_SENT_ };
+  logAudit_('', 'password code', 'People', 'A code to set a new password was emailed to ' + rec['Username'] + ' (' + addrs.map(maskEmail_).join(', ') + ').');
+  return { ok: true, message: 'A code is on its way to ' + addrs.map(maskEmail_).join(' and ') + '. It works for 15 minutes. Nothing after a few minutes? Check spam (a work mailbox may quarantine it), or ask your admin to reset your password.' };
+}
+/** n***@gmail.com — enough to tell which inbox, not enough to learn the address. */
+function maskEmail_(e) {
+  var s = String(e || ''), at = s.lastIndexOf('@');
+  return at < 1 ? '' : s.charAt(0) + '***' + s.slice(at);
 }
 function resetPasswordWithCode_(username, code, newPassword) {
   var name = String(username || '').trim();
@@ -3301,6 +3338,7 @@ function listUsersPublic_() {
       createdAt: rec['CreatedAt'],
       lastLoginAt: rec['LastLoginAt'],
       email: String(rec['Email'] || '').trim(), // admins only (listUsers is admin-only)
+      personalEmail: String(rec['PersonalEmail'] || '').trim(),
       approver: String(rec['Approver'] || '').trim().toUpperCase() === 'TRUE',
       groups: dirSplit_(rec['Groups'] || ''),
     };
@@ -7480,6 +7518,8 @@ function runWeeklyCheck_(now, opts) {
       } catch (e) { Logger.log('check-in email to ' + p.name + ' failed: ' + e); }
     });
   }
+  var teamsPosted = false;
+  if (missing.length) teamsPosted = postCheckInToTeams_(missing, weekLabel);
   var cfg = getWeeklyCheckConfig_();
   if (cfg.summary && !opts.quiet) {
     var admins = cleanupRecipients_();
@@ -7494,7 +7534,56 @@ function runWeeklyCheck_(now, opts) {
   }
   PropertiesService.getScriptProperties().setProperty('WEEKLY_CHECK_LAST', activity.week.start);
   logAudit_(opts.sessionToken || null, 'check-in', '', names.length ? 'Reminded: ' + names.join(', ') : 'Everyone had updates', 'Success');
-  return { ok: true, week: activity.week, weekLabel: weekLabel, reminded: names, emailed: emailed };
+  return { ok: true, week: activity.week, weekLabel: weekLabel, reminded: names, emailed: emailed, teams: teamsPosted };
+}
+
+/** 1.10.7: the Friday check-in also goes to the team's Teams channel, one
+ * block per person: their name as a bold red title, then an @mention so
+ * Teams notifies them. The mention needs their work email from People; a
+ * person without one just gets the title and their name in plain text.
+ * Quietly does nothing when no Teams channel is set, or Teams refuses. */
+var DAYLENS_WEB_URL_ = 'https://naveen-raj-sivasamy.github.io/daylens-releases/app/';
+
+function postCheckInToTeams_(missing, weekLabel) {
+  var url = getTeamsWebhookUrl();
+  if (!url || !missing.length) return false;
+  var body = [
+    { type: 'TextBlock', text: '\u23F0 Time to add your updates', wrap: true, size: 'Medium', weight: 'Bolder' },
+    { type: 'TextBlock', text: String(weekLabel || ''), wrap: true, isSubtle: true, size: 'Small', spacing: 'None' }
+  ];
+  var entities = [];
+  missing.forEach(function (p) {
+    var name = String(p.name || '').replace(/[<>]/g, '').trim();
+    if (!name) return;
+    var mail = userEmail_(p.name);
+    var who = mail ? '<at>' + name + '</at>' : name;
+    if (mail) entities.push({ type: 'mention', text: '<at>' + name + '</at>', mentioned: { id: mail, name: name } });
+    body.push({
+      type: 'Container', style: 'emphasis', spacing: 'Medium',
+      items: [
+        { type: 'ColumnSet', columns: [
+          { type: 'Column', width: 'auto', verticalContentAlignment: 'Center', items: [{ type: 'TextBlock', text: '\uD83D\uDC64', size: 'ExtraLarge' }] },
+          { type: 'Column', width: 'stretch', verticalContentAlignment: 'Center', items: [
+            { type: 'TextBlock', text: name, wrap: true, size: 'Large', weight: 'Bolder', color: 'Attention' },
+            { type: 'TextBlock', text: '0 entries this week', isSubtle: true, size: 'Small', spacing: 'None' }
+          ] }
+        ] },
+        { type: 'TextBlock', text: who + ', a quick update now keeps the weekly report complete \uD83D\uDE4C', wrap: true, spacing: 'Small' }
+      ]
+    });
+  });
+  body.push({ type: 'TextBlock', text: 'On leave all week? Add it in Leave and you won\'t be reminded.', wrap: true, isSubtle: true, size: 'Small', spacing: 'Medium' });
+  var card = buildAdaptiveCardPayload_(body);
+  card.actions = [{ type: 'Action.OpenUrl', title: 'Open Daylens', url: DAYLENS_WEB_URL_, style: 'positive' }];
+  if (entities.length) card.msteams = { entities: entities };
+  try {
+    var resp = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', payload: JSON.stringify(card), muteHttpExceptions: true });
+    var code = resp.getResponseCode();
+    return code >= 200 && code < 300;
+  } catch (e) {
+    Logger.log('check-in post to Teams failed: ' + e);
+    return false;
+  }
 }
 
 /** From the hourly dispatcher: on the chosen day, from the chosen hour, once a week. */

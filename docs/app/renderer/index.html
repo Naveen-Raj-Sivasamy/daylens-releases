@@ -3189,12 +3189,12 @@
     els.main.innerHTML = '';
     const cur = window.__theme.current();
     const tile = (t) => {
-      const b = makeTile({ id: 'theme-' + t.id, icon: '', title: t.label + (t.id === 'light' ? ' (standard)' : '') + (t.id === cur ? '  ✓' : ''), hint: t.hint, variant: t.id === cur ? 'current' : '' });
+      const b = makeTile({ id: 'theme-' + t.id, icon: '', title: t.label + (t.id === 'brat' ? ' (standard)' : '') + (t.id === cur ? '  ✓' : ''), hint: t.hint, variant: t.id === cur ? 'current' : '' });
       b.querySelector('.tile-icon').outerHTML = `<span class="theme-swatch" aria-hidden="true"><span style="background:${t.brand}"></span><span style="background:${t.accent}"></span><span style="background:${t.surface}"></span></span>`;
       b.onclick = () => { window.__theme.set(t.id); showThemes(); };
       return b;
     };
-    // 1.9: light first (Light is the standard one), then dark.
+    // Light first, then dark (Brat is the standard one, 1.10.7).
     const all = window.__theme.list();
     [['Light', all.filter((t) => t.mode === 'light')], ['Dark', all.filter((t) => t.mode !== 'light')]].forEach(([name, list]) => {
       if (!list.length) return;
@@ -3299,7 +3299,7 @@
           <span class="avatar-sm">${escapeHtml(String(u.username).slice(0, 2).toUpperCase())}</span>
           <div class="grow">
             <div class="card-title">${escapeHtml(u.username)}${isMe ? ' <span class="card-sub">(you)</span>' : ''}</div>
-            <div class="card-sub">${last && !isNaN(last) ? 'Last login ' + escapeHtml(last.toLocaleString()) : 'Never logged in'} · <span class="user-email">${u.email ? escapeHtml(u.email) : 'no email'}</span>${u.approver ? ' · <b class="user-approver">approves leave</b>' : ''}${(u.groups || []).length ? ` · <span class="user-groups">${escapeHtml(u.groups.join(', '))}</span>` : ''}</div>
+            <div class="card-sub">${last && !isNaN(last) ? 'Last login ' + escapeHtml(last.toLocaleString()) : 'Never logged in'} · <span class="user-email">${u.email ? escapeHtml(u.email) : 'no email'}</span>${u.personalEmail ? ` · <span class="user-pemail">personal: ${escapeHtml(u.personalEmail)}</span>` : ''}${u.approver ? ' · <b class="user-approver">approves leave</b>' : ''}${(u.groups || []).length ? ` · <span class="user-groups">${escapeHtml(u.groups.join(', '))}</span>` : ''}</div>
           </div>
           <span class="pill ${u.active ? (u.role === 'Admin' ? 'admin' : u.role === 'Demo' ? 'demo' : 'user') : 'off'}">${u.active ? escapeHtml(u.role) : 'Inactive'}</span>
           <select class="role-select" title="Role">
@@ -3327,7 +3327,10 @@
             <input type="email" class="grow email-input" value="${escapeHtml(u.email || '')}" placeholder="name@company.com" spellcheck="false" aria-label="Email for ${escapeHtml(u.username)}" />
             <button type="button" class="mini-btn go email-save">Save</button>
           </div>
-          <div class="card-sub" style="margin-top:6px;">Optional. The Friday check-in and kudos also email them. Only admins see it. Leave it empty to remove it.</div>
+          <div class="card-row" style="margin-top:6px;">
+            <input type="email" class="grow pemail-input" value="${escapeHtml(u.personalEmail || '')}" placeholder="personal Gmail (for password codes)" spellcheck="false" aria-label="Personal email for ${escapeHtml(u.username)}" />
+          </div>
+          <div class="card-sub" style="margin-top:6px;">Optional. The Friday check-in and kudos also email the first box. A forgotten-password code goes to both boxes at once, so a work mailbox that blocks it doesn't lock them out. Only admins see these. Leave a box empty to remove it.</div>
         </div>
         <div class="groups-row" style="margin-top:10px;" hidden>
           <div class="groups-host"></div>
@@ -3401,7 +3404,7 @@
         const v = card.querySelector('.email-input').value.trim();
         const btn = card.querySelector('.email-save');
         btn.disabled = true;
-        const out = await window.statusApp.setUserEmail(u.username, v).catch((err) => ({ ok: false, error: err.message }));
+        const out = await window.statusApp.setUserEmail(u.username, v, card.querySelector('.pemail-input').value.trim()).catch((err) => ({ ok: false, error: err.message }));
         btn.disabled = false;
         if (!out || !out.ok) return msg(friendlyBackendError(out && out.error, 'Could not save the email.'), true);
         showUsers({ text: v ? `${u.username}'s email saved.` : `${u.username}'s email removed.` });
@@ -3998,7 +4001,23 @@
         <div class="login-err" id="cp-err"></div>
         <button class="primary" id="cp-save" style="width:100%;">Save my password</button>
         ${forced ? '' : '<button type="button" class="secondary" id="cp-cancel" style="width:100%; margin-top:6px;">Cancel</button>'}
+        ${forced ? '' : `<div class="field" style="margin-top:22px;"><label for="cp-pemail">Personal email for password codes (optional)</label>
+          <input id="cp-pemail" type="email" autocomplete="email" placeholder="your Gmail" spellcheck="false" />
+          <div class="card-sub" style="margin-top:6px;">If you forget your password, the code goes here as well as to your work email. Only you and the admins see it.</div>
+          <div class="login-err" id="cp-pemail-err"></div>
+          <button type="button" class="secondary" id="cp-pemail-save" style="width:100%; margin-top:6px;">Save personal email</button></div>`}
       </div>`;
+    if (!forced) {
+      const pe = document.getElementById('cp-pemail'), pErr = document.getElementById('cp-pemail-err'), pBtn = document.getElementById('cp-pemail-save');
+      window.statusApp.getMyPersonalEmail().then((r) => { if (r && r.ok && !pe.value) pe.value = r.email || ''; }).catch(() => {});
+      pBtn.onclick = async () => {
+        pErr.textContent = ''; pBtn.disabled = true;
+        const r = await window.statusApp.setMyPersonalEmail(pe.value.trim()).catch((e) => ({ ok: false, error: e.message }));
+        pBtn.disabled = false;
+        pErr.textContent = r && r.ok ? '' : friendlyBackendError(r && r.error, 'Could not save it.');
+        if (r && r.ok) pBtn.textContent = r.email ? 'Saved ✓' : 'Removed ✓';
+      };
+    }
     if (knownCurrent) document.getElementById('cp-current').value = knownCurrent;
     const err = document.getElementById('cp-err');
     const cancel = document.getElementById('cp-cancel');
