@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.10.7'; // always the same as the app's version (package.json) — a test keeps them equal
+var BACKEND_VERSION = '1.10.8'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -7493,8 +7493,15 @@ function runWeeklyCheck_(now, opts) {
   var missing = weeklyCheckMissing_(activity);
   var names = missing.map(function (p) { return p.name; });
   var weekLabel = formatShortDay_(activity.week.days[0]) + ' – ' + formatShortDay_(activity.week.days[4]);
-  if (opts.dryRun) return { ok: true, week: activity.week, weekLabel: weekLabel, reminded: names, emailed: 0, dryRun: true };
-  var emailed = 0;
+  if (opts.dryRun) {
+    // 1.10.8: also who has no email and whether a Teams channel / admin list is set, so the screen can show where it would go (counts and names only, never addresses)
+    var dryNoEmail = [];
+    missing.forEach(function (p) { if (!userEmail_(p.name)) dryNoEmail.push(p.name); });
+    var dryAdmins = 0;
+    try { dryAdmins = cleanupRecipients_().length; } catch (eAdm) { dryAdmins = 0; }
+    return { ok: true, week: activity.week, weekLabel: weekLabel, reminded: names, emailed: 0, dryRun: true, noEmail: dryNoEmail, teamsSet: !!getTeamsWebhookUrl(), adminCount: dryAdmins };
+  }
+  var emailed = 0, noEmail = [], mailFailed = [];
   if (missing.length) {
     var lock = LockService.getScriptLock();
     if (!lock.tryLock(30000)) return { ok: false, error: 'Server is busy — try again in a minute.' };
@@ -7510,16 +7517,17 @@ function runWeeklyCheck_(now, opts) {
     }
     missing.forEach(function (p) {
       var to = userEmail_(p.name);
-      if (!to) return;
+      if (!to) { noEmail.push(p.name); return; }
       try {
         MailApp.sendEmail(to, 'Reminder: add your updates for this week',
           'Hi ' + p.name + ',\n\nDaylens didn\'t find any entries from you this week (' + weekLabel + '). Please add your updates in Daylens before the week ends. If you were away, add it in Leave.\n\n— Sent by your team\'s Daylens');
         emailed++;
-      } catch (e) { Logger.log('check-in email to ' + p.name + ' failed: ' + e); }
+      } catch (e) { mailFailed.push(p.name); Logger.log('check-in email to ' + p.name + ' failed: ' + e); }
     });
   }
-  var teamsPosted = false;
-  if (missing.length) teamsPosted = postCheckInToTeams_(missing, weekLabel);
+  var teamsInfo = { status: 'nobody' };
+  if (missing.length) teamsInfo = postCheckInToTeams_(missing, weekLabel);
+  var teamsPosted = teamsInfo.status === 'posted';
   var cfg = getWeeklyCheckConfig_();
   if (cfg.summary && !opts.quiet) {
     var admins = cleanupRecipients_();
@@ -7534,7 +7542,7 @@ function runWeeklyCheck_(now, opts) {
   }
   PropertiesService.getScriptProperties().setProperty('WEEKLY_CHECK_LAST', activity.week.start);
   logAudit_(opts.sessionToken || null, 'check-in', '', names.length ? 'Reminded: ' + names.join(', ') : 'Everyone had updates', 'Success');
-  return { ok: true, week: activity.week, weekLabel: weekLabel, reminded: names, emailed: emailed, teams: teamsPosted };
+  return { ok: true, week: activity.week, weekLabel: weekLabel, reminded: names, emailed: emailed, noEmail: noEmail, mailFailed: mailFailed, teams: teamsPosted, teamsInfo: teamsInfo };
 }
 
 /** 1.10.7: the Friday check-in also goes to the team's Teams channel, one
@@ -7542,11 +7550,13 @@ function runWeeklyCheck_(now, opts) {
  * Teams notifies them. The mention needs their work email from People; a
  * person without one just gets the title and their name in plain text.
  * Quietly does nothing when no Teams channel is set, or Teams refuses. */
-var DAYLENS_WEB_URL_ = 'https://naveen-raj-sivasamy.github.io/daylens-releases/app/';
+var DAYLENS_WEB_URL_ = 'https://naveen-raj-sivasamy.github.io/daylens-releases/open/'; // a page that starts the Windows app (daylens://open); it offers the web app if the app isn't there
 
 function postCheckInToTeams_(missing, weekLabel) {
   var url = getTeamsWebhookUrl();
-  if (!url || !missing.length) return false;
+  if (!url) return { status: 'no-channel' };
+  if (!missing.length) return { status: 'nobody' };
+  var mentionedN = 0, plainNames = [];
   var body = [
     { type: 'TextBlock', text: '\u23F0 Time to add your updates', wrap: true, size: 'Medium', weight: 'Bolder' },
     { type: 'TextBlock', text: String(weekLabel || ''), wrap: true, isSubtle: true, size: 'Small', spacing: 'None' }
@@ -7557,7 +7567,7 @@ function postCheckInToTeams_(missing, weekLabel) {
     if (!name) return;
     var mail = userEmail_(p.name);
     var who = mail ? '<at>' + name + '</at>' : name;
-    if (mail) entities.push({ type: 'mention', text: '<at>' + name + '</at>', mentioned: { id: mail, name: name } });
+    if (mail) { entities.push({ type: 'mention', text: '<at>' + name + '</at>', mentioned: { id: mail, name: name } }); mentionedN++; } else plainNames.push(name);
     body.push({
       type: 'Container', style: 'emphasis', spacing: 'Medium',
       items: [
@@ -7579,10 +7589,10 @@ function postCheckInToTeams_(missing, weekLabel) {
   try {
     var resp = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', payload: JSON.stringify(card), muteHttpExceptions: true });
     var code = resp.getResponseCode();
-    return code >= 200 && code < 300;
+    return { status: code >= 200 && code < 300 ? 'posted' : 'refused', code: code, mentioned: mentionedN, plain: plainNames };
   } catch (e) {
     Logger.log('check-in post to Teams failed: ' + e);
-    return false;
+    return { status: 'failed', mentioned: mentionedN, plain: plainNames };
   }
 }
 

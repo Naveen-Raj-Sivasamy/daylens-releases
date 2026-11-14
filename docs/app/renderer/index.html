@@ -1228,6 +1228,11 @@
   .sched-list li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; padding: 8px 12px; border-radius: 10px; background: var(--card-bg); border: 1px solid var(--card-border); color: var(--card-text); margin-bottom: 6px; font-size: 13px; }
   .sched-list li span { color: var(--card-text-dim); }
   .sched-none { margin: 0 0 10px; font-size: 13px; color: var(--on-brand-dim); }
+  /* 1.10.8: who a Send button reaches, and a link to where that is set */
+  .where-box { margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--card-border); background: var(--card-bg); color: var(--card-text); font-size: 13px; line-height: 1.5; }
+  .where-box .wb-dim { color: var(--card-text-dim); }
+  .where-box .where-link { background: none; border: none; padding: 0 2px; margin-left: 4px; font: inherit; font-weight: 700; color: var(--card-text); text-decoration: underline; cursor: pointer; border-radius: 4px; }
+  .where-box .where-link:hover, .where-box .where-link:focus-visible { background: var(--accent-soft); color: var(--card-text); outline-offset: 2px; }
   .today-strip-head span { font-size: 11.5px; color: var(--text-dim); font-weight: 600; }
   .today-strip .today-more { color: var(--text); text-decoration: underline; }
   /* View report — the same tables as the email/download, right here */
@@ -2201,6 +2206,27 @@
       makeTile({ id: 'download-report-btn', icon: '⬇️', title: 'Download', hint: 'Save it to this computer as an Excel (.xlsx) file' }),
       makeTile({ id: 'ppt-report-btn', icon: '📽️', title: 'Monthly PPT', hint: 'A ready-made status deck for a month, as a PowerPoint file', onClick: () => showMonthlyPpt() }),
     ]));
+    // 1.10.8: who "Email report" reaches (the picked report's recipients), with a link to change them.
+    const openCfg = () => window.__appMode && window.__appPost({ type: 'open-section', name: 'manage', sub: 'report-configs-section' });
+    const emailWhere = document.createElement('div');
+    emailWhere.className = 'where-box';
+    emailWhere.id = 'email-where';
+    document.getElementById('report-tiles').appendChild(emailWhere);
+    const drawEmailWhere = () => {
+      const sel = document.getElementById('report-config-select');
+      const c = (sel ? configs.find((x) => x.name === sel.value) : null) || configs[0];
+      if (!c) { emailWhere.hidden = !configsFailed; emailWhere.innerHTML = configsFailed ? '<b>Email report</b> goes to the recipients set in Scheduled reports. <button type="button" class="where-link">Open Scheduled reports →</button>' : ''; const b0 = emailWhere.querySelector('.where-link'); if (b0) b0.onclick = openCfg; return; }
+      const n = c.recipientCount != null ? Number(c.recipientCount) || 0 : (c.recipients || []).length;
+      const list = admin && (c.recipients || []).length ? ': ' + (c.recipients || []).map(escapeHtml).join(', ') : '';
+      emailWhere.hidden = false;
+      emailWhere.innerHTML = n
+        ? `<b>Email report</b> goes to the ${n} ${n === 1 ? 'person' : 'people'} set for “${escapeHtml(c.name)}”${list}. <button type="button" class="where-link">${admin ? 'Change recipients →' : 'See Scheduled reports →'}</button>`
+        : `<b>Email report</b> has nobody to send to yet: no recipients are set for “${escapeHtml(c.name)}”. <button type="button" class="where-link">${admin ? 'Add recipients →' : 'See Scheduled reports →'}</button>`;
+      emailWhere.querySelector('.where-link').onclick = openCfg;
+    };
+    drawEmailWhere();
+    const cfgSel = document.getElementById('report-config-select');
+    if (cfgSel) cfgSel.addEventListener('change', drawEmailWhere);
     // What goes out automatically. Admins change it there; everyone else
     // can look (view only — who it's emailed to stays with the admins).
     if (me && me.loggedIn) {
@@ -2213,6 +2239,18 @@
         ${auto.length ? `<ul class="sched-list">${auto.map((c) => `<li><b>${escapeHtml(c.name)}</b><span>${escapeHtml(RS.when(c))}, to ${count(c) || 'no'} ${count(c) === 1 ? 'person' : 'people'}</span></li>`).join('')}</ul>`
           : configsFailed ? '<p class="sched-none">Couldn\'t load the scheduled reports just now — open Scheduled reports to see and change them.</p>'
           : '<p class="sched-none">Nothing goes out automatically yet. Reports can be emailed every day, every weekday, weekly, monthly or on days you choose.</p>'}`;
+      const wcLine = document.createElement('p');
+      wcLine.className = 'sched-none';
+      wcLine.id = 'wc-line';
+      wcLine.hidden = true;
+      block.appendChild(wcLine);
+      // (read after the screen is drawn, so Reports opens as fast as before)
+      window.statusApp.getWeeklyCheck().then((r) => {
+        if (scr.stale || !r || !r.ok || !r.settings) return;
+        const who = (r.preview && r.preview.reminded) || [];
+        wcLine.hidden = false;
+        wcLine.textContent = `Friday check-in: ${r.settings.enabled ? `on, every ${r.settings.day} from ${r.settings.hour}:00` : 'off'}. Right now it would remind ${who.length ? who.length + ': ' + who.join(', ') : 'nobody'}.`;
+      }).catch(() => {});
       block.appendChild(tileGrid([
         makeTile({ id: 'schedule-report-btn', icon: '🗓️', title: 'Scheduled reports', hint: admin ? 'Choose what is emailed, to whom and when, with a reminder before it goes out' : 'What is emailed and when (view only)' }),
         makeTile({ id: 'weekly-check-btn', icon: '🔔', title: 'Friday check-in', hint: admin ? 'Once a week, remind anyone who hasn\'t added anything (unless they\'re on leave)' : 'The weekly reminder for anyone who hasn\'t added anything (view only)' }),
@@ -2492,6 +2530,18 @@
         document.getElementById('digest-post-host').appendChild(tileGrid([
           makeTile({ id: 'digest-post-btn', icon: '📨', title: 'Post to Teams', hint: 'Posts exactly the text above, as you edited it' }),
         ], true));
+        // 1.10.8: where "Post to Teams" goes, and a link to set it
+        const postNote = document.createElement('div');
+        postNote.className = 'where-box';
+        postNote.hidden = true;
+        document.getElementById('digest-post-host').appendChild(postNote);
+        window.statusApp.getReportSettings().then((rs) => {
+          const set = !!((rs && rs.reportSettings && rs.reportSettings.teamsWebhookUrl) || (rs && rs.hidden && rs.hidden.teamsWebhookSet));
+          postNote.hidden = false;
+          postNote.innerHTML = set ? 'It is posted to your team\'s Teams channel. <button type="button" class="where-link">Change the channel →</button>'
+            : 'No Teams channel is set yet, so this can\'t be posted. <button type="button" class="where-link">Set it in Connections &amp; keys →</button>';
+          postNote.querySelector('.where-link').onclick = () => window.__appMode && window.__appPost({ type: 'open-section', name: 'manage', sub: 'app-settings-section' });
+        }).catch(() => {});
         document.getElementById('digest-post-btn').onclick = async () => {
           const postBtn = document.getElementById('digest-post-btn');
           const summaryNow = document.getElementById('digest-summary-text').value.trim();
