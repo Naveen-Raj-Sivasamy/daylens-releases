@@ -200,6 +200,9 @@
   .badge.no { background: #7a2e2e; color: #ffe9e9; }
   .badge.code { background: #8a5a1e; color: #fff3e0; }
   #gate { max-width: 380px; margin: 40px auto 0; text-align: center; }
+  .gate-spin { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; vertical-align: -2px; animation: gate-spin 0.8s linear infinite; }
+  @keyframes gate-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .gate-spin { animation: none; } }
   #gate input { width: 100%; margin-bottom: 12px; box-sizing: border-box; }
 
   /* App mode (embedded in the main desktop-app window — see app-mode.js):
@@ -264,7 +267,7 @@
   button.secondary { background: var(--input-bg); color: var(--card-text); border: 1px dashed var(--input-border); font-weight: 700; }
   button.secondary:hover { border-color: var(--gold-bright); color: var(--card-text); }
   button.icon-btn { background: transparent; color: #ff8f8f; border: 1px solid transparent; font-weight: 700; padding: 6px 10px; }
-  html[data-mode="light"] button.icon-btn { color: #c53030; }
+  html[data-mode="light"] button.icon-btn { color: #a52020; }
   button.icon-btn:hover { background: rgba(255,120,120,0.12); }
   /* icon-btns that ADD something (+ Add, + Add another column…) aren't destructive */
   button.icon-btn.add-btn { color: var(--card-text); border: 1.5px dashed var(--input-border); border-radius: 999px; }
@@ -347,7 +350,7 @@
     display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900;
     background: color-mix(in srgb, var(--h) 28%, transparent); color: var(--card-text);
   }
-  button.opt-x:hover { background: #e5484d; color: #fff; }
+  button.opt-x:hover { background: #c62828; color: #fff; }
   .opt-add {
     display: inline-flex; align-items: center; border: 1.5px dashed var(--input-border); border-radius: 999px; padding: 0 4px 0 12px;
   }
@@ -359,7 +362,7 @@
     border: 2px dashed var(--input-border); border-radius: 18px; min-height: 120px; display: flex; align-items: center; justify-content: center;
     gap: 8px; font-weight: 800; font-size: 14px; color: var(--card-text-dim); cursor: pointer; background: transparent; box-shadow: none !important;
   }
-  .new-list-tile:hover { border-color: var(--gold-bright); color: var(--card-text); }
+  .new-list-tile:hover { border-color: var(--gold-bright); color: var(--card-text); background: var(--card-bg-2); }
   /* Tabs section */
   .m-sub { font-size: 13px; font-weight: 800; margin: 18px 0 8px; color: var(--card-text); }
   .tm-tab-row { display: grid; grid-template-columns: auto 1fr auto auto auto auto; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 12px;
@@ -412,7 +415,7 @@
   .fs-tile { --h: var(--h1); display: flex; gap: 12px; align-items: flex-start; text-align: left; min-height: 78px; padding: 14px; border-radius: 16px; cursor: pointer; font: inherit;
     background: var(--input-bg); color: var(--card-text); border: 1px solid var(--card-border); border-top: 4px solid var(--h); }
   .fs-tile:nth-child(6n+2) { --h: var(--h2); } .fs-tile:nth-child(6n+3) { --h: var(--h3); } .fs-tile:nth-child(6n+4) { --h: var(--h4); } .fs-tile:nth-child(6n+5) { --h: var(--h5); } .fs-tile:nth-child(6n) { --h: var(--h6); }
-  .fs-tile:hover, .fs-tile:focus-visible { border-color: var(--h); outline: none; box-shadow: 0 6px 18px rgba(30,45,90,0.12); }
+  .fs-tile:hover, .fs-tile:focus-visible { background: var(--card-bg-2); color: var(--card-text); border-color: var(--h); outline: none; box-shadow: 0 6px 18px rgba(30,45,90,0.12); } /* 1.10.8: the page-wide button:hover turned this black in Brat */
   .fs-tile .ic { font-size: 22px; line-height: 1; flex: none; }
   .fs-tile .t { display: block; font-weight: 800; font-size: 14px; overflow-wrap: anywhere; }
   .fs-tile .h { display: block; font-size: 12px; color: var(--card-text-dim); margin-top: 3px; line-height: 1.4; }
@@ -420,6 +423,13 @@
   #fs-nav .fs-crumbs button { background: transparent !important; color: var(--card-text) !important; box-shadow: none !important; border: 1px solid var(--card-border) !important; padding: 4px 12px !important; }
   #fs-rows .fs-tab-group > .icon-btn { color: var(--card-text); border: 1px dashed var(--card-border); border-radius: 999px; padding: 5px 14px; font-weight: 700; }
   .fs-empty { font-size: 13px; color: var(--card-text-dim); margin: 0 0 12px; }
+  /* 1.10.8: "who gets it and where", beside every Send/Remind button, with a link to where it is set */
+  .where-box { margin: 10px 0; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--card-border); background: var(--card-bg-2); color: var(--card-text); font-size: 13px; line-height: 1.5; }
+  .where-box .wb-title { font-weight: 800; margin-bottom: 4px; }
+  .where-box ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+  .where-box .wb-dim { color: var(--card-text-dim); }
+  button.where-link { background: none; border: none; padding: 0 2px; margin-left: 4px; font: inherit; font-weight: 700; color: var(--card-text); text-decoration: underline; cursor: pointer; border-radius: 4px; }
+  button.where-link:hover, button.where-link:focus-visible { background: var(--accent-soft); color: var(--card-text); outline: none; }
   #fs-rows .fs-tab-group[hidden] { display: none; }
   /* one field = one compact row: name, type, then (only when needed) its choices */
   #fs-rows .fs-row.group { padding: 8px 12px; margin-bottom: 6px; border-top-width: 1px; box-shadow: none; }
@@ -522,7 +532,7 @@
        Team Accounts and checked against the server (get-admin-status in
        main.js) — the old separate per-PC admin password is gone. -->
   <div id="gate">
-    <h2>Tabs &amp; fields</h2>
+    <h2 id="gate-title">Tabs &amp; fields</h2>
     <p class="hint" id="gate-msg">Checking your access…</p>
   </div>
 
@@ -739,6 +749,7 @@
         </div>
         <label class="wc-check"><input type="checkbox" id="wc-summary" checked /> <span>Email the admins the list of who was reminded</span></label>
         <div class="wc-preview" id="wc-preview"></div>
+        <div class="where-box" id="wc-where" hidden></div>
         <p class="hint">Emails come from the Google account that owns your team's Sheet. Google lets a free Gmail account email up to 100 people a day (Google Workspace: 1,500), shared by everything the Sheet sends.</p>
         <div class="row-actions">
           <button class="secondary" id="wc-run-btn">Remind them now</button>
@@ -754,6 +765,7 @@
       <p class="hint">Each report emails the tabs and columns you pick to the people you choose — every day, every weekday, once a week, once a month, or on days you choose — with an optional reminder to the team a few hours before it goes out.</p>
       <p class="hint rc-limits">Reports and reminders are emailed from the Google account that owns your team's Sheet. Google lets a free Gmail account email up to 100 people a day (Google Workspace: 1,500) — every recipient of every email counts, so a big team on a free account may need Workspace.</p>
       <div class="notice" id="rc-update-note" hidden>Your team's Sheet needs the latest update to send reports every day, every weekday, once a month or on days you choose. Until then, reports can go out once a week. An admin can update it in Settings → About Daylens → Update.</div>
+      <div class="where-box" id="rc-where"></div>
       <div id="report-configs"></div>
       <div class="row-actions">
         <button class="secondary" id="add-report-config-btn">+ Add report</button>
@@ -891,6 +903,7 @@
 
   async function init() {
     const msgEl = document.getElementById('gate-msg');
+    showOpening();
     const status = await window.statusApp.getAdminStatus({ fresh: true }).catch((err) => ({ admin: false, error: err.message }));
     if (!status.admin && status.loggedIn && !status.connectionBroken) {
       enterViewOnly();
@@ -914,9 +927,28 @@
     await loadAndShowContent();
   }
 
-  async function loadAndShowContent() {
+  // 1.10.8: the screen used to show Tabs & fields' own home at once and only jump to the section that was asked for
+  // (Friday check-in…) when the data arrived 10–15 s later, which looked like the wrong page. Now a loader names what's opening.
+  const SECTION_NAMES = { 'weekly-check-section': 'Friday check-in', 'report-configs-section': 'Scheduled reports', 'cleanup-section': 'Clean-up & backups', 'app-settings-section': 'Settings', 'tabs-section': 'Tabs' };
+  function showOpening() {
+    const want = new URLSearchParams(location.search).get('section');
+    const g = document.getElementById('gate');
+    g.classList.remove('hidden');
+    document.getElementById('content').classList.add('hidden');
+    document.getElementById('gate-title').textContent = want && SECTION_NAMES[want] ? SECTION_NAMES[want] : 'Tabs & fields';
+    const m = document.getElementById('gate-msg');
+    m.className = 'hint';
+    m.innerHTML = '<span class="gate-spin" aria-hidden="true"></span> ' + (want && SECTION_NAMES[want] ? 'Opening ' + SECTION_NAMES[want] + '…' : 'Loading…');
+    m.setAttribute('role', 'status');
+  }
+  function revealContent() {
+    window.__contentShownOnce = true;
     document.getElementById('gate').classList.add('hidden');
     document.getElementById('content').classList.remove('hidden');
+  }
+
+  async function loadAndShowContent() {
+    if (!window.__contentShownOnce) showOpening(); // later reloads (after a save, Refresh) keep what's on screen
 
     const errorSection = document.getElementById('load-error-section');
     const errorMsg = document.getElementById('load-error-msg');
@@ -951,6 +983,7 @@
         ? 'Teammates can look at these once your team\'s Sheet has the latest update. An admin can install it in Settings → About Daylens → Update.'
         : 'Couldn\'t load — ' + (err.message || String(err));
       errorSection.hidden = false;
+      revealContent();
       return;
     }
     liveTabs = (tabsRes && tabsRes.tabs) || [];
@@ -988,11 +1021,13 @@
     renderTabsSection();
     const wantSection = new URLSearchParams(location.search).get('section');
     if (wantSection && !window.__openedWanted && window.__openSection) { window.__openedWanted = true; window.__openSection(wantSection); }
+    revealContent();
     renderOptions();
     renderFieldSchema();
     renderCategories();
     renderReportSettings();
     renderReportConfigs();
+    drawRcWhere();
     renderConnectGroups();
     renderDataSources();
   }
@@ -2946,10 +2981,11 @@
     });
     const cuCount = Number(r.recipientCount) || 0;
     document.getElementById('cleanup-to').innerHTML = viewOnly
-      ? (cuCount ? `Backups are emailed to <b>${cuCount}</b> admin address${cuCount === 1 ? '' : 'es'} (only admins see them).` : 'No one to send backups to yet — an admin adds that in Contacts & backups.')
+      ? (cuCount ? `Backups are emailed to <b>${cuCount}</b> admin address${cuCount === 1 ? '' : 'es'} (only admins see them).` : 'No one to send backups to yet. An admin adds that in Contacts & backups.')
       : (r.recipients || []).length
-        ? `Backups go to <b>${esc(r.recipients.join(', '))}</b> (change it in Contacts & backups).`
-        : 'No one to send backups to yet — add an admin contact email in Contacts & backups.';
+        ? `Backups go to <b>${esc(r.recipients.join(', '))}</b>. <button type="button" class="where-link" data-go="contacts-section">Change in Contacts & backups →</button>`
+        : 'No one to send backups to yet. <button type="button" class="where-link" data-go="contacts-section">Add an admin email in Contacts & backups →</button>';
+    document.querySelectorAll('#cleanup-to .where-link').forEach((b) => { b.onclick = () => goSetting(b.dataset.go); });
     document.getElementById('cleanup-last').innerHTML = cuLastText(r.lastResult);
     renderCopies(r.copies);
     refreshCleanupPreview();
@@ -3036,6 +3072,7 @@
   twoStep(document.getElementById('cleanup-run-btn'), 'Yes — email and remove them', async () => {
     const err = document.getElementById('cleanup-err'), ok = document.getElementById('cleanup-ok');
     err.textContent = ''; ok.textContent = '';
+    if (cuDirty()) { err.textContent = 'Save the clean-up first. Back up now uses what is saved, not what is on screen.'; return; }
     const r = await window.statusApp.runCleanupNow().catch((e) => ({ ok: false, error: e.message }));
     if (!r || !r.ok) err.textContent = (r && r.error) || 'That didn\'t work.';
     else ok.textContent = r.total ? `Done: ${nf(r.total)} rows emailed to ${(r.emailedTo || []).join(', ')} and removed.` : 'Nothing was old enough to back up.';
@@ -3069,6 +3106,46 @@
     document.getElementById('wc-hour').value = String(r.settings.hour == null ? 15 : r.settings.hour);
     document.getElementById('wc-summary').checked = r.settings.summary !== false;
     pv.innerHTML = wcPreviewText(r.preview);
+    wcLastPreview = r.preview;
+    drawWcWhere();
+  }
+  // Where the check-in goes, with a link to the screen where each part is set.
+  let wcLastPreview = null;
+  function goSetting(id) {
+    if (id === 'people') { if (window.__appMode) window.__appPost({ type: 'open-section', name: 'users' }); return; }
+    if (window.__openSection) window.__openSection(id);
+  }
+  function drawWcWhere() {
+    const box = document.getElementById('wc-where');
+    const p = wcLastPreview;
+    if (!p || !p.ok) { box.hidden = true; return; }
+    const who = p.reminded || [], noMail = p.noEmail || [];
+    const withMail = who.filter((n) => noMail.indexOf(n) === -1);
+    const link = (id, label) => `<button type="button" class="where-link" data-go="${id}">${esc(label)}</button>`;
+    const teamsSet = p.teamsSet != null ? !!p.teamsSet : !!(reportSettings.teamsWebhookUrl || (settingsHidden && settingsHidden.teamsWebhookSet));
+    const admins = p.adminCount != null ? p.adminCount : 0;
+    const summaryOn = document.getElementById('wc-summary').checked;
+    if (!who.length) { box.hidden = false; box.innerHTML = '<div class="wb-title">Who gets it, and where</div><div class="wb-dim">Nobody needs a reminder right now, so nothing would be sent.</div>'; return; }
+    box.hidden = false;
+    box.innerHTML = `<div class="wb-title">Who gets it, and where</div><ul>
+      <li><b>Daylens pop-up</b> to ${who.map(esc).join(', ')}.</li>
+      <li><b>Email</b> ${withMail.length ? 'to ' + withMail.map(esc).join(', ') + '.' : 'to nobody.'}${noMail.length ? ` <span class="wb-dim">No email on file: ${noMail.map(esc).join(', ')}.</span> ${link('people', 'Add emails in People →')}` : ''}</li>
+      <li><b>Teams channel</b>: ${teamsSet ? 'a card is posted there, @mentioning anyone with a work email.' : '<span class="wb-dim">not set, so nothing is posted.</span>'} ${link('app-settings-section', teamsSet ? 'Change in Connections & keys →' : 'Set it in Connections & keys →')}</li>
+      <li><b>Admin summary email</b>: ${summaryOn ? (admins ? `to ${admins} admin${admins === 1 ? '' : 's'}.` : '<span class="wb-dim">switched on, but no admin email is set.</span>') : '<span class="wb-dim">switched off above.</span>'} ${link('contacts-section', 'Change in Contacts & backups →')}</li>
+    </ul>`;
+    box.querySelectorAll('.where-link').forEach((b) => { b.onclick = () => goSetting(b.dataset.go); });
+  }
+  document.getElementById('wc-summary').addEventListener('change', () => drawWcWhere());
+  // Scheduled reports: where the reminders before a report go, and where the other related settings are.
+  function drawRcWhere() {
+    const box = document.getElementById('rc-where');
+    const teamsSet = !!(reportSettings.teamsWebhookUrl || (settingsHidden && settingsHidden.teamsWebhookSet));
+    box.innerHTML = `<div class="wb-title">Related settings</div><ul>
+      <li><b>Teams channel</b> for the reminder before each report: ${teamsSet ? 'set.' : '<span class="wb-dim">not set, so reminders go by email only.</span>'} <button type="button" class="where-link" data-go="app-settings-section">${teamsSet ? 'Change in Connections & keys →' : 'Set it in Connections & keys →'}</button></li>
+      <li><b>Emails to people</b> need an address in <button type="button" class="where-link" data-go="people">People →</button></li>
+      <li><b>Friday check-in</b> (the weekly "add your updates" reminder) is separate: <button type="button" class="where-link" data-go="weekly-check-section">Open Friday check-in →</button></li>
+    </ul>`;
+    box.querySelectorAll('.where-link').forEach((b) => { b.onclick = () => goSetting(b.dataset.go); });
   }
   document.getElementById('weekly-check-section').onOpen = () => { loadWeeklyCheck(); };
   document.getElementById('save-wc-btn').addEventListener('click', async () => {
@@ -3080,13 +3157,62 @@
     };
     await saveSection('save-wc-btn', 'wc-err', 'wc-ok', () => window.statusApp.saveWeeklyCheck(settings));
   });
+  // 1.10.8: say what actually went where (the old line only said "Reminded X"), so "nothing arrived" can be traced.
+  function wcResultLines(r) {
+    const who = r.reminded || [];
+    const good = [], warn = [];
+    if (!who.length) return { good: ['Nobody to remind — everyone has added something this week.'], warn };
+    good.push(`Daylens reminder sent to ${who.join(', ')} — it shows as a pop-up the next time they open Daylens.`);
+    if (r.emailed) good.push(`Email sent to ${r.emailed}.`);
+    if ((r.noEmail || []).length) warn.push(`No email on file for ${r.noEmail.join(', ')}, so no email went to them (add it in People → Email).`);
+    if ((r.mailFailed || []).length) warn.push(`The email to ${r.mailFailed.join(', ')} couldn't be sent (Google refused it).`);
+    const t = r.teamsInfo;
+    if (!t) warn.push('Nothing was posted to Teams: your team\'s Sheet still has an older script that can\'t. An admin needs to click Update in Settings → About Daylens.');
+    else if (t.status === 'posted') {
+      good.push('Posted in your Teams channel' + (t.mentioned ? `, @mentioning ${t.mentioned}.` : '.'));
+      if ((t.plain || []).length) warn.push(`${t.plain.join(', ')} ${t.plain.length === 1 ? 'has' : 'have'} no work email in People, so Teams couldn't @mention them (their name is on the card).`);
+    }
+    else if (t.status === 'no-channel') warn.push('Not posted to Teams: no Teams channel link is set (Tabs & fields → Connections & keys).');
+    else if (t.status === 'refused') warn.push(`Teams refused the post (answer ${t.code}). Check the channel link in Tabs & fields → Connections & keys.`);
+    else if (t.status === 'failed') warn.push('Couldn\'t reach Teams to post. Try again in a minute.');
+    return { good, warn };
+  }
   twoStep(document.getElementById('wc-run-btn'), 'Yes — remind them now', async () => {
     const err = document.getElementById('wc-err'), ok = document.getElementById('wc-ok');
     err.textContent = ''; ok.textContent = '';
+    if (wcDirty()) { err.textContent = 'Save the check-in first. Remind them now uses what is saved, not what is on screen.'; return; }
     const r = await window.statusApp.runWeeklyCheckNow().catch((e) => ({ ok: false, error: e.message }));
     if (!r || !r.ok) { err.textContent = (r && r.error) || 'That didn\'t work.'; return; }
-    ok.textContent = r.reminded.length ? `Reminded ${r.reminded.join(', ')}${r.emailed ? ` (${r.emailed} by email too)` : ''}.` : 'Nobody to remind — everyone has added something this week.';
+    const lines = wcResultLines(r);
+    ok.innerHTML = lines.good.map(esc).join('<br>');
+    err.innerHTML = lines.warn.map(esc).join('<br>');
   });
+  // The button works on what is SAVED. With unsaved changes on screen it is switched off and says why.
+  // A "now" button works on what is SAVED. With unsaved changes on screen it is switched off and says why (1.10.8).
+  function guardSavedOnly(sectionId, btnId, saveLabel) {
+    const section = document.getElementById(sectionId), btn = document.getElementById(btnId);
+    const label = btn.textContent;
+    const isDirty = () => !!section.querySelector('.save-state.dirty');
+    const sync = () => {
+      const dirty = isDirty();
+      const working = btn.textContent === 'Working…';
+      const off = dirty && !working;
+      if (btn.disabled !== off && !working) btn.disabled = off;
+      const tip = dirty ? `Save first. "${label}" uses what is saved.` : '';
+      if (btn.title !== tip) btn.title = tip;
+      const hid = btnId + '-hint';
+      let hint = document.getElementById(hid);
+      if (!hint) { hint = document.createElement('p'); hint.className = 'hint'; hint.id = hid; hint.setAttribute('role', 'status'); hint.hidden = true; section.querySelector('.row-actions').insertAdjacentElement('afterend', hint); }
+      const msg = dirty ? `You have unsaved changes. ${saveLabel} first, then use "${label}" (it works with what is saved).` : '';
+      if (hint.textContent !== msg) hint.textContent = msg;
+      if (hint.hidden === dirty) hint.hidden = !dirty;
+    };
+    new MutationObserver(sync).observe(section, { attributes: true, attributeFilter: ['class'], subtree: true, childList: true });
+    return isDirty;
+  }
+  const wcSection = document.getElementById('weekly-check-section');
+  const wcDirty = guardSavedOnly('weekly-check-section', 'wc-run-btn', 'Save the check-in');
+  const cuDirty = guardSavedOnly('cleanup-section', 'cleanup-run-btn', 'Save the clean-up');
 
   // -------------------- Import from Excel / CSV --------------------
   // The file is read on this computer; columns and names are matched here

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open Daylens</title>
+<style>
+:root{--bg:#f4f9f6;--card:#ffffff;--ink:#14231c;--dim:#43534a;--line:#d5ded8;--brand:#0f6b46;--on-brand:#ffffff}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1612;--card:#17231d;--ink:#eef5f0;--dim:#b4c4b9;--line:#2c3d34;--brand:#2fbf86;--on-brand:#06180f}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,"Segoe UI",Roboto,sans-serif;padding:24px 16px}
+main{width:100%;max-width:440px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:28px 24px;display:grid;gap:14px;text-align:center}
+h1{margin:0;font-size:22px}
+p{margin:0;color:var(--dim)}
+.spin{width:28px;height:28px;margin:0 auto;border-radius:50%;border:3px solid var(--line);border-top-color:var(--brand);animation:s .9s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none;border-top-color:var(--line)}}
+.btns{display:grid;gap:10px;margin-top:4px}
+a.btn{display:block;padding:12px 16px;border-radius:12px;font-weight:700;text-decoration:none;border:2px solid var(--brand);color:var(--brand)}
+a.btn.fill{background:var(--brand);color:var(--on-brand)}
+a.btn:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+small{color:var(--dim)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <div class="spin" id="spin" aria-hidden="true"></div>
+  <h1 id="title">Opening Daylens…</h1>
+  <p id="msg" role="status">If your browser asks, choose <b>Open Daylens</b>.</p>
+  <div class="btns" id="btns" hidden>
+    <a class="btn fill" id="again" href="daylens://open">Open the Daylens app</a>
+    <a class="btn" href="../app/">Use Daylens on the web instead</a>
+  </div>
+  <small id="dl" hidden>Don't have the app? <a href="../">Get Daylens</a></small>
+</main>
+<script>
+(function () {
+  var launched = false;
+  function left() { launched = true; }
+  window.addEventListener('blur', left);
+  document.addEventListener('visibilitychange', function () { if (document.hidden) left(); });
+  setTimeout(function () { try { location.href = 'daylens://open'; } catch (e) {} }, 400);
+  setTimeout(function () {
+    document.getElementById('spin').hidden = true;
+    document.getElementById('btns').hidden = false;
+    document.getElementById('dl').hidden = false;
+    document.getElementById('title').textContent = launched ? 'Daylens should be open' : 'Daylens didn\'t open';
+    document.getElementById('msg').textContent = launched
+      ? 'You can close this tab. If Daylens isn\'t in front, use the buttons below.'
+      : 'The app may not be installed on this computer, or your browser blocked the link. Try again, or use the web version.';
+  }, 3500);
+})();
+</script>
+</body>
+</html>
