@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.10.8'; // always the same as the app's version (package.json) — a test keeps them equal
+var BACKEND_VERSION = '1.10.9'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -2574,18 +2574,25 @@ function callGemini_(promptText, opts) {
   // "standard" keys stop working entirely in September 2026). Keeping it
   // out of the URL also means it never ends up in a server access log.
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent';
-  var response = UrlFetchApp.fetch(url, {
-    method: 'post',
-    contentType: 'application/json',
-    headers: { 'x-goog-api-key': apiKey },
-    // opts (the assistant): a system instruction, the conversation as turns,
-    // and a JSON answer.
-    payload: JSON.stringify(Object.assign(
-      { contents: opts.contents || [{ parts: [{ text: promptText }] }] },
-      opts.system ? { systemInstruction: { parts: [{ text: opts.system }] } } : {},
-      opts.json ? { generationConfig: { responseMimeType: 'application/json', temperature: 0.2 } } : {})),
-    muteHttpExceptions: true,
-  });
+  // opts (the assistant): a system instruction, the conversation as turns, and a JSON answer.
+  // opts.fast (1.10.9): ask the model to think less, so a short question gets a quick answer. Some models don't
+  // take that setting; if Google refuses the request for it (HTTP 400), the same request goes once more without it.
+  var send = function (fast) {
+    var gen = opts.json ? { responseMimeType: 'application/json', temperature: 0.2 } : null;
+    if (fast) gen = Object.assign(gen || {}, { thinkingConfig: { thinkingLevel: 'low' } });
+    return UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { 'x-goog-api-key': apiKey },
+      payload: JSON.stringify(Object.assign(
+        { contents: opts.contents || [{ parts: [{ text: promptText }] }] },
+        opts.system ? { systemInstruction: { parts: [{ text: opts.system }] } } : {},
+        gen ? { generationConfig: gen } : {})),
+      muteHttpExceptions: true,
+    });
+  };
+  var response = send(!!opts.fast);
+  if (opts.fast && response.getResponseCode() === 400) response = send(false);
   var code = response.getResponseCode();
   if (code < 200 || code >= 300) {
     throw new Error('Gemini API error (HTTP ' + code + ', model "' + model + '"): ' + response.getContentText().slice(0, 300));
@@ -8416,6 +8423,7 @@ function sendKudos_(session, body) {
 // leave. Never: passwords, sessions, emails, keys, webhook links, settings
 // tabs, hidden tabs or the activity log. It never saves anything itself.
 var ASSISTANT_MAX_ROWS_ = 60;
+var ASSISTANT_LIGHT_ROWS_ = 200; // rows read per tab when the question has nothing to search for
 var ASSISTANT_PER_HOUR_ = 40;
 
 /** Words worth searching for in the question ("WEB-412", "maya", "deploy"). */
@@ -8475,7 +8483,11 @@ function assistantContext_(session, question, now) {
       }),
     });
     if (sheet.getLastRow() <= 1) return;
-    var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+    // 1.10.9: "Hi", "how do I…" and the like have nothing to look up, so only the newest rows are read (for "my recent
+    // rows"). A question with a word or a date range to search for still reads the whole tab, as before.
+    var lastRow = sheet.getLastRow();
+    var firstRow = (terms.length || range) ? 2 : Math.max(2, lastRow - ASSISTANT_LIGHT_ROWS_ + 1);
+    var values = sheet.getRange(firstRow, 1, lastRow - firstRow + 1, headers.length).getValues();
     var nameIdx = -1;
     headers.forEach(function (h, i) { if (nameIdx === -1 && String(h).trim().toLowerCase() === 'name') nameIdx = i; });
     var dIdx = findColumnIndex(headers, cleanupDateColumn_(headers, spec));
@@ -8545,7 +8557,9 @@ function askAssistant_(session, body) {
   var question = String(msgs[msgs.length - 1].text).slice(0, 1500);
   var now = new Date();
   var tz = Session.getScriptTimeZone();
+  var t0 = Date.now();
   var ctx = assistantContext_(session, msgs.filter(function (m) { return m.role === 'user'; }).slice(-3).map(function (m) { return m.text; }).join(' '), now);
+  var tCtx = Date.now() - t0;
   var nav = (body.nav || []).filter(function (n) { return n && /^[a-z0-9:_ .&-]{1,80}$/i.test(String(n.id || '')) && !/^doc:/i.test(String(n.id)); }).slice(0, 150)
     .map(function (n) { return { id: String(n.id), label: String(n.label || n.id).slice(0, 80) }; });
   // The Document Centre: names and purposes only (never the links), and only
@@ -8586,7 +8600,9 @@ function askAssistant_(session, body) {
   msgs.forEach(function (m) { contents.push({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: String(m.text).slice(0, 1500) }] }); });
   var raw;
   try {
-    raw = callGemini_('', { system: system, contents: contents, json: true });
+    var tAi0 = Date.now();
+    raw = callGemini_('', { system: system, contents: contents, json: true, fast: true });
+    var tAi = Date.now() - tAi0;
   } catch (err) {
     var em = String(err && err.message || err);
     if (/^NO_GEMINI_KEY/.test(em)) return { ok: false, noKey: true, error: 'The assistant needs your team\'s free Gemini key — an admin adds it in Tabs & fields → Connections & keys.' };
@@ -8598,8 +8614,10 @@ function askAssistant_(session, body) {
   var actions = (Array.isArray(out.actions) ? out.actions : []).filter(function (a) { return a && a.type === 'open' && navIds.indexOf(String(a.target)) !== -1; }).slice(0, 3)
     .map(function (a) { var n = nav[navIds.indexOf(String(a.target))]; return { type: 'open', target: n.id, label: String(a.label || n.label).slice(0, 60) }; });
   var draft = assistantDraft_(session, out.draft, ctx);
-  logAudit_(null, 'assistant', draft ? draft.tab : '', session.username + ' asked the assistant' + (draft ? ' (draft for ' + draft.tab + ')' : ''), 'Success');
-  return { ok: true, reply: String(out.reply || '').slice(0, 4000), actions: actions, draft: draft };
+  // how long each part took, so a slow answer can be traced (reading the Sheet, or waiting for Gemini)
+  var secs = function (ms) { return (Math.round(ms / 100) / 10) + 's'; };
+  logAudit_(null, 'assistant', draft ? draft.tab : '', session.username + ' asked the assistant' + (draft ? ' (draft for ' + draft.tab + ')' : '') + ' — reading the Sheet ' + secs(tCtx) + ', Gemini ' + secs(tAi || 0), 'Success');
+  return { ok: true, reply: String(out.reply || '').slice(0, 4000), actions: actions, draft: draft, timing: { sheetMs: tCtx, aiMs: tAi || 0 } };
 }
 
 
