@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.11.0'; // always the same as the app's version (package.json) — a test keeps them equal
+var BACKEND_VERSION = '1.11.1'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -8953,6 +8953,31 @@ function customReportBlob_(data) {
     return x;
   };
   put(temp.getSheets()[0].setName(safeName('Summary')), customReportSummaryRows_(data));
+  // Charts (1.11.1): the same two pictures the app shows, on their own sheet with the numbers they are drawn from.
+  // One series per person up to six; with more people, everyone together (as in the app).
+  var chartSeries = data.people.length <= 6
+    ? data.people.map(function (p) { return { name: p.person, entries: p.entries, perDay: p.perDay }; })
+    : [{ name: 'Everyone picked (' + data.people.length + ' people)',
+      entries: data.periods.map(function (pd, i) { return data.people.reduce(function (n, p) { return n + p.entries[i]; }, 0); }),
+      perDay: data.periods.map(function (pd, i) { var e = 0, wd = 0; data.people.forEach(function (p) { e += p.entries[i]; wd += p.workingDays[i]; }); return wd > 0 ? Math.round((e / wd) * 100) / 100 : ''; }) }];
+  var chartHead = ['Period'].concat(chartSeries.map(function (x) { return x.name; }));
+  var entriesGrid = [chartHead].concat(data.periods.map(function (pd, i) { return [pd.label].concat(chartSeries.map(function (x) { return x.entries[i]; })); }));
+  var rateGrid = [chartHead].concat(data.periods.map(function (pd, i) { return [pd.label].concat(chartSeries.map(function (x) { return x.perDay[i] === null ? '' : x.perDay[i]; })); }));
+  var chartSheet = temp.insertSheet(safeName('Charts'));
+  var P1 = data.periods.length + 1, CW = chartHead.length, rateTop = P1 + 4;
+  chartSheet.getRange(1, 1, 1, 1).setValues([['Entries in each period']]).setFontWeight('bold');
+  chartSheet.getRange(2, 1, P1, CW).setValues(entriesGrid);
+  chartSheet.getRange(2, 1, 1, CW).setFontWeight('bold');
+  chartSheet.getRange(rateTop, 1, 1, 1).setValues([['Entries per working day']]).setFontWeight('bold');
+  chartSheet.getRange(rateTop + 1, 1, P1, CW).setValues(rateGrid);
+  chartSheet.getRange(rateTop + 1, 1, 1, CW).setFontWeight('bold');
+  try {
+    // drawn by Google Sheets and carried into the Excel file; if a chart can't be made, the numbers above are still there
+    chartSheet.insertChart(chartSheet.newChart().setChartType(Charts.ChartType.COLUMN).addRange(chartSheet.getRange(2, 1, P1, CW)).setNumHeaders(1)
+      .setOption('title', 'Entries in each period').setOption('legend', { position: 'bottom' }).setPosition(1, CW + 2, 0, 0).build());
+    chartSheet.insertChart(chartSheet.newChart().setChartType(Charts.ChartType.LINE).addRange(chartSheet.getRange(rateTop + 1, 1, P1, CW)).setNumHeaders(1)
+      .setOption('title', 'Entries per working day').setOption('legend', { position: 'bottom' }).setOption('pointSize', 6).setPosition(21, CW + 2, 0, 0).build());
+  } catch (chartErr) { Logger.log('custom report charts not added: ' + chartErr); }
   var bySource = [['Person', 'Tab'].concat(data.periods.map(function (pd) { return pd.label; }))];
   data.people.forEach(function (p) { Object.keys(p.bySource).sort().forEach(function (t) { bySource.push([p.person, t].concat(p.bySource[t])); }); });
   put(temp.insertSheet(safeName('By tab')), bySource);

@@ -204,9 +204,21 @@
     // opening/closing is picked up by that same ResizeObserver for free,
     // no separate floating-overlay/clipping logic needed. manage.html has
     // no #card (it's a plain scrollable popup), so .scroll-area/body there.
-    const host = document.getElementById('card') || document.querySelector('.scroll-area') || document.body;
-    host.appendChild(bar);
-    host.appendChild(panel);
+    const card = document.getElementById('card');
+    const scroller = card ? null : document.querySelector('.scroll-area');
+    if (scroller && scroller.parentElement) {
+      // 1.11.1: on these screens the strip used to sit at the end of the scrolling content, so it jumped up the
+      // screen whenever the content was short (while a section was still loading, for instance). It now sits
+      // below the scrolling area, at the bottom of the window, and stays there.
+      panel.style.maxHeight = '60vh';
+      panel.style.overflowY = 'auto';
+      scroller.insertAdjacentElement('afterend', panel);
+      scroller.insertAdjacentElement('afterend', bar);
+    } else {
+      const host = card || document.body;
+      host.appendChild(bar);
+      host.appendChild(panel);
+    }
   }
 
   function init() {
