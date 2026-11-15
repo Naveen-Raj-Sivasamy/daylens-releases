@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.11.1'; // always the same as the app's version (package.json) — a test keeps them equal
+var BACKEND_VERSION = '1.11.2'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -153,6 +153,7 @@ var HOLIDAYS_TAB_NAME = '_Holidays';
 // =============================== API ======================================
 
 function doGet(e) {
+  execReset_();
   // `e` (and e.parameter) is only ever missing when someone runs doGet
   // directly from the Apps Script editor's "Run" button instead of hitting
   // the real web app URL — the editor calls it with no arguments. That's a
@@ -341,6 +342,7 @@ var DASH_CHANGERS_ = {
   setTabType: true, saveFieldLayout: true, setUserRole: true,
 };
 function doPost(e) {
+  execReset_();
   REQ_START_ = Date.now(); REQ_TIMED_ = false;
   var out = doPostInner_(e);
   try {
@@ -1244,13 +1246,13 @@ function doPostInner_(e) {
         var resetSalt = Utilities.getUuid();
         var hashCol = findColumnIndex(resetData.headers, 'PasswordHash');
         var saltCol = findColumnIndex(resetData.headers, 'Salt');
-        resetData.sheet.getRange(resetIdx + 2, hashCol + 1).setValue(hashPassword_(body.newPassword, resetSalt));
-        resetData.sheet.getRange(resetIdx + 2, saltCol + 1).setValue(resetSalt);
+        execDirty_(); resetData.sheet.getRange(resetIdx + 2, hashCol + 1).setValue(hashPassword_(body.newPassword, resetSalt));
+        execDirty_(); resetData.sheet.getRange(resetIdx + 2, saltCol + 1).setValue(resetSalt);
         // An admin-set password is temporary — they choose their own at next
         // sign-in. Not a Demo account: several people share it (1.7).
         var resetRec = rowToUserRecord_(resetData.headers, resetData.rows[resetIdx]);
         var mustColR = findColumnIndex(resetData.headers, 'MustChangePassword');
-        if (mustColR !== -1) resetData.sheet.getRange(resetIdx + 2, mustColR + 1).setValue(isDemoRole_(resetRec['Role']) ? 'FALSE' : 'TRUE');
+        execDirty_(); if (mustColR !== -1) resetData.sheet.getRange(resetIdx + 2, mustColR + 1).setValue(isDemoRole_(resetRec['Role']) ? 'FALSE' : 'TRUE');
         // A reset also lifts the "too many wrong passwords" pause (1.7) —
         // before, the new password was refused for up to 15 minutes.
         clearLoginFails_(resetRec['Username']);
@@ -1279,7 +1281,7 @@ function doPostInner_(e) {
           return jsonOut({ ok: false, error: 'Can\'t deactivate the only remaining admin account.' });
         }
         var activeCol = findColumnIndex(activeData.headers, 'Active');
-        activeData.sheet.getRange(activeIdx + 2, activeCol + 1).setValue(body.active ? 'TRUE' : 'FALSE');
+        execDirty_(); activeData.sheet.getRange(activeIdx + 2, activeCol + 1).setValue(body.active ? 'TRUE' : 'FALSE');
       } finally {
         activeLock.releaseLock();
       }
@@ -1367,7 +1369,7 @@ function doPostInner_(e) {
         var apData = usersSheetRows_();
         var apIdx = findUserRowIndex_(apData.headers, apData.rows, body.username);
         if (apIdx === -1) return jsonOut({ ok: false, error: 'No such account: ' + body.username });
-        apData.sheet.getRange(apIdx + 2, findColumnIndex(apData.headers, 'Approver') + 1).setValue(body.approver ? 'TRUE' : '');
+        execDirty_(); apData.sheet.getRange(apIdx + 2, findColumnIndex(apData.headers, 'Approver') + 1).setValue(body.approver ? 'TRUE' : '');
       } finally {
         apLock.releaseLock();
       }
@@ -1455,7 +1457,7 @@ function doPostInner_(e) {
       if (body.action === 'customReportOptions') return jsonOut(Object.assign(customReportOptions_(callerSession), { recipients: customReportRecipients_(callerSession) }));
       if (body.action === 'customReport') return jsonOut(customReportData_(callerSession, body.spec, {}));
       if (body.action === 'customReportFile') return jsonOut(customReportFile_(callerSession, body.spec));
-      if (body.action === 'customReportEmail') return jsonOut(customReportEmail_(callerSession, body.spec, body.to));
+      if (body.action === 'customReportEmail') return jsonOut(customReportEmail_(callerSession, body.spec, body.to, body.pdf, body.charts));
       return jsonOut(customReportAsk_(callerSession, body.text));
     }
 
@@ -1473,9 +1475,9 @@ function doPostInner_(e) {
         var emData = usersSheetRows_();
         var emIdx = findUserRowIndex_(emData.headers, emData.rows, body.username);
         if (emIdx === -1) return jsonOut({ ok: false, error: 'No such account: ' + body.username });
-        emData.sheet.getRange(emIdx + 2, findColumnIndex(emData.headers, 'Email') + 1).setValue(emValue);
+        execDirty_(); emData.sheet.getRange(emIdx + 2, findColumnIndex(emData.headers, 'Email') + 1).setValue(emValue);
         var pcol = findColumnIndex(emData.headers, 'PersonalEmail');
-        if (emPersonal !== null && pcol !== -1) emData.sheet.getRange(emIdx + 2, pcol + 1).setValue(emPersonal);
+        execDirty_(); if (emPersonal !== null && pcol !== -1) emData.sheet.getRange(emIdx + 2, pcol + 1).setValue(emPersonal);
       } finally {
         emLock.releaseLock();
       }
@@ -1497,7 +1499,7 @@ function doPostInner_(e) {
         if (myValue && !EMAIL_RE_.test(myValue)) return jsonOut({ ok: false, error: 'That doesn\'t look like an email address.' });
         if (myCol === -1) { ensureUsersTab(); myData = usersSheetRows_(); myCol = findColumnIndex(myData.headers, 'PersonalEmail'); }
         if (myCol === -1) return jsonOut({ ok: false, error: 'The Sheet needs its latest update first (Settings → About Daylens).' });
-        myData.sheet.getRange(myIdx + 2, myCol + 1).setValue(myValue);
+        execDirty_(); myData.sheet.getRange(myIdx + 2, myCol + 1).setValue(myValue);
       } finally {
         myLock.releaseLock();
       }
@@ -1526,10 +1528,10 @@ function doPostInner_(e) {
           return jsonOut({ ok: false, error: 'Can\'t demote the only remaining admin account.' });
         }
         var roleCol = findColumnIndex(roleData.headers, 'Role');
-        roleData.sheet.getRange(roleIdx + 2, roleCol + 1).setValue(body.role);
+        execDirty_(); roleData.sheet.getRange(roleIdx + 2, roleCol + 1).setValue(body.role);
         // Made a Demo account: it's shared, so it isn't asked for a new password.
         var roleMust = findColumnIndex(roleData.headers, 'MustChangePassword');
-        if (body.role === DEMO_ROLE_ && roleMust !== -1) roleData.sheet.getRange(roleIdx + 2, roleMust + 1).setValue('FALSE');
+        execDirty_(); if (body.role === DEMO_ROLE_ && roleMust !== -1) roleData.sheet.getRange(roleIdx + 2, roleMust + 1).setValue('FALSE');
       } finally {
         roleLock.releaseLock();
       }
@@ -1558,7 +1560,7 @@ function doPostInner_(e) {
         var rnOther = findUserRowIndex_(rnData.headers, rnData.rows, rnTo);
         if (rnOther !== -1 && rnOther !== rnIdx) return jsonOut({ ok: false, error: 'Someone in this team is already called "' + rnTo + '".' });
         var rnOld = String(rowToUserRecord_(rnData.headers, rnData.rows[rnIdx])['Username']);
-        rnData.sheet.getRange(rnIdx + 2, findColumnIndex(rnData.headers, 'Username') + 1).setValue(rnTo);
+        execDirty_(); rnData.sheet.getRange(rnIdx + 2, findColumnIndex(rnData.headers, 'Username') + 1).setValue(rnTo);
         removeSessionsForUser_(rnOld);
         recordRename_(rnOld, rnTo);
         var rnCounts = renameUserEverywhere_(rnOld, rnTo);
@@ -1599,7 +1601,7 @@ function doPostInner_(e) {
         if (delUserRec['Role'] === 'Admin' && countOtherActiveAdmins_(delUserData, delUserIdx) === 0) {
           return jsonOut({ ok: false, error: 'Can\'t delete the only remaining admin account.' });
         }
-        delUserData.sheet.deleteRow(delUserIdx + 2);
+        execDirty_(); delUserData.sheet.deleteRow(delUserIdx + 2);
         removeSessionsForUser_(delUserRec['Username']);
       } finally {
         delUserLock.releaseLock();
@@ -1656,6 +1658,7 @@ function doPostInner_(e) {
         return jsonOut({ ok: false, error: 'Missing "version".' });
       }
       var cfgSheet = ensureConfigTab();
+      EXEC_.config = null;
       var cfgData = cfgSheet.getDataRange().getValues();
       var updated = false;
       for (var vi = 1; vi < cfgData.length; vi++) {
@@ -2042,11 +2045,11 @@ function tmResetAdminPassword() {
   var temp = Utilities.getUuid().replace(/-/g, '').slice(0, 10);
   var salt = Utilities.getUuid();
   var row = idx + 2;
-  data.sheet.getRange(row, findColumnIndex(data.headers, 'PasswordHash') + 1).setValue(hashPassword_(temp, salt));
-  data.sheet.getRange(row, findColumnIndex(data.headers, 'Salt') + 1).setValue(salt);
-  data.sheet.getRange(row, findColumnIndex(data.headers, 'Active') + 1).setValue(true);
+  execDirty_(); data.sheet.getRange(row, findColumnIndex(data.headers, 'PasswordHash') + 1).setValue(hashPassword_(temp, salt));
+  execDirty_(); data.sheet.getRange(row, findColumnIndex(data.headers, 'Salt') + 1).setValue(salt);
+  execDirty_(); data.sheet.getRange(row, findColumnIndex(data.headers, 'Active') + 1).setValue(true);
   var mc = findColumnIndex(data.headers, 'MustChangePassword');
-  if (mc !== -1) data.sheet.getRange(row, mc + 1).setValue(true);
+  execDirty_(); if (mc !== -1) data.sheet.getRange(row, mc + 1).setValue(true);
   removeSessionsForUser_(rowToUserRecord_(data.headers, data.rows[idx])['Username']);
   clearLoginFails_(rowToUserRecord_(data.headers, data.rows[idx])['Username']); // (1.7) the new one works at once
   ui.alert('Temporary password', 'Sign in to Daylens as "' + name + '" with:\n\n' + temp +
@@ -2624,6 +2627,22 @@ function callGemini_(promptText, opts) {
 
 // ============================== HELPERS ===================================
 
+// ---- what one request remembers (1.11.2) ----
+// Every call to the Sheet (find a tab, read its headings, read its rows) is a
+// round trip to Google, and on a slow Sheet each one costs a noticeable
+// fraction of a second. One request used to ask for the same things again and
+// again: the _Config tab was read in full for every single setting, and the
+// _Users tab's columns were re-checked every time the people list was needed.
+// Home's dashboard made about 300 such calls for a twelve-tab team.
+// EXEC_ holds what this request has already read: the settings, the people
+// list, and which one-off checks it has done. A real Apps Script run starts
+// with it empty; doGet/doPost also empty it, and anything that writes to
+// _Config or _Users drops the matching copy, so nothing stale is ever read.
+var EXEC_ = {};
+function execReset_() { EXEC_ = {}; }
+/** Call before writing to _Users (or any tab a memo here covers): the next read is fresh. */
+function execDirty_() { EXEC_.users = null; }
+
 function cached(key, computeFn) {
   var cache = CacheService.getScriptCache();
   var hit = cache.get(key);
@@ -2653,9 +2672,12 @@ function listVisibleTabsUncached() {
  * completely blank tab — one with no header row has nothing to build a
  * form from (e.g. the "Sheet1" every new Google Sheet starts with). */
 function teamTabNames_(ss) {
-  return ss.getSheets()
-    .filter(function (s) { return s.getName().indexOf('_') !== 0 && s.getLastColumn() > 0; })
-    .map(function (s) { return s.getName(); });
+  var out = [];
+  ss.getSheets().forEach(function (s) {
+    var name = s.getName(); // asked once per tab (it was asked twice)
+    if (name.indexOf('_') !== 0 && s.getLastColumn() > 0) out.push(name);
+  });
+  return out;
 }
 
 /** Right after setup: removes the empty starter tab a new Google Sheet
@@ -3009,18 +3031,29 @@ var SESSIONS_TAB_NAME = '_Sessions';
 var SESSIONS_COLUMNS = ['SessionToken', 'Username', 'CreatedAt'];
 
 function ensureUsersTab() {
+  if (EXEC_.usersTabOk) return;
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   if (ss.getSheetByName(USERS_TAB_NAME)) {
-    ensureColumnExists_(USERS_TAB_NAME, 'MustChangePassword'); // self-heal a pre-2.0 _Users tab
-    ensureColumnExists_(USERS_TAB_NAME, 'Email'); // 1.3: optional, for nudges and kudos
-    ensureColumnExists_(USERS_TAB_NAME, 'Approver'); // 1.4: may approve leave
-    ensureColumnExists_(USERS_TAB_NAME, 'PersonalEmail'); // 1.10.7: a second address, only for password codes
+    // These add a column an older _Users tab doesn't have yet. That only needs doing once after an update,
+    // so the result is remembered for 6 hours (and "Refresh" in the app clears it) instead of re-reading the
+    // headings five times on every request (1.11.2).
     var uc = CacheService.getScriptCache();
-    if (!uc.get('usersGroupsCol')) { ensureColumnExists_(USERS_TAB_NAME, 'Groups'); uc.put('usersGroupsCol', '1', 21600); } // 1.5.1: team directory groups
+    var flag = 'usersCols:' + BACKEND_VERSION;
+    if (!uc.get(flag)) {
+      ensureColumnExists_(USERS_TAB_NAME, 'MustChangePassword'); // self-heal a pre-2.0 _Users tab
+      ensureColumnExists_(USERS_TAB_NAME, 'Email'); // 1.3: optional, for nudges and kudos
+      ensureColumnExists_(USERS_TAB_NAME, 'Approver'); // 1.4: may approve leave
+      ensureColumnExists_(USERS_TAB_NAME, 'PersonalEmail'); // 1.10.7: a second address, only for password codes
+      ensureColumnExists_(USERS_TAB_NAME, 'Groups'); // 1.5.1: team directory groups
+      uc.put(flag, '1', 21600);
+      EXEC_.users = null;
+    }
+    EXEC_.usersTabOk = true;
     return;
   }
   var sheet = ss.insertSheet(USERS_TAB_NAME);
   sheet.getRange(1, 1, 1, USERS_COLUMNS.length).setValues([USERS_COLUMNS]);
+  EXEC_.users = null;
   // No seed row — there's no credential to invent. The very first account
   // is created by bootstrapFirstAdmin below, which only works while this
   // tab has zero data rows, then refuses forever after.
@@ -3044,12 +3077,18 @@ function hashPassword_(password, salt) {
 }
 
 function usersSheetRows_() {
+  // Read once per request (1.11.2): signing in, the dashboard and the leave rules each asked for it, some of
+  // them several times. Callers get their own copy of the rows, so changing one never changes another's.
+  if (EXEC_.users) return { sheet: EXEC_.users.sheet, headers: EXEC_.users.headers.slice(), rows: EXEC_.users.rows.map(function (r) { return r.slice(); }) };
   ensureUsersTab();
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(USERS_TAB_NAME);
-  var headers = getHeaderRow(sheet);
-  var lastRow = sheet.getLastRow();
-  var rows = lastRow <= 1 ? [] : sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
-  return { sheet: sheet, headers: headers, rows: rows };
+  // one read for the headings and the rows together
+  var all = sheet.getDataRange().getValues();
+  var headers = (all[0] || []).filter(function (v) { return v !== ''; });
+  var rows = all.slice(1).map(function (r) { return r.slice(0, headers.length); });
+  if (rows.length === 1 && rows[0].every(function (v) { return v === ''; })) rows = [];
+  EXEC_.users = { sheet: sheet, headers: headers, rows: rows };
+  return { sheet: sheet, headers: headers.slice(), rows: rows.map(function (r) { return r.slice(); }) };
 }
 
 // Username lookup is case-insensitive (so "Naveen" and "naveen" are the
@@ -3199,10 +3238,10 @@ function resetPasswordWithCode_(username, code, newPassword) {
     if (!isActiveValue_(rec['Active']) || isDemoRole_(rec['Role'])) return wrong;
     realName = rec['Username'];
     var salt = Utilities.getUuid();
-    data.sheet.getRange(idx + 2, findColumnIndex(data.headers, 'PasswordHash') + 1).setValue(hashPassword_(pw, salt));
-    data.sheet.getRange(idx + 2, findColumnIndex(data.headers, 'Salt') + 1).setValue(salt);
+    execDirty_(); data.sheet.getRange(idx + 2, findColumnIndex(data.headers, 'PasswordHash') + 1).setValue(hashPassword_(pw, salt));
+    execDirty_(); data.sheet.getRange(idx + 2, findColumnIndex(data.headers, 'Salt') + 1).setValue(salt);
     var mc = findColumnIndex(data.headers, 'MustChangePassword');
-    if (mc !== -1) data.sheet.getRange(idx + 2, mc + 1).setValue('FALSE'); // they chose it themselves
+    execDirty_(); if (mc !== -1) data.sheet.getRange(idx + 2, mc + 1).setValue('FALSE'); // they chose it themselves
   } finally {
     lock.releaseLock();
   }
@@ -3261,7 +3300,7 @@ function loginUser_(username, password) {
   var sessSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SESSIONS_TAB_NAME);
   sessSheet.appendRow([token, rec['Username'], new Date()]);
   var lastLoginCol = findColumnIndex(data.headers, 'LastLoginAt');
-  if (lastLoginCol !== -1) data.sheet.getRange(idx + 2, lastLoginCol + 1).setValue(new Date());
+  execDirty_(); if (lastLoginCol !== -1) data.sheet.getRange(idx + 2, lastLoginCol + 1).setValue(new Date());
   var props = PropertiesService.getScriptProperties();
   return {
     ok: true, sessionToken: token, username: rec['Username'], role: rec['Role'],
@@ -4714,6 +4753,7 @@ function ensureColumnExists_(tab, column) {
 var CONFIG_TAB_NAME = '_Config';
 
 function ensureConfigTab() {
+  if (EXEC_.configSheet) return EXEC_.configSheet;
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(CONFIG_TAB_NAME);
   if (!sheet) {
@@ -4721,7 +4761,12 @@ function ensureConfigTab() {
     sheet.getRange(1, 1, 1, 2).setValues([['Key', 'Value']]);
     sheet.hideSheet();
   }
-  ensureConfigDefaults_(sheet);
+  // Adding missing settings is a migration: needed once after an update (remembered 6 hours), not on every
+  // read of every setting, where it listed every tab's name and read the whole tab each time (1.11.2).
+  var cc = CacheService.getScriptCache();
+  var flag = 'cfgDefaults:' + BACKEND_VERSION;
+  if (!cc.get(flag)) { ensureConfigDefaults_(sheet); cc.put(flag, '1', 21600); EXEC_.config = null; }
+  EXEC_.configSheet = sheet;
   return sheet;
 }
 
@@ -4801,18 +4846,24 @@ function ensureConfigDefaults_(sheet) {
  * nudges whoever's on an older version to grab the update. No redeploy
  * needed, since this reads live sheet data, not script code. */
 function getConfigValue(key) {
-  var sheet = ensureConfigTab();
-  var data = sheet.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][0]).trim() === key) return data[i][1];
+  // _Config is read once per request (1.11.2), not once per setting
+  if (!EXEC_.config) {
+    var data = ensureConfigTab().getDataRange().getValues();
+    var map = {};
+    for (var i = 1; i < data.length; i++) {
+      var k = String(data[i][0]).trim();
+      if (k && !Object.prototype.hasOwnProperty.call(map, k)) map[k] = data[i][1]; // the first row with that key, as before
+    }
+    EXEC_.config = map;
   }
-  return '';
+  return Object.prototype.hasOwnProperty.call(EXEC_.config, key) ? EXEC_.config[key] : '';
 }
 
 /** Sets a _Config key's value, adding the row if it somehow doesn't exist
  * yet (shouldn't normally happen — ensureConfigDefaults_ seeds every known
  * key). Used by the widget's in-app "Manage Fields & Options" screen. */
 function setConfigValue(key, value) {
+  EXEC_.config = null; // the next read of a setting is fresh
   var sheet = ensureConfigTab();
   var data = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
@@ -5773,7 +5824,7 @@ function richTextPlain_(text) {
 // (or age) the tab's columns are in.
 function appendUserRow_(data, rec) {
   var headers = getHeaderRow(data.sheet);
-  data.sheet.appendRow(headers.map(function (h) { return Object.prototype.hasOwnProperty.call(rec, h) ? rec[h] : ''; }));
+  execDirty_(); data.sheet.appendRow(headers.map(function (h) { return Object.prototype.hasOwnProperty.call(rec, h) ? rec[h] : ''; }));
 }
 
 function normalizeTeamId_(raw) {
@@ -5799,10 +5850,10 @@ function changeMyPassword_(sessionToken, currentPassword, newPassword) {
       return { ok: false, error: 'Pick a new password — not the same one.' };
     }
     var salt = Utilities.getUuid();
-    data.sheet.getRange(idx + 2, findColumnIndex(data.headers, 'PasswordHash') + 1).setValue(hashPassword_(newPassword, salt));
-    data.sheet.getRange(idx + 2, findColumnIndex(data.headers, 'Salt') + 1).setValue(salt);
+    execDirty_(); data.sheet.getRange(idx + 2, findColumnIndex(data.headers, 'PasswordHash') + 1).setValue(hashPassword_(newPassword, salt));
+    execDirty_(); data.sheet.getRange(idx + 2, findColumnIndex(data.headers, 'Salt') + 1).setValue(salt);
     var mustCol = findColumnIndex(data.headers, 'MustChangePassword');
-    if (mustCol !== -1) data.sheet.getRange(idx + 2, mustCol + 1).setValue('FALSE');
+    execDirty_(); if (mustCol !== -1) data.sheet.getRange(idx + 2, mustCol + 1).setValue('FALSE');
   } finally {
     lock.releaseLock();
   }
@@ -5949,12 +6000,12 @@ function saveReminder_(session, rem) {
       var row = data.vals[idx].slice();
       row[1] = rem.type; row[2] = String(rem.reference).trim(); row[3] = String(rem.requester || '').trim();
       row[4] = String(rem.comments || ''); row[5] = due; row[6] = assigned.join(', ');
-      data.sheet.getRange(idx + 2, 1, 1, REMINDERS_COLUMNS.length).setValues([row]);
+      execDirty_(); data.sheet.getRange(idx + 2, 1, 1, REMINDERS_COLUMNS.length).setValues([row]);
       logAudit_(null, 'reminder update', REMINDERS_TAB_NAME, session.username + ': ' + row[2], 'Success');
       return { ok: true, id: rem.id };
     }
     var id = Utilities.getUuid().slice(0, 8);
-    data.sheet.appendRow([id, rem.type, String(rem.reference).trim(), String(rem.requester || '').trim(),
+    execDirty_(); data.sheet.appendRow([id, rem.type, String(rem.reference).trim(), String(rem.requester || '').trim(),
       String(rem.comments || ''), due, assigned.join(', '), session.username, new Date(), 'Open', '', '']);
     logAudit_(null, 'reminder create', REMINDERS_TAB_NAME, session.username + ': ' + String(rem.reference).trim(), 'Success');
     return { ok: true, id: id };
@@ -5971,7 +6022,7 @@ function setReminderDone_(session, id, done) {
     var idx = findReminderRow_(data.vals, id);
     if (idx === -1) return { ok: false, error: 'That reminder no longer exists.' };
     if (!reminderVisibleTo_(reminderFromRow_(data.vals[idx]), session)) return { ok: false, error: 'Not your reminder.' };
-    data.sheet.getRange(idx + 2, 10, 1, 3).setValues([[done ? 'Done' : 'Open', done ? session.username : '', done ? new Date() : '']]);
+    execDirty_(); data.sheet.getRange(idx + 2, 10, 1, 3).setValues([[done ? 'Done' : 'Open', done ? session.username : '', done ? new Date() : '']]);
     return { ok: true };
   } finally {
     lock.releaseLock();
@@ -5990,7 +6041,7 @@ function deleteReminder_(session, id) {
     if (session.role !== 'Admin' && rem.createdBy.toLowerCase() !== String(session.username).toLowerCase()) {
       return { ok: false, error: 'Only the person who created it (or an admin) can delete it.' };
     }
-    data.sheet.deleteRow(idx + 2);
+    execDirty_(); data.sheet.deleteRow(idx + 2);
     return { ok: true };
   } finally {
     lock.releaseLock();
@@ -6129,8 +6180,12 @@ var BIG_TAB_ROWS_ = 3000;
 function tabSizes_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var cfg = getCleanupConfig_();
-  var byName = {};
-  ss.getSheets().forEach(function (sh) { byName[sh.getName()] = sh; });
+  var byName = {}, teamTabs = [];
+  ss.getSheets().forEach(function (sh) { // one pass: each tab's name is asked for once (1.11.2)
+    var nm = sh.getName();
+    byName[nm] = sh;
+    if (nm.indexOf('_') !== 0 && sh.getLastColumn() > 0) teamTabs.push(nm);
+  });
   // (1.10.1) The Speed check only needs the row counts. cleanupTabs_() reads
   // every tab's headings (about 1.4 s each on a slow Sheet, 17 s in all),
   // which the check then blamed on "counting rows". Here a tab is told apart
@@ -6138,7 +6193,7 @@ function tabSizes_() {
   // the Clean-up screen, which does read them.
   var types = getTabTypes();
   var tabs = [{ tab: AUDIT_LOG_TAB_NAME, label: 'Activity log', allowed: true, why: '' }];
-  teamTabNames_(ss).forEach(function (name) {
+  teamTabs.forEach(function (name) {
     var leave = types[name] === 'leave';
     tabs.push({ tab: name, label: name, allowed: !leave, why: leave ? 'Leave records are kept for good.' : '' });
   });
@@ -6777,11 +6832,11 @@ function saveMeetingActions_(session, tab, meetingDate, requester, queries) {
         row[12] = JSON.stringify(src);
         if (status === 'Done') { row[9] = 'Done'; row[10] = session.username; row[11] = new Date(); closed++; }
         else { row[9] = 'Open'; updated++; }
-        data.sheet.getRange(idx + 2, 1, 1, REMINDERS_COLUMNS.length).setValues([row]);
+        execDirty_(); data.sheet.getRange(idx + 2, 1, 1, REMINDERS_COLUMNS.length).setValues([row]);
         return;
       }
       if (!owner || status === 'Done' || !query) return;
-      data.sheet.appendRow([Utilities.getUuid().slice(0, 8), 'Meeting', query, String(requester || '').slice(0, 120), comments,
+      execDirty_(); data.sheet.appendRow([Utilities.getUuid().slice(0, 8), 'Meeting', query, String(requester || '').slice(0, 120), comments,
         meetingActionDue_(q.due, meetingDate), owner, session.username, new Date(), 'Open', '', '',
         JSON.stringify({ kind: 'meeting', tab: tab, meeting: meetingDate, status: status, answer: answer })]);
       created++;
@@ -7183,6 +7238,7 @@ function activityDateColumn_(headers, tabSchema, type) {
  * after a block whose readable dates are all more than a month before
  * `from`. A tab of free-text dates is read whole, as before. */
 var ACTIVITY_BLOCK_ = 500;
+var ACTIVITY_WHOLE_ROWS_ = 3000; // up to this many rows, a tab is read in one call
 function activityRows_(sheet, width, dIdx, from, monthFirst) {
   var last = sheet.getLastRow();
   if (last <= 1) return [];
@@ -7348,8 +7404,15 @@ function weekActivity_(now) {
   cached('tabs', listVisibleTabs).forEach(function (tab) {
     if (ignoredTabs[String(tab).toLowerCase()]) return; // an admin chose "Don't count this tab"
     var sheet = ss.getSheetByName(tab);
-    if (!sheet || sheet.getLastRow() <= 1) return;
-    var headers = getHeaderRow(sheet);
+    if (!sheet) return;
+    var lastRow = sheet.getLastRow();
+    if (lastRow <= 1) return;
+    // 1.11.2: a tab of ordinary size is read in ONE call (headings and rows together). It used to take about
+    // eight calls a tab (count the rows, read the headings, read the rows in blocks), and each call to a slow
+    // Sheet costs a noticeable fraction of a second. A very long tab is still read from the bottom in blocks.
+    var whole = lastRow <= ACTIVITY_WHOLE_ROWS_ ? sheet.getDataRange().getValues() : null;
+    var headers = whole ? (whole[0] || []).filter(function (v) { return v !== ''; }) : getHeaderRow(sheet);
+    var bodyRows = whole ? whole.slice(1).map(function (r) { return r.slice(0, headers.length); }) : null;
     var type = types[tab] || 'custom';
     if (type === 'weekly-meeting' || type === 'holiday') return; // meeting notes and the holiday list aren't anyone's own entries
     var ticketRows = null;
@@ -7357,7 +7420,7 @@ function weekActivity_(now) {
       // open tickets: by Status, however old the ticket; the waiting ones by how long since they were opened
       var st = findColumnIndex(headers, 'Status');
       if (st !== -1) {
-        ticketRows = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+        ticketRows = bodyRows || sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
         var tdIdx = activityDateColumn_(headers, schema[tab] || {}, type);
         var tid = searchColumn_(headers, /^(ticket ?(id|no\.?|number)|id|ref(erence)?)$/i);
         var ttl = searchColumn_(headers, /^(issue|subject|title|summary|description|request)$/i);
@@ -7389,9 +7452,9 @@ function weekActivity_(now) {
     if (dIdx === -1) { tabNotes.push({ tab: tab, why: 'no date column, so its entries can\'t be placed in a week' }); return; }
     // Leave is read whole (leave booked months ahead sits among older
     // rows); everything else only as far back as it can matter.
-    var values = type === 'leave'
-      ? sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues()
-      : ticketRows || activityRows_(sheet, headers.length, dIdx, week.start, monthFirst); // a ticket tab was just read whole
+    var values = bodyRows || (type === 'leave'
+      ? sheet.getRange(2, 1, lastRow - 1, headers.length).getValues()
+      : ticketRows || activityRows_(sheet, headers.length, dIdx, week.start, monthFirst)); // a ticket tab was just read whole
     var statusIdx = type === 'leave' ? findColumnIndex(headers, 'Status') : -1;
     var typeIdx = type === 'leave' ? findColumnIndex(headers, 'Type') : -1;
     var reasonIdx = type === 'leave' ? findColumnIndex(headers, 'Reason') : -1;
@@ -7527,7 +7590,7 @@ function runWeeklyCheck_(now, opts) {
     try {
       var rem = reminderRows_();
       missing.forEach(function (p) {
-        rem.sheet.appendRow([Utilities.getUuid().slice(0, 8), 'Request', 'Add your updates for this week', 'Daylens',
+        execDirty_(); rem.sheet.appendRow([Utilities.getUuid().slice(0, 8), 'Request', 'Add your updates for this week', 'Daylens',
           'Daylens didn\'t find any entries from you this week (' + weekLabel + '). If you were away, add it in Leave.',
           now, p.name, 'Daylens', now, 'Open', '', '']);
       });
@@ -7902,7 +7965,7 @@ function setAccountGroups_(users, username, groups) {
   var headers = getHeaderRow(users.sheet);
   var idx = findUserRowIndex_(headers, users.rows, username);
   if (idx === -1) return false;
-  users.sheet.getRange(idx + 2, findColumnIndex(headers, 'Groups') + 1).setValue(dirSplit_(groups).join(', '));
+  execDirty_(); users.sheet.getRange(idx + 2, findColumnIndex(headers, 'Groups') + 1).setValue(dirSplit_(groups).join(', '));
   return true;
 }
 function saveDirGroupsAdding_(names) {
@@ -8439,6 +8502,23 @@ var ASSISTANT_LIGHT_ROWS_ = 200; // rows read per tab when the question has noth
 var ASSISTANT_PER_HOUR_ = 40;
 
 /** Words worth searching for in the question ("WEB-412", "maya", "deploy"). */
+/** Reads the assistant's answer. It is asked for JSON only, but sometimes writes the answer in words and then the
+ * JSON after it (1.11.2: that JSON used to be shown to the person). The JSON is found wherever it is; if there is
+ * none, the words are the reply, and anything that looks like the JSON's start is cut off. */
+function assistantParseReply_(raw) {
+  var text = String(raw == null ? '' : raw).replace(/^\s*```(?:json)?\s*|\s*```\s*$/g, '').trim();
+  try { var whole = JSON.parse(text); if (whole && typeof whole === 'object' && !Array.isArray(whole)) return whole; } catch (e) { /* look inside */ }
+  var end = text.lastIndexOf('}');
+  for (var at = text.indexOf('{'); at !== -1 && at < end; at = text.indexOf('{', at + 1)) {
+    try {
+      var o = JSON.parse(text.slice(at, end + 1));
+      if (o && typeof o === 'object' && typeof o.reply === 'string') return o;
+    } catch (e) { /* not from here */ }
+  }
+  var cut = text.search(/\{\s*"reply"\s*:/);
+  return { reply: (cut > 0 ? text.slice(0, cut) : cut === 0 ? '' : text).trim().slice(0, 2000) || 'I couldn\'t put that into words. Please ask again.' };
+}
+
 function assistantTerms_(text) {
   var stop = { the: 1, and: 1, for: 1, with: 1, what: 1, who: 1, did: 1, does: 1, was: 1, were: 1, are: 1, is: 1, this: 1, that: 1, last: 1, week: 1, month: 1,
     today: 1, yesterday: 1, show: 1, find: 1, me: 1, my: 1, our: 1, how: 1, many: 1, any: 1, all: 1, from: 1, about: 1, on: 1, in: 1, of: 1, to: 1, a: 1, an: 1,
@@ -8622,7 +8702,7 @@ function askAssistant_(session, body) {
   }
   cache.put(rateKey, String(used + 1), 3600);
   var out;
-  try { out = JSON.parse(String(raw).replace(/^```(?:json)?\s*|\s*```$/g, '')); } catch (e) { out = { reply: String(raw).slice(0, 2000) }; }
+  out = assistantParseReply_(raw);
   var actions = (Array.isArray(out.actions) ? out.actions : []).filter(function (a) { return a && a.type === 'open' && navIds.indexOf(String(a.target)) !== -1; }).slice(0, 3)
     .map(function (a) { var n = nav[navIds.indexOf(String(a.target))]; return { type: 'open', target: n.id, label: String(a.label || n.label).slice(0, 60) }; });
   var draft = assistantDraft_(session, out.draft, ctx);
@@ -9021,7 +9101,118 @@ function customReportRecipients_(session) {
   return team.filter(function (n) { return ok[personKey_(n)]; });
 }
 
-function customReportEmail_(session, spec, to) {
+/** The report in plain sentences, the same ones the app shows under "In short" (renderer/custom-report-charts.js).
+ * Written by rule from the numbers; no AI. */
+function customReportHighlights_(data) {
+  var P = data.periods, last = P.length - 1, out = [];
+  var num = function (n) { return n === null || n === undefined || n === '' ? '–' : String(Math.round(n * 100) / 100); };
+  var plural = function (n, one, many) { return num(n) + ' ' + (n === 1 ? one : many); };
+  var word = function (d) { return d > 0 ? 'up ' + num(d) : d < 0 ? 'down ' + num(-d) : 'the same'; };
+  var pctTxt = function (c) { return c.pct === null || !c.diff ? '' : ' (' + (c.pct > 0 ? '+' : '') + num(c.pct) + '%)'; };
+  var total = function (i) { return data.people.reduce(function (n, p) { return n + p.entries[i]; }, 0); };
+  if (data.people.length > 1) {
+    var t = plural(total(last), 'entry', 'entries') + ' from ' + data.people.length + ' people in ' + P[last].label;
+    if (P.length > 1) { var a = total(last - 1), b = total(last); t += ', ' + word(b - a) + (a && b !== a ? ' (' + (b > a ? '+' : '') + num(Math.round(((b - a) / a) * 1000) / 10) + '%)' : '') + ' on ' + P[last - 1].label; }
+    out.push('Everyone picked: ' + t + '.');
+  }
+  data.people.slice(0, 8).forEach(function (p) {
+    var s = p.person + ': ' + plural(p.entries[last], 'entry', 'entries') + ' in ' + P[last].label;
+    if (p.perDay[last] !== null) s += ' (' + num(p.perDay[last]) + ' per working day)';
+    if (P.length > 1) {
+      var c = p.changes[last - 1];
+      s += ', ' + word(c.diff) + pctTxt(c) + ' on ' + P[last - 1].label;
+      if (P.length > 2) { var w = p.changes[p.changes.length - 1]; s += '; ' + word(w.diff) + pctTxt(w) + ' on ' + P[0].label; }
+    }
+    var leave = p.leaveDays.reduce(function (n, x) { return n + x; }, 0);
+    s += '. Leave: ' + (leave ? plural(leave, 'day', 'days') + (P.length > 1 ? ' across the periods' : '') : 'none') + '.';
+    out.push(s);
+  });
+  if (data.people.length > 8) out.push('…and ' + (data.people.length - 8) + ' more people in the table below.');
+  return out;
+}
+
+/** The body of the report email, laid out like the View: In short, the charts (as pictures), Summary, By tab.
+ * Written with tables and inline styles only, which is what mail programs show reliably. */
+function customReportEmailHtml_(data, title, sender, chartList, hasPdf) {
+  var esc = escapeHtml_;
+  var num = function (n) { return n === null || n === undefined || n === '' ? '–' : String(Math.round(n * 100) / 100); };
+  var P = data.periods;
+  var th = 'padding:6px 9px;border:1px solid #cfd8d2;background:#eef3ea;font-size:12px;text-align:right;';
+  var td = 'padding:6px 9px;border:1px solid #cfd8d2;font-size:12.5px;text-align:right;vertical-align:top;';
+  var sub = 'color:#52605a;font-size:11px;';
+  var card = function (heading, inner) { return '<div style="border:1px solid #cfd8d2;border-radius:10px;padding:12px 14px;margin:0 0 12px;background:#ffffff;"><div style="font-size:15px;font-weight:bold;margin:0 0 8px;">' + esc(heading) + '</div>' + inner + '</div>'; };
+  var parts = [];
+  parts.push('<div style="border:2px solid #111111;border-radius:12px;background:#8ace00;color:#111111;padding:12px 16px;margin:0 0 12px;"><div style="font-size:18px;font-weight:bold;">' + esc(title) + '</div><div style="font-size:12.5px;margin-top:3px;">Sent from Daylens by ' + esc(sender) + '. ' + (hasPdf ? 'The same report is attached as a PDF, with the Excel workbook of every row.' : 'The Excel workbook of every row is attached.') + '</div></div>');
+  var lines = customReportHighlights_(data);
+  if (lines.length) parts.push(card('In short', '<ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.55;">' + lines.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul><div style="' + sub + 'margin-top:6px;">Written from the numbers below, not by AI. Counting entries shows how much was logged, not how hard each piece of work was.</div>'));
+  if (chartList.length) {
+    parts.push(card('Charts', chartList.map(function (c, i) {
+      var legend = c.legend.map(function (l) { return '<span style="display:inline-block;margin-right:14px;font-size:12px;color:#52514e;"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:' + l.color + ';"></span> ' + esc(l.name) + '</span>'; }).join('');
+      return '<div style="margin:0 0 12px;"><div style="font-size:13px;font-weight:bold;margin:0 0 4px;">' + esc(c.caption) + '</div>' + (legend ? '<div style="margin:0 0 4px;">' + legend + '</div>' : '') + '<img src="cid:chart' + i + '" width="' + Math.min(620, c.width) + '" alt="' + esc(c.caption) + '" style="display:block;max-width:100%;height:auto;border:0;" /></div>';
+    }).join('')));
+  }
+  var change = function (c) {
+    var color = c.diff > 0 ? '#0a6b35' : c.diff < 0 ? '#a8221b' : '#52605a';
+    var sign = c.diff > 0 ? '+' : '';
+    return '<td style="' + td + '"><span style="color:' + color + ';font-weight:bold;">' + (c.diff > 0 ? '▲' : c.diff < 0 ? '▼' : '●') + ' ' + sign + num(c.diff) + '</span>' + (c.pct === null ? '' : ' <span style="' + sub + '">(' + sign + num(c.pct) + '%)</span>') + (c.perDayDiff === null ? '' : '<div style="' + sub + '">' + (c.perDayDiff > 0 ? '+' : '') + num(c.perDayDiff) + ' per working day</div>') + '</td>';
+  };
+  var head1 = '<tr><th rowspan="2" style="' + th + 'text-align:left;">Person</th>' + P.map(function (p) { return '<th colspan="3" style="' + th + 'text-align:center;">' + esc(p.label) + '<div style="' + sub + 'font-weight:normal;">' + p.workdays + ' working day' + (p.workdays === 1 ? '' : 's') + '</div></th>'; }).join('') +
+    data.pairs.map(function (pr) { return '<th rowspan="2" style="' + th + '">' + esc(P[pr.to].label) + '<div style="' + sub + 'font-weight:normal;">vs ' + esc(P[pr.from].label) + '</div></th>'; }).join('') + '</tr>';
+  var head2 = '<tr>' + P.map(function () { return '<th style="' + th + '">Entries</th><th style="' + th + '">Leave days</th><th style="' + th + '">Per working day</th>'; }).join('') + '</tr>';
+  var body = data.people.map(function (p) {
+    return '<tr><td style="' + td + 'text-align:left;font-weight:bold;">' + esc(p.person) + '</td>' + P.map(function (_, i) {
+      return '<td style="' + td + '">' + p.entries[i] + '</td><td style="' + td + '">' + num(p.leaveDays[i]) + (p.pendingLeaveDays && p.pendingLeaveDays[i] ? '<div style="' + sub + '">+' + num(p.pendingLeaveDays[i]) + ' waiting</div>' : '') + '</td><td style="' + td + '">' + num(p.perDay[i]) + '</td>';
+    }).join('') + p.changes.map(change).join('') + '</tr>';
+  }).join('');
+  parts.push(card('Summary', '<div style="' + sub + 'margin:0 0 8px;">' + data.people.length + ' ' + (data.people.length === 1 ? 'person' : 'people') + ', ' + data.sources.length + ' tab' + (data.sources.length === 1 ? '' : 's') + '. Entries per working day leave out weekends, holidays, days after today and the person\'s approved leave.</div><table style="border-collapse:collapse;">' + head1 + head2 + body + '</table>' +
+    (data.notes || []).map(function (n) { return '<div style="' + sub + 'margin-top:6px;">' + esc(n) + '</div>'; }).join('')));
+  var tabRows = [];
+  data.people.forEach(function (p) {
+    Object.keys(p.bySource || {}).sort().forEach(function (t) {
+      tabRows.push('<tr><td style="' + td + 'text-align:left;">' + esc(p.person) + '</td><td style="' + td + 'text-align:left;">' + esc(t) + '</td>' + p.bySource[t].map(function (n) { return '<td style="' + td + '">' + n + '</td>'; }).join('') + '</tr>');
+    });
+  });
+  if (tabRows.length && tabRows.length <= 120) parts.push(card('By tab', '<table style="border-collapse:collapse;"><tr><th style="' + th + 'text-align:left;">Person</th><th style="' + th + 'text-align:left;">Tab</th>' + P.map(function (p) { return '<th style="' + th + '">' + esc(p.label) + '</th>'; }).join('') + '</tr>' + tabRows.join('') + '</table>'));
+  parts.push('<div style="' + sub + '">' + (hasPdf ? 'The list of every entry and leave day is in the attached PDF and Excel workbook.' : 'The list of every entry and leave day is in the attached Excel workbook.') + '</div>');
+  return '<div style="font-family:Arial,Helvetica,sans-serif;color:#14201a;max-width:900px;">' + parts.join('') + '</div>';
+}
+
+var CUSTOM_REPORT_PDF_MAX_ = 8 * 1024 * 1024;   // bytes, the report as a PDF made by the app
+var CUSTOM_REPORT_CHART_MAX_ = 900 * 1024;      // bytes, each chart picture
+
+/** What the app sent with the email, checked: a real PDF and real PNG pictures of a sane size, or nothing.
+ * The numbers and sentences in the mail are always worked out here, from the Sheet, never taken from the app. */
+function customReportAttachments_(pdf, charts, title) {
+  var out = { pdf: null, charts: [] };
+  try {
+    var p = String(pdf || '');
+    if (p && p.length <= CUSTOM_REPORT_PDF_MAX_ * 1.4) {
+      var bytes = Utilities.base64Decode(p);
+      if (bytes.length <= CUSTOM_REPORT_PDF_MAX_ && bytes.length > 4 && bytes[0] === 37 && bytes[1] === 80 && bytes[2] === 68 && bytes[3] === 70) {
+        out.pdf = Utilities.newBlob(bytes, 'application/pdf', String(title).replace(/[\\\/:*?"<>|]+/g, '-') + '.pdf');
+      }
+    }
+  } catch (e) { out.pdf = null; }
+  (Array.isArray(charts) ? charts : []).slice(0, 3).forEach(function (c) {
+    try {
+      var raw = String((c && c.png) || '');
+      if (!raw || raw.length > CUSTOM_REPORT_CHART_MAX_ * 1.4) return;
+      var b = Utilities.base64Decode(raw);
+      if (b.length > CUSTOM_REPORT_CHART_MAX_ || b.length < 8 || (b[0] & 255) !== 137 || b[1] !== 80 || b[2] !== 78 || b[3] !== 71) return;
+      out.charts.push({
+        caption: String(c.caption || '').slice(0, 140),
+        width: Math.max(200, Math.min(900, Number(c.width) || 560)),
+        legend: (Array.isArray(c.legend) ? c.legend : []).slice(0, 8).map(function (l) {
+          return { name: String((l && l.name) || '').slice(0, 80), color: /^#[0-9a-f]{6}$/i.test(String(l && l.color)) ? String(l.color) : '#52514e' };
+        }),
+        blob: Utilities.newBlob(b, 'image/png', 'chart' + out.charts.length + '.png'),
+      });
+    } catch (e) { /* a picture that can't be read is left out */ }
+  });
+  return out;
+}
+
+function customReportEmail_(session, spec, to, pdf, charts) {
   var may = {};
   customReportRecipients_(session).forEach(function (n) { may[personKey_(n)] = n; });
   var names = [];
@@ -9030,27 +9221,24 @@ function customReportEmail_(session, spec, to) {
   var data = customReportData_(session, spec, { full: true });
   if (!data.ok) return data;
   var built = customReportBlob_(data);
-  var grid = customReportSummaryRows_(data);
-  var esc = escapeHtml_;
-  var table = '<table style="border-collapse:collapse;font-size:12.5px;">' + grid.map(function (r, i) {
-    return '<tr>' + r.map(function (c) { return '<' + (i ? 'td' : 'th') + ' style="padding:6px 10px;border:1px solid #d9e2dc;text-align:left;">' + esc(String(c)) + '</' + (i ? 'td' : 'th') + '>'; }).join('') + '</tr>';
-  }).join('') + '</table>';
   var title = customReportName_(data);
+  var extra = customReportAttachments_(pdf, charts, title);
+  var html = customReportEmailHtml_(data, title, session.username, extra.charts, !!extra.pdf);
+  var inline = {};
+  extra.charts.forEach(function (c, i) { inline['chart' + i] = c.blob; });
+  var files = extra.pdf ? [extra.pdf, built.blob] : [built.blob];
+  var plain = title + '\n\nSent from Daylens by ' + session.username + '.\n\n' + customReportHighlights_(data).map(function (x) { return '- ' + x; }).join('\n') + '\n\n' + (extra.pdf ? 'The report (PDF) and the Excel workbook are attached.' : 'The Excel workbook is attached.');
   var sent = [];
   names.forEach(function (n) {
     var addr = userEmail_(n);
     if (!addr) return;
-    MailApp.sendEmail({
-      to: addr,
-      subject: title,
-      body: title + '\n\nSent from Daylens by ' + session.username + '. The workbook is attached.',
-      htmlBody: '<div style="font-family:Arial,Helvetica,sans-serif;color:#1c2b23;"><h2 style="font-size:17px;margin:0 0 6px;">' + esc(title) + '</h2><p style="font-size:13px;margin:0 0 12px;">Sent from Daylens by ' + esc(session.username) + '. The full workbook is attached.</p>' + table + '</div>',
-      attachments: [built.blob],
-    });
+    var mail = { to: addr, subject: title, body: plain, htmlBody: html, attachments: files };
+    if (extra.charts.length) mail.inlineImages = inline;
+    MailApp.sendEmail(mail);
     sent.push(n);
   });
-  logAudit_(null, 'customReport', '', session.username + ' emailed a custom report to ' + sent.join(', '), 'Success');
-  return { ok: true, sent: sent };
+  logAudit_(null, 'customReport', '', session.username + ' emailed a custom report to ' + sent.join(', ') + (extra.pdf ? ' (with the PDF)' : ''), 'Success');
+  return { ok: true, sent: sent, pdf: !!extra.pdf, charts: extra.charts.length };
 }
 
 /** "Ask in words": Gemini turns a sentence into the form's choices, nothing else. It is given the tab names, the
@@ -9298,7 +9486,7 @@ function leaveNotice_(to, reference, comments) {
   try {
     var rem = reminderRows_();
     var now = new Date();
-    rem.sheet.appendRow([Utilities.getUuid().slice(0, 8), 'Request', String(reference).slice(0, 200), 'Daylens', String(comments || '').slice(0, 500),
+    execDirty_(); rem.sheet.appendRow([Utilities.getUuid().slice(0, 8), 'Request', String(reference).slice(0, 200), 'Daylens', String(comments || '').slice(0, 500),
       now, people.join(', '), 'Daylens', now, 'Open', '', '']);
   } catch (e) { Logger.log('leave notice failed: ' + e); }
 }
@@ -9320,7 +9508,7 @@ function notifyLeaveRequest_(values, approvers) {
       var created = r[8] instanceof Date ? r[8].getTime() : Date.parse(r[8]);
       if (String(r[2]).indexOf(prefix) === 0 && String(r[9] || 'Open') === 'Open' && String(r[7]) === 'Daylens' && created >= recent
         && String(r[6]).toLowerCase() === to.join(', ').toLowerCase()) {
-        rem.sheet.getRange(i + 2, 3).setValue((String(r[2]) + ', ' + day).slice(0, 200));
+        execDirty_(); rem.sheet.getRange(i + 2, 3).setValue((String(r[2]) + ', ' + day).slice(0, 200));
         return;
       }
     }
@@ -9466,7 +9654,7 @@ function decideLeave_(session, items, decision, note) {
         var prefix = LEAVE_ASK_PREFIX_ + tell[key].who + ':';
         rem.vals.forEach(function (r, i) {
           if (String(r[2]).indexOf(prefix) === 0 && String(r[9] || 'Open') === 'Open' && String(r[7]) === 'Daylens') {
-            rem.sheet.getRange(i + 2, 10, 1, 3).setValues([['Done', me, nowD]]);
+            execDirty_(); rem.sheet.getRange(i + 2, 10, 1, 3).setValues([['Done', me, nowD]]);
           }
         });
       });
