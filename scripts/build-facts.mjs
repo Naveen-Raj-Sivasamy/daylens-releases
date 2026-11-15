@@ -21,12 +21,21 @@ export const FEEDS = [
   ['BBC Technology', 'https://feeds.bbci.co.uk/news/technology/rss.xml'],
   ['The Register', 'https://www.theregister.com/headlines.atom'],
   ['VentureBeat AI', 'https://venturebeat.com/category/ai/feed/'],
+  ['MIT Technology Review', 'https://www.technologyreview.com/feed/'],
+  ['Wired', 'https://www.wired.com/feed/rss'],
+  ['Engadget', 'https://www.engadget.com/rss.xml'],
+  ['ZDNET', 'https://www.zdnet.com/news/rss.xml'],
+  // science and space, for variety (their own rule below)
+  ['NASA', 'https://www.nasa.gov/feed/'],
+  ['ScienceDaily', 'https://www.sciencedaily.com/rss/top/science.xml'],
+  ['BBC Science', 'https://feeds.bbci.co.uk/news/science_and_environment/rss.xml'],
 ];
+const SCIENCE_FEEDS = new Set(['NASA', 'ScienceDaily', 'BBC Science']);
 const DAY = 86400000;
 const NEW_WITHIN_DAYS = 14;   // a headline must be this recent to be added
 const KEEP_DAYS = 30;         // ...and is kept this long (the app drops news after 45)
-const PER_FEED = 3;
-const MAX_ITEMS = 30;
+const PER_FEED = 8;            // was 3: people saw the same few too often
+const MAX_ITEMS = 90;          // was 30 (the app keeps up to 200)
 
 const AI = /\b(AI|A\.I\.|artificial intelligence|OpenAI|Anthropic|Gemini|Claude|ChatGPT|Copilot|LLMs?|chatbots?|AI agents?|machine learning|Nvidia|DeepMind|Mistral)\b/;
 const APPOINT = /\b(appoints?|appointed|names? (?:a )?new|new (?:CEO|CTO|CFO|COO|chief)|steps? down|to step down|resigns?|joins as|hires?|hired as|promoted to|succeeds)\b/i;
@@ -60,8 +69,10 @@ export function parseFeed(xml) {
   return out;
 }
 
-export function classify(title) {
+const SCIENCE = /\b(space|NASA|ISRO|telescope|planets?|moon|mars|asteroid|galaxy|star|orbit|rocket|satellite|scientists?|researchers?|discover(?:y|ed|s)?|study|physics|chemistry|biology|fossil|dinosaur|ocean|climate|species|quantum|battery|solar|energy|genome|brain)\b/i;
+export function classify(title, source) {
   if (AVOID.test(title)) return '';
+  if (source && SCIENCE_FEEDS.has(source)) return SCIENCE.test(title) ? 'Science news' : '';
   if (APPOINT.test(title) && (AI.test(title) || ITWORD.test(title) || /\b(CEO|CTO|CFO|chief|president|chair)\b/i.test(title))) return 'Appointment';
   if (AI.test(title)) return 'AI news';
   if (LAUNCH.test(title) && ITWORD.test(title)) return 'Tech news';
@@ -77,7 +88,7 @@ export function buildItems(feeds, previous, now) {
     let n = 0;
     parseFeed(xml).sort((a, b) => b.ms - a.ms).forEach((it) => {
       if (n >= PER_FEED || now - it.ms > NEW_WITHIN_DAYS * DAY || it.ms > now + DAY) return;
-      const topic = classify(it.title);
+      const topic = classify(it.title, source);
       if (!topic || it.title.length < 20 || it.title.length > 170) return;
       n++;
       fresh.push({ text: `${it.title} (${source}, ${dateLabel(it.ms)})`, topic, news: true, asof: new Date(it.ms).toISOString().slice(0, 10), ms: it.ms });
