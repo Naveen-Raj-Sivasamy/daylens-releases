@@ -202,6 +202,7 @@
   .badge.code { background: #8a5a1e; color: #fff3e0; }
   #gate { max-width: 820px; margin: 28px auto 0; text-align: center; }
   #gate-relax { margin: 0 0 14px; }
+  #gate-title { margin: 0 0 12px; }
   #gate-relax:empty { display: none; }
   .gate-spin { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; vertical-align: -2px; animation: gate-spin 0.8s linear infinite; }
   @keyframes gate-spin { to { transform: rotate(360deg); } }
@@ -535,8 +536,8 @@
        Team Accounts and checked against the server (get-admin-status in
        main.js) — the old separate per-PC admin password is gone. -->
   <div id="gate">
-    <div id="gate-relax"></div>
     <h2 id="gate-title">Tabs &amp; fields</h2>
+    <div id="gate-relax"></div>
     <p class="hint" id="gate-msg">Checking your access…</p>
   </div>
 
@@ -943,7 +944,7 @@
     document.getElementById('gate-title').textContent = want && SECTION_NAMES[want] ? SECTION_NAMES[want] : 'Tabs & fields';
     const m = document.getElementById('gate-msg');
     m.className = 'hint';
-    m.innerHTML = '<span class="gate-spin" aria-hidden="true"></span> ' + (want && SECTION_NAMES[want] ? 'Opening ' + SECTION_NAMES[want] + '…' : 'Loading…');
+    m.textContent = 'Loading ' + (want && SECTION_NAMES[want] ? SECTION_NAMES[want] : 'Tabs & fields') + '…'; // 1.11.2: the name on top, no spinner under the picture
     m.setAttribute('role', 'status');
     if (window.DaylensRelax) window.DaylensRelax.mount(document.getElementById('gate-relax')); // "Sit back and relax" while it loads (1.11.1)
   }

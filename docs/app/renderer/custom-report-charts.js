@@ -127,8 +127,8 @@
   }
 
   /** Draws the charts into host. Returns how many were drawn. */
-  function render(host, data) {
-    var dark = document.documentElement.getAttribute('data-mode') !== 'light';
+  function render(host, data, opts) {
+    var dark = opts && typeof opts.dark === 'boolean' ? opts.dark : document.documentElement.getAttribute('data-mode') !== 'light';
     var colors = dark ? DARK : LIGHT;
     var sr = seriesOf(data), P = data.periods, labels = P.map(function (p) { return p.label; });
     var blocks = [];
