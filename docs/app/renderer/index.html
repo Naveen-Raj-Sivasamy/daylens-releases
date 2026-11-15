@@ -18,6 +18,7 @@
 <script src="today.js"></script>
 <script src="chime.js"></script>
 <script src="report-schedule.js"></script>
+<script src="custom-report.js"></script>
 <script src="icons.js"></script>
 <script src="dashboard.js"></script>
 <script src="dashboard-classic.js"></script>
@@ -1236,6 +1237,40 @@
   .today-strip-head span { font-size: 11.5px; color: var(--text-dim); font-weight: 600; }
   .today-strip .today-more { color: var(--text); text-decoration: underline; }
   /* View report — the same tables as the email/download, right here */
+  /* Custom report (1.11) */
+  .cr-wrap { display: grid; gap: 12px; }
+  #cr-out { display: grid; gap: 12px; }
+  #cr-out:empty { display: none; }
+  .cr-card { background: var(--card-bg); color: var(--card-text); border: 1px solid var(--card-border); border-radius: 14px; padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
+  .cr-card h3 { margin: 0; font-size: 13.5px; }
+  .cr-card .cr-dim { color: var(--card-text-dim); font-size: 12px; }
+  .cr-ask { display: flex; gap: 8px; flex-wrap: wrap; }
+  .cr-ask input { flex: 1 1 260px; min-width: 0; border: 1px solid var(--card-border); border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 13px; background: var(--surface); color: var(--text); }
+  .cr-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cr-chip { background: var(--chip); color: var(--text); border: 1.5px solid transparent; border-radius: 999px; padding: 5px 11px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .cr-chip:hover { background: var(--chip-hover); color: var(--text); }
+  .cr-chip[aria-pressed="true"] { background: var(--gold); color: var(--on-gold); font-weight: 800; }
+  .cr-chip[aria-pressed="true"]:hover { background: var(--gold); color: var(--on-gold); border-color: currentColor; }
+  .cr-chip.quiet { background: transparent; border-color: var(--card-border); color: var(--card-text); }
+  .cr-chip.quiet:hover { background: var(--accent-soft); color: var(--card-text); }
+  .cr-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+  .cr-row label { display: grid; gap: 3px; font-size: 11.5px; font-weight: 700; color: var(--card-text-dim); }
+  .cr-row input[type="date"], .cr-row select { border: 1px solid var(--card-border); border-radius: 9px; padding: 7px 9px; font: inherit; font-size: 13px; background: var(--surface); color: var(--text); }
+  .cr-check { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--card-text); }
+  .cr-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .cr-msg { font-size: 12.5px; font-weight: 600; color: var(--card-text); min-height: 1em; }
+  .cr-msg.err { font-weight: 800; }
+  .cr-msg.err:not(:empty)::before { content: '⚠ '; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .cr-scroll { overflow: auto; max-width: 100%; border: 1px solid var(--card-border); border-radius: 10px; }
+  table.cr-table { border-collapse: collapse; font-size: 12.5px; min-width: 100%; background: var(--card-bg); color: var(--card-text); }
+  table.cr-table th, table.cr-table td { border-bottom: 1px solid var(--card-border); padding: 6px 10px; text-align: right; white-space: nowrap; }
+  table.cr-table th:first-child, table.cr-table td:first-child { text-align: left; position: sticky; left: 0; background: var(--card-bg); }
+  table.cr-table thead th { font-weight: 800; background: var(--card-bg-2, var(--card-bg)); }
+  table.cr-table thead th:first-child { background: var(--card-bg-2, var(--card-bg)); }
+  table.cr-table td.cr-left, table.cr-table th.cr-left { text-align: left; white-space: normal; }
+  table.cr-table .cr-sub { font-weight: 600; color: var(--card-text-dim); font-size: 11.5px; }
+  .cr-up, .cr-down, .cr-flat { font-weight: 800; }
   .rv-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
   .rv-bar .wc-filter-row { margin: 0; flex: 1 1 auto; }
   .rv-search {
@@ -2205,6 +2240,7 @@
       makeTile({ id: 'email-report-btn', icon: '✉️', title: 'Email report', hint: "Sends the compiled sheet to this report's recipients" }),
       makeTile({ id: 'download-report-btn', icon: '⬇️', title: 'Download', hint: 'Save it to this computer as an Excel (.xlsx) file' }),
       makeTile({ id: 'ppt-report-btn', icon: '📽️', title: 'Monthly PPT', hint: 'A ready-made status deck for a month, as a PowerPoint file', onClick: () => showMonthlyPpt() }),
+      makeTile({ id: 'custom-report-btn', icon: '🧩', title: 'Custom report', hint: 'Any tabs and Leave, any people, any period, side by side in one report', onClick: () => showCustomReport() }),
     ]));
     // 1.10.8: who "Email report" reaches (the picked report's recipients), with a link to change them.
     const openCfg = () => window.__appMode && window.__appPost({ type: 'open-section', name: 'manage', sub: 'report-configs-section' });
@@ -2287,6 +2323,309 @@
     document.getElementById('view-report-btn').onclick = () => { const p = pickedReport(); if (p) showReportView(p.range, p.configName); };
     document.getElementById('email-report-btn').onclick = () => { const p = pickedReport(); if (p) emailReport(p.range, p.configName); };
     document.getElementById('download-report-btn').onclick = () => { const p = pickedReport(); if (p) downloadReport(p.range, p.configName); };
+  }
+
+  // -------------------- Custom report (1.11) --------------------
+  // Anything in one report: pick the tabs (Leave too), the people and the
+  // period, optionally broken down by month or week or set against the period
+  // before. The Sheet counts everything and decides whose data you may see;
+  // typing the request in words only fills in this form (rules first, Gemini
+  // if the rules can't read it), and nothing runs until you press View.
+  let crForm = null;      // what's picked, kept while you move around
+  let crOptions = null;   // people, tabs and recipients you may use
+  const CR_PRESETS_KEY = 'dl-custom-report-presets';
+  const crPresets = () => { try { const j = JSON.parse(localStorage.getItem(CR_PRESETS_KEY) || '[]'); return Array.isArray(j) ? j.filter((x) => x && x.name && x.form).slice(0, 30) : []; } catch { return []; } };
+  const crSavePresets = (list) => { try { localStorage.setItem(CR_PRESETS_KEY, JSON.stringify(list.slice(0, 30))); return true; } catch { return false; } };
+  async function showCustomReport() {
+    const scr = beginScreen(showCustomReport, arguments);
+    appSection('report');
+    els.footer.classList.add('hidden');
+    els.main.style.minHeight = '';
+    setScreen('Custom report', [{ label: 'Reports', go: () => showReportOptions() }]);
+    const CR = window.DaylensCustomReport;
+    { // read each time the screen opens: people, tabs and who can be emailed may have changed
+      showLoading('Loading…');
+      let o;
+      try { o = await window.statusApp.customReportOptions(); } catch (err) { o = { ok: false, error: err.message }; }
+      if (scr.stale) return;
+      if (!o || !o.ok) { showError(/unknown action|Unknown action/i.test(String(o && o.error)) ? 'Custom report needs the latest update of your team\'s Sheet. An admin can install it in Settings → About Daylens → Update.' : ((o && o.error) || 'Couldn\'t load.'), showReportOptions); return; }
+      crOptions = o;
+    }
+    const opt = crOptions;
+    if (crForm) { // drop anything that is no longer offered
+      crForm.people = opt.role === 'self' ? opt.people.slice() : crForm.people.filter((n) => opt.people.includes(n));
+      crForm.sources = crForm.sources.filter((t) => opt.tabs.some((x) => x.tab === t));
+    }
+    if (!crForm) {
+      const q = CR.quickRange('this-month', opt.today);
+      crForm = { people: opt.role === 'self' ? opt.people.slice() : [], sources: [], from: q.from, to: q.to, breakdown: 'none', comparePrevious: false, quick: 'this-month' };
+    }
+    const f = crForm;
+    const cats = {};
+    opt.tabs.forEach((t) => { if (t.category) (cats[t.category] = cats[t.category] || []).push(t.tab); });
+    const leaveTabs = opt.tabs.filter((t) => t.type === 'leave').map((t) => t.tab);
+    const who = opt.role === 'admin' ? 'You can report on anyone in the team.' : opt.role === 'manager' ? 'You can report on yourself and the people who report to you.' : 'You can report on your own entries and leave.';
+    els.main.innerHTML = `
+      <div class="wide-view cr-wrap">
+        <div class="cr-card">
+          <h3>Say what you need</h3>
+          <div class="cr-ask">
+            <input type="text" id="cr-ask" maxlength="400" placeholder="e.g. Surya's leave, daily status and ad-hoc for October vs September" aria-label="Describe the report in words" />
+            <button type="button" class="mini-btn go" id="cr-ask-btn">Fill in the form</button>
+          </div>
+          <div class="cr-msg" id="cr-ask-msg" role="status"></div>
+          <div class="cr-dim">This only fills in the choices below for you to check. The numbers are always counted from your team's Sheet.</div>
+        </div>
+        <div class="cr-card">
+          <h3>Who</h3>
+          <div class="cr-dim">${escapeHtml(who)}${opt.role === 'self' ? '' : ' Pick nobody to include everyone you can see.'}</div>
+          <div class="cr-chips" id="cr-people" role="group" aria-label="People"></div>
+        </div>
+        <div class="cr-card">
+          <h3>What</h3>
+          <div class="cr-chips" id="cr-quick-src" role="group" aria-label="Quick picks for tabs"></div>
+          <div class="cr-chips" id="cr-sources" role="group" aria-label="Tabs"></div>
+        </div>
+        <div class="cr-card">
+          <h3>When</h3>
+          <div class="cr-chips" id="cr-quick" role="group" aria-label="Quick periods"></div>
+          <div class="cr-row">
+            <label>From <input type="date" id="cr-from" /></label>
+            <label>To <input type="date" id="cr-to" /></label>
+            <label>Break down by
+              <select id="cr-breakdown"><option value="none">Nothing (one period)</option><option value="month">Month</option><option value="week">Week</option></select>
+            </label>
+            <label class="cr-check" id="cr-compare-wrap"><input type="checkbox" id="cr-compare" /> Compare with the period before</label>
+          </div>
+          <div class="cr-dim" id="cr-periods" role="status"></div>
+        </div>
+        <div class="cr-card">
+          <div class="cr-actions">
+            <button type="button" class="mini-btn go" id="cr-view">📊 View report</button>
+            <button type="button" class="mini-btn" id="cr-download">⬇️ Download Excel</button>
+            <button type="button" class="mini-btn" id="cr-email">✉️ Email…</button>
+            <span style="flex:1"></span>
+            <select id="cr-preset" aria-label="Saved reports" class="mini-btn"></select>
+            <button type="button" class="mini-btn" id="cr-preset-save">Save these choices</button>
+            <button type="button" class="mini-btn danger" id="cr-preset-del" hidden>Delete saved</button>
+          </div>
+          <div class="cr-msg" id="cr-msg" role="status"></div>
+          <div id="cr-email-box" hidden></div>
+        </div>
+        <div id="cr-out"></div>
+      </div>`;
+    document.getElementById('card').classList.add('wide');
+    const $ = (id) => document.getElementById(id);
+    const chip = (label, pressed, cls) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'cr-chip' + (cls ? ' ' + cls : ''); b.textContent = label; b.setAttribute('aria-pressed', String(!!pressed)); return b; };
+    const say = (text, bad) => { const m = $('cr-msg'); m.textContent = text || ''; m.classList.toggle('err', !!bad); };
+    function drawPeople() {
+      const host = $('cr-people'); host.innerHTML = '';
+      opt.people.forEach((n) => {
+        const b = chip(n === opt.me ? n + ' (you)' : n, f.people.includes(n));
+        b.dataset.name = n;
+        if (opt.role === 'self') b.disabled = true;
+        b.onclick = () => { f.people = f.people.includes(n) ? f.people.filter((x) => x !== n) : f.people.concat(n); drawPeople(); };
+        host.appendChild(b);
+      });
+    }
+    function drawSources() {
+      const host = $('cr-sources'); host.innerHTML = '';
+      opt.tabs.forEach((t) => {
+        const b = chip(t.tab + (t.type === 'leave' ? ' (leave)' : ''), f.sources.includes(t.tab));
+        b.dataset.tab = t.tab;
+        b.onclick = () => { f.sources = f.sources.includes(t.tab) ? f.sources.filter((x) => x !== t.tab) : f.sources.concat(t.tab); drawSources(); };
+        host.appendChild(b);
+      });
+      const quick = $('cr-quick-src'); quick.innerHTML = '';
+      const all = (tabs) => tabs.length && tabs.every((x) => f.sources.includes(x));
+      const toggle = (tabs) => { f.sources = all(tabs) ? f.sources.filter((x) => !tabs.includes(x)) : f.sources.concat(tabs.filter((x) => !f.sources.includes(x))); drawSources(); };
+      const everything = opt.tabs.map((t) => t.tab);
+      const qa = chip('Everything', all(everything), 'quiet'); qa.dataset.q = 'all'; qa.onclick = () => toggle(everything); quick.appendChild(qa);
+      Object.keys(cats).forEach((c) => { const b = chip(c, all(cats[c]), 'quiet'); b.dataset.q = 'cat:' + c; b.onclick = () => toggle(cats[c]); quick.appendChild(b); });
+      if (leaveTabs.length) { const b = chip('Leave', all(leaveTabs), 'quiet'); b.dataset.q = 'leave'; b.onclick = () => toggle(leaveTabs); quick.appendChild(b); }
+      if (!opt.tabs.length) host.innerHTML = '<span class="cr-dim">No tab has both a Name and a date column yet, so there is nothing to count.</span>';
+    }
+    function drawWhen() {
+      const host = $('cr-quick'); host.innerHTML = '';
+      CR.QUICK.forEach(([k, label]) => {
+        const b = chip(label, f.quick === k, 'quiet'); b.dataset.q = k;
+        b.onclick = () => { const r = CR.quickRange(k, opt.today); Object.assign(f, r, { quick: k, comparePrevious: r.breakdown === 'none' ? f.comparePrevious : false }); drawWhen(); };
+        host.appendChild(b);
+      });
+      $('cr-from').value = f.from; $('cr-to').value = f.to; $('cr-breakdown').value = f.breakdown;
+      $('cr-compare').checked = !!f.comparePrevious && f.breakdown === 'none';
+      $('cr-compare-wrap').hidden = f.breakdown !== 'none';
+      const p = CR.periodsFor(f);
+      $('cr-periods').textContent = p.error ? p.error : (p.periods.length === 1 ? 'One period: ' : p.periods.length + ' periods side by side: ') + p.periods.map((x) => x.label).join(', ') + (p.periods.length > 1 ? '. Each is compared with the one before' + (p.periods.length > 2 ? ', and the last with the first.' : '.') : '.');
+    }
+    $('cr-from').onchange = () => { f.from = $('cr-from').value; f.quick = ''; drawWhen(); };
+    $('cr-to').onchange = () => { f.to = $('cr-to').value; f.quick = ''; drawWhen(); };
+    $('cr-breakdown').onchange = () => { f.breakdown = $('cr-breakdown').value; if (f.breakdown !== 'none') f.comparePrevious = false; drawWhen(); };
+    $('cr-compare').onchange = () => { f.comparePrevious = $('cr-compare').checked; drawWhen(); };
+    function drawPresets() {
+      const sel = $('cr-preset'); const list = crPresets();
+      sel.innerHTML = '<option value="">Saved reports…</option>' + list.map((p, i) => `<option value="${i}">${escapeHtml(p.name)}</option>`).join('');
+      sel.hidden = !list.length;
+      $('cr-preset-del').hidden = true;
+    }
+    $('cr-preset').onchange = () => {
+      const p = crPresets()[Number($('cr-preset').value)];
+      $('cr-preset-del').hidden = !p;
+      if (!p) return;
+      const g = p.form;
+      // people and tabs that no longer exist (or that you may no longer see) are dropped; a quick period stays relative ("Last 3 months")
+      Object.assign(f, { people: (g.people || []).filter((n) => opt.people.includes(n)), sources: (g.sources || []).filter((t) => opt.tabs.some((x) => x.tab === t)), from: g.from, to: g.to, breakdown: g.breakdown || 'none', comparePrevious: !!g.comparePrevious, quick: g.quick || '' });
+      if (opt.role === 'self') f.people = opt.people.slice();
+      if (f.quick) { const r = CR.quickRange(f.quick, opt.today); if (r) Object.assign(f, r, { comparePrevious: r.breakdown === 'none' ? f.comparePrevious : false }); }
+      drawPeople(); drawSources(); drawWhen();
+      say(`Loaded “${p.name}”.`);
+    };
+    $('cr-preset-save').onclick = () => {
+      const box = $('cr-email-box');
+      box.hidden = false;
+      box.innerHTML = `<div class="cr-row"><label>Name for these choices <input type="text" id="cr-preset-name" maxlength="50" style="border:1px solid var(--card-border);border-radius:9px;padding:7px 9px;font:inherit;font-size:13px;background:var(--surface);color:var(--text)" /></label><button type="button" class="mini-btn go" id="cr-preset-ok">Save</button><button type="button" class="mini-btn" id="cr-preset-cancel">Cancel</button></div><div class="cr-dim">Saved on this computer only.</div>`;
+      $('cr-preset-name').focus();
+      $('cr-preset-cancel').onclick = () => { box.hidden = true; box.innerHTML = ''; };
+      $('cr-preset-ok').onclick = () => {
+        const name = $('cr-preset-name').value.trim();
+        if (!name) { say('Give it a name first.', true); return; }
+        const list = crPresets().filter((p) => p.name.toLowerCase() !== name.toLowerCase());
+        list.unshift({ name, form: JSON.parse(JSON.stringify(f)) });
+        const ok = crSavePresets(list);
+        box.hidden = true; box.innerHTML = '';
+        drawPresets();
+        say(ok ? `Saved as “${name}” on this computer.` : 'Couldn\'t save it on this computer.', !ok);
+      };
+    };
+    $('cr-preset-del').onclick = () => {
+      const i = Number($('cr-preset').value); const list = crPresets(); const p = list[i];
+      if (!p) return;
+      list.splice(i, 1); crSavePresets(list); drawPresets();
+      say(`Removed “${p.name}”.`);
+    };
+    // the request to send: the form as periods, or a message saying what's missing
+    function spec() {
+      if (!f.sources.length) { say('Pick at least one tab under “What”.', true); return null; }
+      const p = CR.periodsFor(f);
+      if (p.error) { say(p.error, true); return null; }
+      return { people: f.people.slice(), sources: f.sources.slice(), periods: p.periods };
+    }
+    const fmtN = (n) => (n === null || n === undefined || n === '' ? '–' : String(Math.round(n * 100) / 100));
+    const changeCell = (c) => {
+      if (!c) return '<td>–</td>';
+      const cls = c.diff > 0 ? 'cr-up' : c.diff < 0 ? 'cr-down' : 'cr-flat';
+      const word = c.diff > 0 ? 'up' : c.diff < 0 ? 'down' : 'no change';
+      const sign = c.diff > 0 ? '+' : '';
+      return `<td><span class="${cls}">${c.diff > 0 ? '▲' : c.diff < 0 ? '▼' : '●'} ${sign}${fmtN(c.diff)}</span>${c.pct === null ? '' : ` <span class="cr-sub">(${sign}${fmtN(c.pct)}%)</span>`}<span class="visually-hidden"> ${word}</span>${c.perDayDiff === null ? '' : `<div class="cr-sub">${c.perDayDiff > 0 ? '+' : ''}${fmtN(c.perDayDiff)} per working day</div>`}</td>`;
+    };
+    function drawReport(d) {
+      const out = $('cr-out');
+      const P = d.periods;
+      const head1 = `<tr><th rowspan="2">Person</th>${P.map((p) => `<th colspan="3">${escapeHtml(p.label)}<div class="cr-sub">${p.workdays} working day${p.workdays === 1 ? '' : 's'}</div></th>`).join('')}${d.pairs.map((pr) => `<th rowspan="2">${escapeHtml(P[pr.to].label)}<div class="cr-sub">vs ${escapeHtml(P[pr.from].label)}</div></th>`).join('')}</tr>`;
+      const head2 = `<tr>${P.map(() => '<th>Entries</th><th>Leave days</th><th>Per working day</th>').join('')}</tr>`;
+      const body = d.people.map((p) => `<tr><td>${escapeHtml(p.person)}</td>${P.map((_, i) => `<td>${p.entries[i]}</td><td>${fmtN(p.leaveDays[i])}${p.pendingLeaveDays[i] ? `<div class="cr-sub">+${fmtN(p.pendingLeaveDays[i])} waiting</div>` : ''}</td><td>${fmtN(p.perDay[i])}</td>`).join('')}${p.changes.map(changeCell).join('')}</tr>`).join('');
+      const tabRows = [];
+      d.people.forEach((p) => Object.keys(p.bySource).sort().forEach((t) => tabRows.push(`<tr><td>${escapeHtml(p.person)}</td><td class="cr-left">${escapeHtml(t)}</td>${p.bySource[t].map((n) => `<td>${n}</td>`).join('')}</tr>`)));
+      const total = d.people.reduce((n, p) => n + p.entries.reduce((a, b) => a + b, 0), 0);
+      out.innerHTML = `
+        <div class="cr-card" id="cr-result">
+          <h3>Summary</h3>
+          <div class="cr-dim">${d.people.length} ${d.people.length === 1 ? 'person' : 'people'}, ${d.sources.length} tab${d.sources.length === 1 ? '' : 's'}. Entries per working day leave out weekends, holidays, days after today and the person's approved leave.</div>
+          <div class="cr-scroll"><table class="cr-table" id="cr-summary"><thead>${head1}${head2}</thead><tbody>${body}</tbody></table></div>
+          ${(d.notes || []).map((n) => `<div class="cr-dim">${escapeHtml(n)}</div>`).join('')}
+        </div>
+        ${tabRows.length ? `<div class="cr-card"><h3>By tab</h3><div class="cr-scroll"><table class="cr-table" id="cr-bytab"><thead><tr><th>Person</th><th class="cr-left">Tab</th>${P.map((p) => `<th>${escapeHtml(p.label)}</th>`).join('')}</tr></thead><tbody>${tabRows.join('')}</tbody></table></div></div>` : ''}
+        <div class="cr-card">
+          <h3>All entries and leave, in one list</h3>
+          <div class="cr-dim">${d.rowsTotal ? (d.rows.length < d.rowsTotal ? `The first ${d.rows.length} of ${d.rowsTotal} rows. Download the Excel file for all of them.` : `${d.rowsTotal} row${d.rowsTotal === 1 ? '' : 's'}.`) : (total ? '' : 'Nothing was found for these choices.')}</div>
+          ${d.rows.length ? `<div class="cr-scroll" style="max-height:420px"><table class="cr-table" id="cr-rows"><thead><tr><th>Date</th><th class="cr-left">Person</th><th class="cr-left">From</th><th class="cr-left">Details</th></tr></thead><tbody>${d.rows.map((r) => `<tr><td>${escapeHtml(r.date)}</td><td class="cr-left">${escapeHtml(r.person)}</td><td class="cr-left">${escapeHtml(r.source)}</td><td class="cr-left">${escapeHtml(r.details)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+        </div>`;
+      const res = $('cr-result'); if (res && res.scrollIntoView) res.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+    const busyBtn = async (btn, label, fn) => {
+      const was = btn.textContent; btn.disabled = true; btn.textContent = label;
+      try { await fn(); } finally { btn.disabled = false; btn.textContent = was; }
+    };
+    $('cr-view').onclick = () => {
+      const sp = spec(); if (!sp) return;
+      say('');
+      busyBtn($('cr-view'), 'Counting…', async () => {
+        let d;
+        try { d = await window.statusApp.customReport(sp); } catch (err) { d = { ok: false, error: err.message }; }
+        if (scr.stale) return;
+        if (!d || !d.ok) { say(cleanError((d && d.error) || 'That didn\'t work.'), true); return; }
+        drawReport(d);
+      });
+    };
+    $('cr-download').onclick = () => {
+      const sp = spec(); if (!sp) return;
+      say('');
+      busyBtn($('cr-download'), 'Preparing…', async () => {
+        let r;
+        try { r = await window.statusApp.customReportFile(sp); } catch (err) { r = { ok: false, error: err.message }; }
+        if (scr.stale) return;
+        if (!r || !r.ok) { say(cleanError((r && r.error) || 'That didn\'t work.'), true); return; }
+        say(r.canceled ? '' : 'Saved' + (r.filePath ? ' to ' + r.filePath : '') + '.');
+      });
+    };
+    $('cr-email').onclick = () => {
+      const box = $('cr-email-box');
+      const list = opt.recipients || [];
+      box.hidden = false;
+      box.innerHTML = list.length
+        ? `<div class="cr-dim">Send the workbook to (${opt.role === 'admin' ? 'anyone in the team with an email in People' : 'you and the people above you'}):</div><div class="cr-chips" id="cr-rcpt" role="group" aria-label="Send to"></div><div class="cr-actions"><button type="button" class="mini-btn go" id="cr-send">Send</button><button type="button" class="mini-btn" id="cr-send-cancel">Cancel</button></div>`
+        : '<div class="cr-dim">Nobody you can send to has an email in People yet. An admin can add them in People → Email.</div>';
+      if (!list.length) return;
+      const picked = new Set();
+      const host = $('cr-rcpt');
+      list.forEach((n) => { const b = chip(n === opt.me ? n + ' (you)' : n, false); b.dataset.name = n; b.onclick = () => { if (picked.has(n)) picked.delete(n); else picked.add(n); b.setAttribute('aria-pressed', String(picked.has(n))); }; host.appendChild(b); });
+      $('cr-send-cancel').onclick = () => { box.hidden = true; box.innerHTML = ''; };
+      $('cr-send').onclick = () => {
+        const sp = spec(); if (!sp) return;
+        if (!picked.size) { say('Pick who to send it to.', true); return; }
+        say('');
+        busyBtn($('cr-send'), 'Sending…', async () => {
+          let r;
+          try { r = await window.statusApp.customReportEmail(sp, Array.from(picked)); } catch (err) { r = { ok: false, error: err.message }; }
+          if (scr.stale) return;
+          if (!r || !r.ok) { say(cleanError((r && r.error) || 'That didn\'t work.'), true); return; }
+          box.hidden = true; box.innerHTML = '';
+          say('Emailed to ' + (r.sent || []).join(', ') + '.');
+        });
+      };
+    };
+    // "Say what you need": plain rules first (instant, no AI); Gemini only when the rules can't read it
+    const applyFill = (fill, how) => {
+      if (opt.role !== 'self') f.people = (fill.people || []).filter((n) => opt.people.includes(n));
+      if ((fill.sources || []).length) f.sources = fill.sources.filter((t) => opt.tabs.some((x) => x.tab === t));
+      if (fill.from && fill.to) { f.from = fill.from; f.to = fill.to; f.breakdown = fill.breakdown || 'none'; f.comparePrevious = !!fill.comparePrevious && f.breakdown === 'none'; f.quick = ''; }
+      drawPeople(); drawSources(); drawWhen();
+      const missing = [];
+      if (!f.sources.length) missing.push('which tabs');
+      if (!(fill.from && fill.to)) missing.push('the period');
+      const m = $('cr-ask-msg');
+      m.classList.toggle('err', false);
+      m.textContent = (missing.length ? `Filled in what I could${how}. Please pick ${missing.join(' and ')} below` : `Filled in${how}. Check the choices below`) + ', then press View report.' + (fill.note ? ' ' + fill.note : '');
+    };
+    const ask = () => {
+      const text = $('cr-ask').value.trim();
+      const m = $('cr-ask-msg');
+      if (!text) { m.textContent = 'Type what the report should show.'; m.classList.add('err'); return; }
+      const local = CR.readAsk(text, opt);
+      if (local.understood) { applyFill(local.fill, ''); return; }
+      busyBtn($('cr-ask-btn'), 'Reading…', async () => {
+        let r;
+        try { r = await window.statusApp.customReportAsk(text); } catch (err) { r = { ok: false, error: err.message }; }
+        if (scr.stale) return;
+        if (r && r.ok && r.fill) { applyFill(r.fill, ' with Gemini'); return; }
+        // Gemini couldn't help (no key, too slow…): still use whatever the rules found
+        applyFill(local.fill, '');
+        m.textContent += ' ' + cleanError((r && r.error) || '');
+      });
+    };
+    $('cr-ask-btn').onclick = ask;
+    $('cr-ask').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); ask(); } });
+    drawPeople(); drawSources(); drawWhen(); drawPresets();
   }
 
   // Monthly PPT: pick a month → Daylens builds the deck (cover, at a
@@ -7494,6 +7833,7 @@
         case 'speed': return showSpeedCheck(false);
         case 'approvals': return showApprovals();
         case 'monthly-ppt': return showMonthlyPpt();
+        case 'custom-report': return showCustomReport();
         case 'open-hit': return openSearchHit(msg.tab, msg.rowIndex, msg.title);
         case 'leave-calendar': return showLeaveCalendar(msg.tab || '');
         case 'directory': return showDirectory();

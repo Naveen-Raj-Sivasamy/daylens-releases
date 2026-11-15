@@ -243,6 +243,16 @@
       return card;
     }
 
+    function smallTalk(text) {
+      const t = String(text || '').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (/^(hi|hii+|hello|hey|hai|hi there|hello there|good (morning|afternoon|evening)|vanakkam|namaste)( daylens| ask)?$/.test(t)) {
+        return 'Hi! Ask me about your team\'s entries ("what did I add last week?"), how to do something in Daylens ("how do I apply leave?"), or tell me to add something for you ("add leave for Friday").';
+      }
+      if (/^(thanks|thank you|thankyou|thanks a lot|thank you so much|ok thanks|great thanks|nandri|ty)$/.test(t)) return 'You\'re welcome!';
+      if (/^(ok|okay|fine|cool|got it|great|nice|bye|goodbye)$/.test(t)) return 'Okay. I\'m here when you need me.';
+      return '';
+    }
+
     async function send() {
       if (!panel || busy) return;
       const input = panel.querySelector('#ask-input');
@@ -250,6 +260,10 @@
       if (!text) return;
       input.value = '';
       messages.push({ role: 'user', text });
+      // 1.10.9: a greeting or a thank-you is answered here, at once. It used to go all the way to the Sheet and Gemini,
+      // which could take a minute (or time out) for a plain "Hi".
+      const small = smallTalk(text);
+      if (small) { messages.push({ role: 'assistant', text: small, actions: [], local: true }); draw(); input.focus(); return; }
       busy = true;
       draw();
       const isAdmin = opts.isAdmin();
@@ -263,6 +277,9 @@
         r = { ok: false, error: e.message };
       }
       busy = false;
+      if (r && !r.ok && /tim(?:ed|e) ?out|aborted|took too long/i.test(String(r.error || ''))) {
+        r.error = 'That took too long, so I stopped waiting. Nothing was changed. Please ask again: the first question after a break is the slowest, because your Sheet\'s script has to wake up. If it keeps happening, an admin can see how long each part took in the Activity log.';
+      }
       if (!r || !r.ok) {
         messages.push({ role: 'assistant', error: true, text: (r && r.error) || 'Something went wrong — try again.', actions: r && r.noKey && isAdmin ? [{ type: 'open', target: 'manage:app-settings-section', label: 'Open Connections & keys' }] : [] });
       } else {
