@@ -11,6 +11,7 @@
 <script src="theme.js"></script>
 <script src="a11y.js"></script>
 <script src="busy.js"></script>
+<script src="relax-loader.js"></script>
 <script src="demo-guard.js"></script>
 <title>Tabs &amp; fields</title>
 <style>
@@ -199,7 +200,9 @@
   .badge.yes { background: #2e7d4f; color: #eaffef; }
   .badge.no { background: #7a2e2e; color: #ffe9e9; }
   .badge.code { background: #8a5a1e; color: #fff3e0; }
-  #gate { max-width: 380px; margin: 40px auto 0; text-align: center; }
+  #gate { max-width: 820px; margin: 28px auto 0; text-align: center; }
+  #gate-relax { margin: 0 0 14px; }
+  #gate-relax:empty { display: none; }
   .gate-spin { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; vertical-align: -2px; animation: gate-spin 0.8s linear infinite; }
   @keyframes gate-spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .gate-spin { animation: none; } }
@@ -532,6 +535,7 @@
        Team Accounts and checked against the server (get-admin-status in
        main.js) — the old separate per-PC admin password is gone. -->
   <div id="gate">
+    <div id="gate-relax"></div>
     <h2 id="gate-title">Tabs &amp; fields</h2>
     <p class="hint" id="gate-msg">Checking your access…</p>
   </div>
@@ -912,6 +916,7 @@
       return;
     }
     if (!status.admin) {
+      const rx0 = document.getElementById('gate-relax'); if (rx0) { if (rx0.__dlRelax) rx0.__dlRelax.stop(); rx0.innerHTML = ''; } // nothing is loading: no "relax" picture over a message
       msgEl.className = 'err';
       msgEl.textContent = !status.loggedIn
         ? 'Log in first — this section is for Admin accounts.'
@@ -940,9 +945,11 @@
     m.className = 'hint';
     m.innerHTML = '<span class="gate-spin" aria-hidden="true"></span> ' + (want && SECTION_NAMES[want] ? 'Opening ' + SECTION_NAMES[want] + '…' : 'Loading…');
     m.setAttribute('role', 'status');
+    if (window.DaylensRelax) window.DaylensRelax.mount(document.getElementById('gate-relax')); // "Sit back and relax" while it loads (1.11.1)
   }
   function revealContent() {
     window.__contentShownOnce = true;
+    const rx = document.getElementById('gate-relax'); if (rx) { if (rx.__dlRelax) rx.__dlRelax.stop(); rx.innerHTML = ''; }
     document.getElementById('gate').classList.add('hidden');
     document.getElementById('content').classList.remove('hidden');
   }

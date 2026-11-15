@@ -11,6 +11,7 @@
 <script src="theme.js"></script>
 <script src="a11y.js"></script>
 <script src="busy.js"></script>
+<script src="relax-loader.js"></script>
 <script src="demo-guard.js"></script>
 <title>Daylens</title>
 <script src="setup-guide.js"></script>
@@ -19,6 +20,7 @@
 <script src="chime.js"></script>
 <script src="report-schedule.js"></script>
 <script src="custom-report.js"></script>
+<script src="custom-report-charts.js"></script>
 <script src="icons.js"></script>
 <script src="dashboard.js"></script>
 <script src="dashboard-classic.js"></script>
@@ -238,24 +240,8 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Loading fox: runs left to right across the loading screen. Pure CSS,
-     one tiny inline SVG, drawn in the brand's own colours (light body,
-     brand-coloured details) so it never clashes with the theme. */
-  .fox-track { position: relative; width: min(320px, 80%); height: 46px; overflow: hidden; }
-  .fox-run { position: absolute; left: 0; bottom: 0; width: 56px; height: 40px;
-    color: var(--on-brand); animation: fox-across 2.4s linear infinite; }
-  .fox-run svg { width: 100%; height: 100%; display: block; animation: fox-bob 0.3s ease-in-out infinite alternate; }
-  .fox-run .fx-d { fill: var(--brand); }
-  .fox-run .fx-b { fill: currentColor; }
-  .fox-run .fx-leg { transform-box: fill-box; transform-origin: 50% 0; animation: fox-leg 0.3s ease-in-out infinite alternate; }
-  .fox-run .fx-leg.b { animation-direction: alternate-reverse; }
-  @keyframes fox-across { from { transform: translateX(-64px); } to { transform: translateX(330px); } }
-  @keyframes fox-bob { to { transform: translateY(-3px); } }
-  @keyframes fox-leg { from { transform: rotate(-28deg); } to { transform: rotate(28deg); } }
-  @media (prefers-reduced-motion: reduce) {
-    .fox-run { animation: none; left: calc(50% - 28px); }
-    .fox-run svg, .fox-run .fx-leg { animation: none; }
-  }
+  /* The loading picture is drawn by relax-loader.js ("Sit back and relax", 1.11.1). */
+  .relax-host { width: 100%; }
 
   .result-view { position: relative; overflow: visible; }
   .result-badge {
@@ -1041,7 +1027,7 @@
   html.app-mode .report-actions { margin-top: 0; padding: 12px var(--gutter-r) 14px var(--gutter-l); }
   html.app-mode footer.form-actions { padding: 10px var(--gutter-r) 12px var(--gutter-l); border-top: 1px solid rgba(255,255,255,0.10); }
   html.app-mode .result-sub { max-width: 460px; }
-  html.app-mode #status-view { min-height: 320px; }
+  html.app-mode #status-view { min-height: max(320px, calc(100vh - 190px)); } /* the loading picture sits in the middle of the screen */
 
   /* ---- Tiles: every "pick one of these" choice in the app (categories,
      tabs, add-new, report/digest actions, settings options) uses this one
@@ -1271,6 +1257,31 @@
   table.cr-table td.cr-left, table.cr-table th.cr-left { text-align: left; white-space: normal; }
   table.cr-table .cr-sub { font-weight: 600; color: var(--card-text-dim); font-size: 11.5px; }
   .cr-up, .cr-down, .cr-flat { font-weight: 800; }
+  /* Custom report charts (1.11.1): their own light or dark surface, so the series colours stay readable in every theme */
+  .viz-root { position: relative; --viz-surface: #fcfcfb; --viz-text: #0b0b0b; --viz-text-2: #52514e; --viz-muted: #6f6d68; --viz-axis: #c3c2b7; --viz-gridc: #e6e5df;
+    background: var(--viz-surface); color: var(--viz-text); border-radius: 12px; padding: 12px; }
+  .viz-root.viz-dark { --viz-surface: #1a1a19; --viz-text: #f0efec; --viz-text-2: #c3c2b7; --viz-muted: #a3a199; --viz-axis: #4a4a46; --viz-gridc: #2c2c2a; }
+  .viz-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .viz-fig { margin: 0; min-width: 0; display: grid; gap: 6px; }
+  .viz-fig figcaption { font-size: 13px; font-weight: 800; color: var(--viz-text); }
+  .viz-svg { width: 100%; height: auto; display: block; }
+  .viz-svg .viz-grid { stroke: var(--viz-gridc); stroke-width: 1; }
+  .viz-svg .viz-axis { stroke: var(--viz-axis); stroke-width: 1; }
+  .viz-svg .viz-tick { fill: var(--viz-muted); font-size: 11px; font-family: inherit; }
+  .viz-svg .viz-label { fill: var(--viz-text-2); font-size: 11px; font-weight: 700; font-family: inherit; }
+  .viz-svg .viz-dot { stroke: var(--viz-surface); stroke-width: 2; }
+  .viz-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--viz-text-2); font-weight: 600; }
+  .viz-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .viz-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .viz-note { font-size: 12px; color: var(--viz-text-2); margin-top: 8px; }
+  .viz-tip { position: absolute; pointer-events: none; background: var(--viz-text); color: var(--viz-surface); font-size: 12px; font-weight: 700; padding: 5px 9px; border-radius: 7px; white-space: nowrap; z-index: 2; }
+  .cr-high { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; line-height: 1.5; }
+  /* the Custom report tile: marked as new, with a soft pulse until it has been opened once */
+  .tile.tile-featured { position: relative; outline: 2px solid var(--gold); outline-offset: 2px; }
+  .tile.tile-featured::after { content: 'New'; position: absolute; top: 8px; right: 8px; background: var(--gold); color: var(--on-gold); font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
+  .tile.tile-featured.pulse { animation: tile-pulse 1.8s ease-out infinite; }
+  @keyframes tile-pulse { 0% { box-shadow: 0 0 0 0 var(--gold); } 70% { box-shadow: 0 0 0 12px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+  @media (prefers-reduced-motion: reduce) { .tile.tile-featured.pulse { animation: none; } }
   .rv-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
   .rv-bar .wc-filter-row { margin: 0; flex: 1 1 auto; }
   .rv-search {
@@ -1945,9 +1956,10 @@
     els.main.style.minHeight = ''; // see the comment on `main` in <style> above
     els.main.innerHTML = `
       <div id="status-view">
-        <div class="fox-track" aria-hidden="true"><div class="fox-run"><svg viewBox="0 0 56 40"><path class="fx-b" d="M15 25C6 28 1 20 3 8c6 3 13 6 18 12z"/><path class="fx-d" d="M3 8c3 1.500 6 3.500 8 6-3-1-6-.5-8.500 1C1.500 12 2 10 3 8z"/><path class="fx-b" d="M14 21c0-6 10-7 20-6l8 1v12c-8 3-20 3-26 0-1.500-2-2-4-2-7z"/><path class="fx-b" d="M37 13l2-9 6 6c3 0 6 2 10 10l-5 3c-4 2-10 1-13-1z"/><path class="fx-b" d="M45 10l3-7 2 9z"/><path class="fx-d" d="M39.500 7.500l.8-3 2.500 2.500zM47.500 6l.8-2 .8 3.500z"/><circle class="fx-d" cx="47" cy="16" r="1.500"/><circle class="fx-d" cx="54.500" cy="20.500" r="1.600"/><g><rect class="fx-b fx-leg" x="17" y="27" width="4" height="11" rx="2"/><rect class="fx-b fx-leg b" x="23" y="27" width="4" height="11" rx="2"/><rect class="fx-b fx-leg b" x="34" y="27" width="4" height="11" rx="2"/><rect class="fx-b fx-leg" x="40" y="27" width="4" height="11" rx="2"/></g></svg></div></div>
-        <div class="msg">${msg}</div>
+        <div class="relax-host" id="relax-host"></div>
+        <div class="msg" role="status">${msg}</div>
       </div>`;
+    if (window.DaylensRelax) window.DaylensRelax.mount(document.getElementById('relax-host'));
   }
 
   // One shared error screen for every failure across the app — form
@@ -2242,6 +2254,9 @@
       makeTile({ id: 'ppt-report-btn', icon: '📽️', title: 'Monthly PPT', hint: 'A ready-made status deck for a month, as a PowerPoint file', onClick: () => showMonthlyPpt() }),
       makeTile({ id: 'custom-report-btn', icon: '🧩', title: 'Custom report', hint: 'Any tabs and Leave, any people, any period, side by side in one report', onClick: () => showCustomReport() }),
     ]));
+    // 1.11.1: Custom report stands out: a "New" mark and an outline, and a soft pulse until it has been opened once on this computer
+    { const crTile = document.getElementById('custom-report-btn'); let opened = false; try { opened = localStorage.getItem('dl-cr-opened') === '1'; } catch { opened = false; }
+      crTile.classList.add('tile-featured'); if (!opened) crTile.classList.add('pulse'); }
     // 1.10.8: who "Email report" reaches (the picked report's recipients), with a link to change them.
     const openCfg = () => window.__appMode && window.__appPost({ type: 'open-section', name: 'manage', sub: 'report-configs-section' });
     const emailWhere = document.createElement('div');
@@ -2338,6 +2353,7 @@
   const crSavePresets = (list) => { try { localStorage.setItem(CR_PRESETS_KEY, JSON.stringify(list.slice(0, 30))); return true; } catch { return false; } };
   async function showCustomReport() {
     const scr = beginScreen(showCustomReport, arguments);
+    try { localStorage.setItem('dl-cr-opened', '1'); } catch { /* the tile just keeps its pulse */ }
     appSection('report');
     els.footer.classList.add('hidden');
     els.main.style.minHeight = '';
@@ -2527,7 +2543,10 @@
       const tabRows = [];
       d.people.forEach((p) => Object.keys(p.bySource).sort().forEach((t) => tabRows.push(`<tr><td>${escapeHtml(p.person)}</td><td class="cr-left">${escapeHtml(t)}</td>${p.bySource[t].map((n) => `<td>${n}</td>`).join('')}</tr>`)));
       const total = d.people.reduce((n, p) => n + p.entries.reduce((a, b) => a + b, 0), 0);
+      const lines = window.DaylensCRCharts ? window.DaylensCRCharts.highlights(d) : [];
       out.innerHTML = `
+        ${lines.length ? `<div class="cr-card" id="cr-highlights"><div class="cr-actions"><h3 style="flex:1">In short</h3><button type="button" class="mini-btn" id="cr-copy">Copy</button></div><ul class="cr-high">${lines.map((x) => `<li>${escapeHtml(x)}</li>`).join('')}</ul><div class="cr-dim">Written from the numbers below, not by AI. Counting entries shows how much was logged, not how hard each piece of work was.</div></div>` : ''}
+        ${total && window.DaylensCRCharts ? '<div class="cr-card"><h3>Charts</h3><div id="cr-charts"></div></div>' : ''}
         <div class="cr-card" id="cr-result">
           <h3>Summary</h3>
           <div class="cr-dim">${d.people.length} ${d.people.length === 1 ? 'person' : 'people'}, ${d.sources.length} tab${d.sources.length === 1 ? '' : 's'}. Entries per working day leave out weekends, holidays, days after today and the person's approved leave.</div>
@@ -2540,7 +2559,16 @@
           <div class="cr-dim">${d.rowsTotal ? (d.rows.length < d.rowsTotal ? `The first ${d.rows.length} of ${d.rowsTotal} rows. Download the Excel file for all of them.` : `${d.rowsTotal} row${d.rowsTotal === 1 ? '' : 's'}.`) : (total ? '' : 'Nothing was found for these choices.')}</div>
           ${d.rows.length ? `<div class="cr-scroll" style="max-height:420px"><table class="cr-table" id="cr-rows"><thead><tr><th>Date</th><th class="cr-left">Person</th><th class="cr-left">From</th><th class="cr-left">Details</th></tr></thead><tbody>${d.rows.map((r) => `<tr><td>${escapeHtml(r.date)}</td><td class="cr-left">${escapeHtml(r.person)}</td><td class="cr-left">${escapeHtml(r.source)}</td><td class="cr-left">${escapeHtml(r.details)}</td></tr>`).join('')}</tbody></table></div>` : ''}
         </div>`;
-      const res = $('cr-result'); if (res && res.scrollIntoView) res.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      if ($('cr-charts')) window.DaylensCRCharts.render($('cr-charts'), d);
+      const copyBtn = $('cr-copy');
+      if (copyBtn) copyBtn.onclick = async () => {
+        const text = 'Custom report: ' + P.map((x) => x.label).join(', ') + '\n' + lines.map((x) => '- ' + x).join('\n');
+        let ok = false;
+        try { await window.statusApp.copyText(text); ok = true; } catch { ok = false; }
+        copyBtn.textContent = ok ? 'Copied' : 'Couldn\'t copy';
+        setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1800);
+      };
+      const res = $('cr-highlights') || $('cr-result'); if (res && res.scrollIntoView) res.scrollIntoView({ block: 'start', behavior: 'smooth' });
     }
     const busyBtn = async (btn, label, fn) => {
       const was = btn.textContent; btn.disabled = true; btn.textContent = label;
@@ -4147,6 +4175,7 @@
         </div>` : ''}
         </div>
         <p class="login-hint" style="text-align:center;">Developed by <a href="#" id="about-credit-link" style="color:inherit; text-decoration:underline; cursor:pointer;">Naveen Raj Sivasamy</a></p>
+        <p class="login-hint" id="about-art-credit" style="text-align:center;">The robot on the loading screen is a 3D model by Tomás Laulhé (Quaternius), free for any use (CC0), with changes by Don McCurdy.</p>
       `;
       document.getElementById('about-credit-link').onclick = (e) => {
         e.preventDefault();
