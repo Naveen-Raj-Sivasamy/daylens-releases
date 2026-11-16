@@ -1,6 +1,114 @@
 {
-  "updated": "2026-11-15",
+  "updated": "2026-11-16",
   "items": [
+    {
+      "text": "Nvidia Was Already in Trouble Before the Jensen Huang Mess (Wired, 16 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-16"
+    },
+    {
+      "text": "Senator slams Commerce Secretary for flow of Nvidia AI chips to China (The Verge, 16 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-16"
+    },
+    {
+      "text": "Pupils fascinated by space get astronomy lesson (BBC Science, 16 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-16"
+    },
+    {
+      "text": "Apple's new research app is designed to make AI health tools more user-friendly (Engadget, 16 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-16"
+    },
+    {
+      "text": "APOD: 2026 November 16 – NGC 7129: Star Formation with Jets from Webb (NASA, 16 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-16"
+    },
+    {
+      "text": "Jensen Huang might be plotting a return and more of the latest Nvidia drama (The Verge, 16 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-16"
+    },
+    {
+      "text": "The secret to building Moon bases may be hiding in emergency blankets (ScienceDaily, 16 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-16"
+    },
+    {
+      "text": "Suspected China spy linked to Nvidia's ex-boss left in 2025, Megaspeed says (BBC Technology, 16 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-16"
+    },
+    {
+      "text": "Apple’s new study looks to improve the effectiveness of AI health tools (The Verge, 16 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-16"
+    },
+    {
+      "text": "Apple launches new app to study how people use AI for health (TechCrunch, 16 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-16"
+    },
+    {
+      "text": "An ancient virus may help explain what makes the human brain different (ScienceDaily, 16 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-16"
+    },
+    {
+      "text": "Indian chip startup Bharat Semi lands $24M seed round as it eyes global AI sensor market (TechCrunch, 15 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-15"
+    },
+    {
+      "text": "Is bad news for Jensen Huang also bad news for the AI industry? (TechCrunch, 15 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-15"
+    },
+    {
+      "text": "Congress wants to tighten export rules on AI chips after Nvidia spy scandal (The Verge, 15 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-15"
+    },
+    {
+      "text": "TechCrunch Mobility: The Nvidia backup plan for China’s self-driving industry (TechCrunch, 15 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-15"
+    },
+    {
+      "text": "Vitamin C could help block cancer-linked chemicals in your stomach, study finds (ScienceDaily, 15 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-15"
+    },
+    {
+      "text": "A common osteoporosis drug blocked spinal damage in a surprising new study (ScienceDaily, 15 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-15"
+    },
+    {
+      "text": "This AI Tamagotchi Turns Everyday Objects Into Needy Virtual Pets (Wired, 15 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-15"
+    },
     {
       "text": "Alzheimer’s may start shrinking two brain regions years before memory loss (ScienceDaily, 15 Nov 2026)",
       "topic": "Science news",
@@ -34,12 +142,6 @@
     {
       "text": "SpaceX successfully catches top of huge Starship rocket for first time (BBC Science, 14 Nov 2026)",
       "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-14"
-    },
-    {
-      "text": "How to get better results from Google Gemini (Engadget, 14 Nov 2026)",
-      "topic": "AI news",
       "news": true,
       "asof": "2026-11-14"
     },
@@ -80,6 +182,12 @@
       "asof": "2026-11-14"
     },
     {
+      "text": "How to get better results from Google Gemini (Engadget, 14 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-14"
+    },
+    {
       "text": "Stanford scientists discover hidden brain signals that predict Alzheimer’s years before symptoms (ScienceDaily, 14 Nov 2026)",
       "topic": "Science news",
       "news": true,
@@ -96,12 +204,6 @@
       "topic": "Science news",
       "news": true,
       "asof": "2026-11-14"
-    },
-    {
-      "text": "Jensen Huang’s departure blasts big hole in AI startup funding, VCs and founders say (TechCrunch, 13 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-13"
     },
     {
       "text": "FAA expands AI advice to manage air traffic congestion across entire US airspace (Ars Technica, 13 Nov 2026)",
@@ -122,18 +224,6 @@
       "asof": "2026-11-13"
     },
     {
-      "text": "AI agent startup LangChain hits $3B valuation (TechCrunch, 13 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-13"
-    },
-    {
-      "text": "Export-banned Nvidia chips are behind China’s most powerful AI models — uh-oh, Jensen! (TechCrunch, 13 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-13"
-    },
-    {
       "text": "OpenAI board member worries an AI \"takeover\" of society could be months away (Ars Technica, 13 Nov 2026)",
       "topic": "AI news",
       "news": true,
@@ -142,12 +232,6 @@
     {
       "text": "Outbursts from a Massive Star (NASA, 13 Nov 2026)",
       "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-13"
-    },
-    {
-      "text": "ChatGPT’s new Wallet lets AI agents shop and check out for you (TechCrunch, 13 Nov 2026)",
-      "topic": "AI news",
       "news": true,
       "asof": "2026-11-13"
     },
@@ -170,12 +254,6 @@
       "asof": "2026-11-13"
     },
     {
-      "text": "Scientists discover a hidden danger of viral infections that vaccines may prevent (ScienceDaily, 13 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-13"
-    },
-    {
       "text": "This Startup Is Betting on AI Microdramas to Get More Black Stories in Hollywood (Wired, 13 Nov 2026)",
       "topic": "AI news",
       "news": true,
@@ -183,6 +261,36 @@
     },
     {
       "text": "APOD: 2026 November 13 – NGC 206 and the Star Clouds of Andromeda (NASA, 13 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-13"
+    },
+    {
+      "text": "Jensen Huang’s departure blasts big hole in AI startup funding, VCs and founders say (TechCrunch, 13 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-13"
+    },
+    {
+      "text": "AI agent startup LangChain hits $3B valuation (TechCrunch, 13 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-13"
+    },
+    {
+      "text": "Export-banned Nvidia chips are behind China’s most powerful AI models — uh-oh, Jensen! (TechCrunch, 13 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-13"
+    },
+    {
+      "text": "ChatGPT’s new Wallet lets AI agents shop and check out for you (TechCrunch, 13 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-13"
+    },
+    {
+      "text": "Scientists discover a hidden danger of viral infections that vaccines may prevent (ScienceDaily, 13 Nov 2026)",
       "topic": "Science news",
       "news": true,
       "asof": "2026-11-13"
@@ -272,13 +380,13 @@
       "asof": "2026-11-12"
     },
     {
-      "text": "Through NASA’s Lens: Capturing Space Shuttle Endeavour’s Move to LA (NASA, 12 Nov 2026)",
+      "text": "Burnham says climate consensus 'gone' but pledges 'new era of leadership' (BBC Science, 12 Nov 2026)",
       "topic": "Science news",
       "news": true,
       "asof": "2026-11-12"
     },
     {
-      "text": "Burnham says climate consensus 'gone' but pledges 'new era of leadership' (BBC Science, 12 Nov 2026)",
+      "text": "Through NASA’s Lens: Capturing Space Shuttle Endeavour’s Move to LA (NASA, 12 Nov 2026)",
       "topic": "Science news",
       "news": true,
       "asof": "2026-11-12"
