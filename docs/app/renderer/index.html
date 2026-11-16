@@ -1569,7 +1569,13 @@
         const sizes = result.tabs && result.tabs.list;
         const anyBigTab = sizes && sizes.some((t) => t.rows >= (result.tabs.bigRows || 3000));
         verdict = anyBigTab ? 'Most of the wait is the Sheet\'s script doing its work. That grows with the number of rows, so clearing old rows (below) is what helps.'
-          : sizes ? 'Most of the wait is the Sheet\'s script doing its work, and your tabs are small, so it isn\'t the amount of data: each read of the Sheet is slow at Google\'s end. The script keeps what it reads about your set-up for 30 minutes, so run the check again; the second run shows the usual wait.'
+          : sizes ? (() => {
+            // 1.11.2: name the tabs that took longest to read, and say why when it shows
+            const slow = sizes.filter((t) => Number(t.ms) >= 400).sort((x, y) => y.ms - x.ms).slice(0, 3);
+            const why = (t) => (t.gridRows >= 5 * Math.max(1, t.rows + 1) && t.gridRows * t.gridCols >= 50000 ? ` (its grid has ${Number(t.gridRows).toLocaleString()} rows but only ${Number(t.rows + 1).toLocaleString()} are used)` : '');
+            return 'Most of the wait is the Sheet\'s script doing its work, and your tabs are small, so it isn\'t the number of entries. ' +
+              (slow.length ? 'Google took longest to read ' + slow.map((t) => `${t.label || t.tab}, ${secs(t.ms)}${why(t)}`).join('; ') + '. A tab is slow to read when its grid has many empty rows or columns, or when it has many formulas; deleting the empty rows at the bottom of such a tab helps every screen.' : 'Each read of the Sheet is slow at Google\'s end; no single tab stands out.');
+          })()
           : 'Most of the wait is the Sheet\'s script doing its work. An admin\'s Speed check also shows each tab\'s size, which tells whether that\'s the amount of data.';
       }
       else verdict = 'Most of the wait is Google starting the script and the trip over the network, not the amount of data. Daylens can\'t shorten that part, which is why it shows saved copies first and saves new entries in the background.';
@@ -1584,8 +1590,8 @@
         const anyBig = list.some((t) => t.rows >= big && t.allowed && !t.months);
         html += `<div class="speed-card" id="speed-tabs"><h3>How big each tab is</h3>
           <p>Opening a tab reads all of its rows, so a tab that only grows gets slower. ${anyBig ? `Tabs past ${big.toLocaleString()} rows with clean-up off are marked.` : 'None of your tabs is big enough to slow Daylens.'} Clean-up emails older rows to the admins as a backup file, then removes them from the Sheet.</p>
-          <table class="speed-table"><thead><tr><th scope="col">Tab</th><th scope="col" class="num">Rows</th><th scope="col">Clean-up</th></tr></thead><tbody>
-          ${list.map((t) => `<tr><td>${escapeHtml(t.label || t.tab)}${t.rows >= big && t.allowed && !t.months ? '<span class="speed-chip slow">▲ Slowing Daylens</span>' : ''}</td><td class="num">${Number(t.rows).toLocaleString()}</td><td>${!t.allowed ? escapeHtml(t.why || 'Not available') : t.months ? `Keeps ${t.months} months` : 'Off'}</td></tr>`).join('')}
+          <table class="speed-table"><thead><tr><th scope="col">Tab</th><th scope="col" class="num">Rows</th><th scope="col" class="num">Grid</th><th scope="col" class="num">Time to read</th><th scope="col">Clean-up</th></tr></thead><tbody>
+          ${list.map((t) => `<tr><td>${escapeHtml(t.label || t.tab)}${t.rows >= big && t.allowed && !t.months ? '<span class="speed-chip slow">▲ Slowing Daylens</span>' : ''}${t.gridRows >= 5 * Math.max(1, t.rows + 1) && t.gridRows * t.gridCols >= 50000 ? '<span class="speed-chip ok">● Many empty rows</span>' : ''}</td><td class="num">${Number(t.rows).toLocaleString()}</td><td class="num">${t.gridRows ? `${Number(t.gridRows).toLocaleString()} × ${t.gridCols}` : '—'}</td><td class="num">${t.ms == null ? '—' : secs(t.ms)}</td><td>${!t.allowed ? escapeHtml(t.why || 'Not available') : t.months ? `Keeps ${t.months} months` : 'Off'}</td></tr>`).join('')}
           </tbody></table><p style="margin-top:10px"><button type="button" class="mini-btn${anyBig ? ' go' : ''}" id="speed-cleanup">Open Clean-up &amp; backups</button></p></div>`;
       }
     }

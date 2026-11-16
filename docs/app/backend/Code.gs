@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.11.2'; // always the same as the app's version (package.json) — a test keeps them equal
+var BACKEND_VERSION = '1.11.3'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -1434,7 +1434,7 @@ function doPostInner_(e) {
     }
     /** Home's team dashboard — everyone in the team. */
     if (body.action === 'teamDashboard') {
-      return jsonOut(Object.assign({ ok: true }, teamDashboard_(new Date(), body.weekOffset)));
+      return jsonOut(Object.assign({ ok: true }, teamDashboard_(new Date(), body.weekOffset, body.fresh === true)));
     }
     /** The dashboard over a month or chosen dates (1.10.1); read-only. */
     if (body.action === 'rangeSummary') {
@@ -6181,10 +6181,19 @@ function tabSizes_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var cfg = getCleanupConfig_();
   var byName = {}, teamTabs = [];
-  ss.getSheets().forEach(function (sh) { // one pass: each tab's name is asked for once (1.11.2)
+  // 1.11.2: each tab is asked once for its used rows and its grid (rows × columns, used or not), and the time
+  // that took is kept. A tab that is slow to read slows every screen that reads it; the usual reasons are a
+  // big empty grid (thousands of blank rows) or many formulas. The Speed check shows both, per tab.
+  var info = {};
+  ss.getSheets().forEach(function (sh) {
     var nm = sh.getName();
     byName[nm] = sh;
-    if (nm.indexOf('_') !== 0 && sh.getLastColumn() > 0) teamTabs.push(nm);
+    if (nm.indexOf('_') === 0 && nm !== AUDIT_LOG_TAB_NAME) return;
+    var t0 = Date.now();
+    var last = sh.getLastRow();
+    var grid = [sh.getMaxRows(), sh.getMaxColumns()];
+    info[nm] = { rows: Math.max(0, last - 1), gridRows: grid[0], gridCols: grid[1], ms: Date.now() - t0 };
+    if (nm.indexOf('_') !== 0 && last > 0) teamTabs.push(nm);
   });
   // (1.10.1) The Speed check only needs the row counts. cleanupTabs_() reads
   // every tab's headings (about 1.4 s each on a slow Sheet, 17 s in all),
@@ -6198,8 +6207,8 @@ function tabSizes_() {
     tabs.push({ tab: name, label: name, allowed: !leave, why: leave ? 'Leave records are kept for good.' : '' });
   });
   return tabs.map(function (t) {
-    var sheet = byName[t.tab];
-    return { tab: t.tab, label: t.label, rows: sheet ? Math.max(0, sheet.getLastRow() - 1) : 0,
+    var n = info[t.tab] || { rows: 0, gridRows: 0, gridCols: 0, ms: 0 };
+    return { tab: t.tab, label: t.label, rows: n.rows, gridRows: n.gridRows, gridCols: n.gridCols, ms: n.ms,
       allowed: !!t.allowed, months: t.allowed ? Number(cfg[t.tab]) || 0 : 0, why: t.why || '' };
   });
 }
@@ -8260,12 +8269,13 @@ function dashGen_() {
   return v;
 }
 
-function teamDashboard_(now, weekOffset) {
+function teamDashboard_(now, weekOffset, fresh) {
   var off = Math.max(-8, Math.min(0, Math.round(Number(weekOffset) || 0)));
   var when = off ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + off * 7, 23, 59, 59) : now;
   var key = 'dash:' + dashGen_() + ':' + dayKey_(weekOf_(when).start) + (off ? '' : ':' + now.getHours());
   var cache = CacheService.getScriptCache();
-  var hit = cache.get(key);
+  // fresh (1.11.2): the Speed check times the real work, not the copy kept for 5 minutes
+  var hit = fresh ? null : cache.get(key);
   if (hit) return JSON.parse(hit);
   var a = weekActivity_(off ? new Date(weekOf_(when).end.getTime() - 1000) : now);
   var users = usersSheetRows_();
