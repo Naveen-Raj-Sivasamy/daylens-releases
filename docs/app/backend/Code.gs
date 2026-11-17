@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.11.4'; // always the same as the app's version (package.json) — a test keeps them equal
+var BACKEND_VERSION = '1.11.5'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -3885,7 +3885,7 @@ function tabKeyColumns_(tab, headers) {
   var out = [];
   var add = function (i) { if (i !== -1 && headers[i] !== TIMESTAMP_COLUMN && out.indexOf(headers[i]) === -1) out.push(headers[i]); };
   if (type === 'leave' || type === 'daily-status') {
-    add(activityPersonColumn_(headers, type));
+    add(activityPersonColumn_(headers, type, tab));
     add(activityDateColumn_(headers, {}, type));
   }
   if (type === 'leave' && leaveApprovalOn_()) LEAVE_COLS_.forEach(function (c) { add(findColumnIndex(headers, c)); });
@@ -3932,7 +3932,7 @@ function setTabType_(session, body) {
   var missing = [];
   if (type === 'holiday' && findColumnIndex(headers, 'Date') === -1) missing.push('a Date column');
   if (type === 'leave' || type === 'daily-status') {
-    if (activityPersonColumn_(headers, type) === -1) missing.push('a Name column');
+    if (activityPersonColumn_(headers, type, tab) === -1) missing.push('a Name column');
     var di = activityDateColumn_(headers, {}, type);
     if (di === -1 || headers[di] === TIMESTAMP_COLUMN) missing.push('a Date column');
   }
@@ -4391,6 +4391,7 @@ function getFieldSchemaMap() {
  * type from the app" genuinely CREATE that field, not just assign a type
  * to a column that has to already exist on the Sheet first. */
 function writeFieldSchemaMap(map) {
+  EXEC_.fsMap = null; // the next person-column lookup reads the new field types
   ensureFieldSchemaTab();
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(FIELD_SCHEMA_TAB_NAME);
   var rows = [];
@@ -6636,7 +6637,7 @@ function leaveClashes_(tab, values, now) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(String(tab || ''));
   if (!sheet) return none;
   var h = getHeaderRow(sheet);
-  var ni = activityPersonColumn_(h, 'leave'), di = activityDateColumn_(h, getFieldSchemaMap()[tab] || {}, 'leave');
+  var ni = activityPersonColumn_(h, 'leave', tab), di = activityDateColumn_(h, getFieldSchemaMap()[tab] || {}, 'leave');
   if (ni === -1 || di === -1) return none;
   var d = activityCellDate_(values[h[di]], sheetMonthFirst_());
   if (!d) return none;
@@ -6687,7 +6688,7 @@ function leaveCalendar_(year, now) {
     var sheet = ss.getSheetByName(tab);
     if (!sheet || sheet.getLastRow() <= 1) return;
     var h = getHeaderRow(sheet);
-    var ni = activityPersonColumn_(h, 'leave'), di = activityDateColumn_(h, getFieldSchemaMap()[tab] || {}, 'leave');
+    var ni = activityPersonColumn_(h, 'leave', tab), di = activityDateColumn_(h, getFieldSchemaMap()[tab] || {}, 'leave');
     if (ni === -1 || di === -1) return;
     var ti = findColumnIndex(h, 'Type'), ri = findColumnIndex(h, 'Reason'), si = findColumnIndex(h, 'Status');
     sheet.getRange(2, 1, sheet.getLastRow() - 1, h.length).getValues().forEach(function (r) {
@@ -7222,7 +7223,27 @@ var PERSON_COLUMN_RES_ = [
   /^(user ?name|person|employee|team ?member|member|resource|owner|assignee|assigned to|submitted by|added by|logged by|updated by|done by|engineer|analyst)$/i,
   /^(resource|employee|member|person|user|owner|assignee|team member)\s*name$/i,
 ];
-function activityPersonColumn_(headers, type) {
+// Whose entry is it. 1.11.5: a field that picks names from the team directory says it plainly, so it comes
+// first: a tab with "Name" (say, a page's name) and "Assigned To" (picked from the directory, one or more
+// people) is counted for the people in "Assigned To". Without such a field, the column names decide, as before.
+function activityPersonColumn_(headers, type, tab) {
+  var spec = tab ? ((EXEC_.fsMap || (EXEC_.fsMap = cached('fieldSchema', getFieldSchemaMap) || {}))[tab] || {}) : {};
+  var dirCols = [];
+  for (var d = 0; d < headers.length; d++) {
+    var sp = spec[String(headers[d]).trim()] || spec[headers[d]];
+    if (sp && (sp.type === 'select' || sp.type === 'multiselect') && isDirKey_(sp.optionsKey)) dirCols.push(d);
+  }
+  if (dirCols.length) {
+    for (var q = 0; q < PERSON_COLUMN_RES_.length; q++) {
+      for (var k = 0; k < dirCols.length; k++) if (PERSON_COLUMN_RES_[q].test(String(headers[dirCols[k]]).trim())) return dirCols[k];
+    }
+    // directory fields, none with a person-like name: the first one, unless a person-like column is there too
+    var named = -1;
+    for (var x = 0; x < PERSON_COLUMN_RES_.length && named === -1; x++) {
+      for (var y = 0; y < headers.length; y++) if (PERSON_COLUMN_RES_[x].test(String(headers[y]).trim())) { named = y; break; }
+    }
+    return named !== -1 ? named : dirCols[0];
+  }
   for (var r = 0; r < PERSON_COLUMN_RES_.length; r++) {
     for (var i = 0; i < headers.length; i++) if (PERSON_COLUMN_RES_[r].test(String(headers[i]).trim())) return i;
   }
@@ -7437,7 +7458,7 @@ function weekActivity_(now) {
         var tid = searchColumn_(headers, /^(ticket ?(id|no\.?|number)|id|ref(erence)?)$/i);
         var ttl = searchColumn_(headers, /^(issue|subject|title|summary|description|request)$/i);
         var tow = searchColumn_(headers, /^(assigned to|assignee|owner|resource|engineer|handled by)$/i);
-        if (tow === -1) tow = activityPersonColumn_(headers, type);
+        if (tow === -1) tow = activityPersonColumn_(headers, type, tab);
         ticketRows.forEach(function (r, i) {
           var s = String(r[st] == null ? '' : r[st]).trim();
           if (s) ticketStatus[s] = (ticketStatus[s] || 0) + 1;
@@ -7457,7 +7478,7 @@ function weekActivity_(now) {
         });
       }
     }
-    var nameIdx = activityPersonColumn_(headers, type);
+    var nameIdx = activityPersonColumn_(headers, type, tab);
     if (nameIdx === -1) { tabNotes.push({ tab: tab, why: type === 'leave' ? 'no Name column, so Daylens can\'t tell whose leave it is' : 'no Name column, so its entries can\'t be counted for anyone' }); return; }
     if (type !== 'leave' && LEAVE_LIKE_TAB_RE_.test(tab)) leaveLike.push(tab);
     var dIdx = activityDateColumn_(headers, schema[tab] || {}, type);
@@ -8397,7 +8418,7 @@ function rangeSummary_(now, body) {
     var headers = getHeaderRow(sheet);
     var type = types[tab] || 'custom';
     if (type === 'weekly-meeting' || type === 'holiday') return;
-    var nameIdx = activityPersonColumn_(headers, type);
+    var nameIdx = activityPersonColumn_(headers, type, tab);
     var dIdx = activityDateColumn_(headers, schema[tab] || {}, type);
     if (nameIdx === -1 || dIdx === -1) return;
     var values = type === 'leave'
@@ -8785,7 +8806,7 @@ function customReportTabs_() {
     var sheet = ss.getSheetByName(tab);
     if (!sheet) return;
     var headers = getHeaderRow(sheet);
-    if (activityPersonColumn_(headers, type) === -1 || activityDateColumn_(headers, schema[tab] || {}, type) === -1) return;
+    if (activityPersonColumn_(headers, type, tab) === -1 || activityDateColumn_(headers, schema[tab] || {}, type) === -1) return;
     out.push({ tab: tab, type: type, category: catOf[tab] || '' });
   });
   return out;
@@ -8895,14 +8916,16 @@ function customReportData_(session, rawSpec, opts) {
     if (Object.prototype.toString.call(v) === '[object Date]' && !isNaN(v.getTime())) return Utilities.formatDate(v, tz, Utilities.formatDate(v, tz, 'HH:mm') !== '00:00' ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd');
     return v === null || v === undefined ? '' : String(v);
   };
+  var usedCols = [];
   spec.tabs.forEach(function (info) {
     var tab = info.tab, type = info.type;
     var sheet = ss.getSheetByName(tab);
     if (!sheet || sheet.getLastRow() <= 1) { tables.push({ tab: tab, headers: sheet ? getHeaderRow(sheet) : [], rows: [] }); return; }
     var headers = getHeaderRow(sheet);
-    var nameIdx = activityPersonColumn_(headers, type);
+    var nameIdx = activityPersonColumn_(headers, type, tab);
     var dIdx = activityDateColumn_(headers, schema[tab] || {}, type);
     if (nameIdx === -1 || dIdx === -1) { notes.push('"' + tab + '" was left out: it has no ' + (nameIdx === -1 ? 'Name' : 'date') + ' column.'); return; }
+    usedCols.push(tab + ': people from "' + headers[nameIdx] + '", dates from "' + headers[dIdx] + '"'); // 1.11.5: say which columns counted
     var isLeave = type === 'leave';
     var values = isLeave ? sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues() : activityRows_(sheet, headers.length, dIdx, earliest, monthFirst);
     var statusIdx = isLeave ? findColumnIndex(headers, 'Status') : -1;
@@ -8962,6 +8985,7 @@ function customReportData_(session, rawSpec, opts) {
     tables.push(table);
   });
   rows.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.person < b.person ? -1 : a.person > b.person ? 1 : 0; });
+  if (usedCols.length) notes.push('Counted from ' + usedCols.join('; ') + '.');
   if (rowsTotal > CUSTOM_REPORT_MAX_ROWS_) notes.push('Only the first ' + CUSTOM_REPORT_MAX_ROWS_ + ' rows are listed (' + rowsTotal + ' matched). The counts cover all of them.');
   // the change between periods: each one against the one before, and the last against the first
   var pairs = [];
@@ -9761,7 +9785,7 @@ function monthlyDeckData_(key, now, opts) {
     var headers = getHeaderRow(sheet);
     var type = types[tab] || 'custom';
     if (type === 'weekly-meeting') return;
-    var nameIdx = activityPersonColumn_(headers, type);
+    var nameIdx = activityPersonColumn_(headers, type, tab);
     var dIdx = activityDateColumn_(headers, schema[tab] || {}, type);
     if (dIdx === -1) return;
     var values = type === 'leave' || type === 'ticket-tracker'
