@@ -203,6 +203,8 @@
   #gate { max-width: 820px; margin: 28px auto 0; text-align: center; }
   #gate-relax { margin: 0 0 14px; }
   #gate-title { margin: 0 0 12px; }
+  .fs-pending { margin: 8px 2px 0; font-size: 12.5px; line-height: 1.5; color: var(--text); }
+  .fs-pending-item { font-weight: 600; }
   #gate-relax:empty { display: none; }
   .gate-spin { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; vertical-align: -2px; animation: gate-spin 0.8s linear infinite; }
   @keyframes gate-spin { to { transform: rotate(360deg); } }
@@ -606,6 +608,7 @@
         <div id="fs-tab-adder" class="fs-tab-adder"></div>
         <button id="save-fs-btn">Save Field Types</button>
       </div>
+      <div id="fs-pending" class="fs-pending" hidden></div>
       <div class="err" id="fs-err"></div>
       <div class="ok" id="fs-ok"></div>
     </div>
@@ -1599,6 +1602,7 @@
   }
   function renderFieldSchema() {
     document.getElementById('fs-rows').innerHTML = '';
+    const pend = document.getElementById('fs-pending'); if (pend) { pend.hidden = true; pend.textContent = ''; } // a fresh page: nothing waiting
     fsBuilt = {};
     fsCleared = {};
     document.getElementById('fs-tab-adder').hidden = true; // (every tab is a tile now)
@@ -1693,6 +1697,7 @@
       if (!realCols.length && !Object.keys(savedForTab).length) {
         colsWrap.innerHTML = '<p class="hint" style="margin:4px 0;">This tab has no columns yet.</p>';
       }
+      group.dataset.order0 = Array.from(group.querySelectorAll('.fs-real')).map((r) => r.dataset.col).join('\u0001'); // the order as it opened
     }).catch(() => {
       colsWrap.innerHTML = '<p class="hint" style="margin:4px 0;">Couldn’t load this tab’s columns — try again from Refresh.</p>';
     });
@@ -1721,6 +1726,7 @@
       note.hidden = !h;
     };
     set(hidden);
+    row.dataset.hidden0 = hidden ? '1' : ''; // as it was when the page opened (for the list of unsaved changes)
     if (keep && !hidden) {
       hideBtn.disabled = true;
       hideBtn.title = kind === 'weekly-meeting' ? 'A Weekly meeting tab has its own form, so its fields can\'t be hidden.' : `Daylens reads this field on a ${(window.TAB_TYPE_LABELS || {})[kind] || ''} tab, so it stays on the form.`;
@@ -1750,7 +1756,6 @@
         const err = document.getElementById('fs-err');
         err.textContent = '';
         const sec = group.closest('.section');
-        if (sec && sec.querySelector('.save-state.dirty')) { err.textContent = 'Save Field Types first (or reopen the page to drop your changes), then rename.'; return; }
         const nameEl = row.querySelector('.fs-col');
         if (row.querySelector('.fs-rename-box')) return;
         const wrap = document.createElement('span');
@@ -1766,15 +1771,20 @@
           const to = input.value.trim();
           if (!to || to === col) { close(); return; }
           wrap.querySelectorAll('button, input').forEach((b) => { b.disabled = true; });
+          // 1.11.4: other changes on the page are saved first, then the rename (it used to refuse)
+          const tab = group.dataset.tab;
+          const before = fsDirty();
+          if (before && !(await saveFieldTypes())) { wrap.querySelectorAll('button, input').forEach((b) => { b.disabled = false; }); return; }
           let r;
-          try { r = await window.statusApp.renameField(group.dataset.tab, col, to); } catch (e2) { r = { ok: false, error: String(e2 && e2.message || e2) }; }
+          try { r = await window.statusApp.renameField(tab, col, to); } catch (e2) { r = { ok: false, error: String(e2 && e2.message || e2) }; }
           if (!r || r.ok === false) {
-            err.textContent = (r && r.error) || 'That couldn\'t be renamed.';
+            err.textContent = `"${col}" wasn't renamed: ${(r && r.error) || 'the Sheet didn\'t answer.'}${before ? ' Your other changes were saved.' : ''}`;
+            if (before) return;
             wrap.querySelectorAll('button, input').forEach((b) => { b.disabled = false; });
             input.focus();
             return;
           }
-          const mine = fieldSchemaMap[group.dataset.tab];
+          const mine = fieldSchemaMap[tab];
           if (mine) {
             if (mine[col] && !mine[to]) { mine[to] = mine[col]; delete mine[col]; }
             Object.keys(mine).forEach((c) => { if (mine[c] && mine[c].basedOn === col) mine[c].basedOn = to; });
@@ -1782,7 +1792,7 @@
           fieldLayoutP = window.statusApp.getFieldLayout().then((x) => (x && x.ok ? x.layout : null)).catch(() => null);
           if (window.__appMode) window.__appPost({ type: 'tabs-changed' });
           renderFieldSchema();
-          document.getElementById('fs-ok').textContent = `Renamed "${col}" to "${to}".`;
+          document.getElementById('fs-ok').textContent = (before ? 'Your other changes were saved, then ' : '') + `${before ? 'r' : 'R'}enamed "${col}" to "${to}".`;
         };
         wrap.querySelector('.fs-rename-ok').onclick = go;
         wrap.querySelector('.fs-rename-no').onclick = close;
@@ -1803,7 +1813,6 @@
         const err = document.getElementById('fs-err');
         err.textContent = '';
         const sec = group.closest('.section');
-        if (sec && sec.querySelector('.save-state.dirty')) { err.textContent = 'Save Field Types first (or reopen the page to drop your changes), then delete.'; return; }
         if (row.querySelector('.fs-delete-box')) return;
         del.disabled = true;
         let q;
@@ -1823,19 +1832,22 @@
         panel.onkeydown = (e) => { if (e.key === 'Escape') { panel.remove(); del.focus(); } };
         panel.querySelector('.fs-delete-yes').onclick = async () => {
           panel.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+          const tab = group.dataset.tab;
+          const before = fsDirty(); // 1.11.4: other changes on the page are saved first, then the delete
+          if (before && !(await saveFieldTypes())) { panel.remove(); return; }
           let r;
-          try { r = await window.statusApp.deleteField(group.dataset.tab, col, true); } catch (e3) { r = { ok: false, error: String(e3 && e3.message || e3) }; }
-          if (!r || r.ok === false) { err.textContent = (r && r.error) || 'That couldn\'t be deleted.'; panel.remove(); return; }
-          const mine = fieldSchemaMap[group.dataset.tab];
+          try { r = await window.statusApp.deleteField(tab, col, true); } catch (e3) { r = { ok: false, error: String(e3 && e3.message || e3) }; }
+          if (!r || r.ok === false) { err.textContent = `"${col}" wasn't deleted: ${(r && r.error) || 'the Sheet didn\'t answer.'}${before ? ' Your other changes were saved.' : ''}`; if (!before) panel.remove(); return; }
+          const mine = fieldSchemaMap[tab];
           if (mine) {
             delete mine[col];
             Object.keys(mine).forEach((c) => { if (mine[c] && mine[c].basedOn === col) delete mine[c]; });
-            if (!Object.keys(mine).length) delete fieldSchemaMap[group.dataset.tab];
+            if (!Object.keys(mine).length) delete fieldSchemaMap[tab];
           }
           fieldLayoutP = window.statusApp.getFieldLayout().then((x) => (x && x.ok ? x.layout : null)).catch(() => null);
           if (window.__appMode) window.__appPost({ type: 'tabs-changed' });
           renderFieldSchema();
-          document.getElementById('fs-ok').textContent = `Deleted "${col}".`;
+          document.getElementById('fs-ok').textContent = (before ? 'Your other changes were saved, then ' : '') + `${before ? 'd' : 'D'}eleted "${col}".`;
         };
       };
       box.appendChild(del);
@@ -1984,7 +1996,10 @@
     return row;
   }
 
-  document.getElementById('save-fs-btn').addEventListener('click', async () => {
+  document.getElementById('save-fs-btn').addEventListener('click', () => { saveFieldTypes(); });
+  // Returns true when everything was saved (Rename and Delete call it first, so they can be done
+  // in the middle of other changes: 1.11.4).
+  async function saveFieldTypes() {
     const groups = Array.from(document.querySelectorAll('#fs-rows .fs-tab-group'));
     // 1.10: only the tabs opened here are on the page; every other tab keeps what it had.
     const map = {};
@@ -2017,7 +2032,7 @@
     });
     if (duplicate) {
       document.getElementById('fs-err').textContent = `"${duplicate}" is listed more than once — remove one before saving, or only the last one will actually be kept.`;
-      return;
+      return false;
     }
     // 1.5.1: the fields' order and which are hidden, for the tabs changed here.
     const layout = {};
@@ -2027,13 +2042,27 @@
     });
     Object.keys(newFields).forEach((t) => { layout[t] = Object.assign(layout[t] || {}, { add: newFields[t] }); });
     const bad = Object.keys(newFields).map((t) => newFields[t].find((c) => c.charAt(0) === '_' || c.length > 100)).filter(Boolean)[0];
-    if (bad) { document.getElementById('fs-err').textContent = `"${bad.slice(0, 40)}" can't be a field name: names can't start with "_" and must be under 100 characters.`; return; }
+    if (bad) { document.getElementById('fs-err').textContent = `"${bad.slice(0, 40)}" can't be a field name: names can't start with "_" and must be under 100 characters.`; return false; }
+    // Two steps: the types, then the order / hidden / new fields. A problem says which step, so it's
+    // clear what was saved and what wasn't.
+    let typesSaved = false;
     const saved = await saveSection('save-fs-btn', 'fs-err', 'fs-ok', async () => {
       const r = await window.statusApp.saveFieldSchema(map);
-      if (!r || r.ok === false || !Object.keys(layout).length) return r;
-      return window.statusApp.saveFieldLayout(layout);
+      if (!r || r.ok === false) return { ok: false, error: 'Nothing was saved. ' + ((r && r.error) || 'The Sheet didn\'t answer.') };
+      typesSaved = true;
+      if (!Object.keys(layout).length) return r;
+      const l = await window.statusApp.saveFieldLayout(layout);
+      if (!l || l.ok === false) {
+        const what = [];
+        Object.keys(layout).forEach((t) => {
+          if (layout[t].add && layout[t].add.length) what.push(`the new field${layout[t].add.length > 1 ? 's' : ''} ${layout[t].add.map((c) => `"${c}"`).join(', ')} on ${t}`);
+          if (layout[t].order) what.push(`the order and hidden fields on ${t}`);
+        });
+        return { ok: false, error: `The field types were saved, but not ${what.join(' or ') || 'the rest'}: ${(l && l.error) || 'the Sheet didn\'t answer.'} Your changes are still here: press Save again.` };
+      }
+      return l;
     });
-    fieldSchemaMap = map;
+    if (saved || typesSaved) fieldSchemaMap = map;
     if (saved) {
       // Always read the fields again (1.10): saving a type for a new name adds its column to the
       // Sheet, and the list read before the save showed that column as "(not on the sheet)".
@@ -2041,7 +2070,9 @@
       if (window.__appMode) window.__appPost({ type: 'tabs-changed' });
       renderFieldSchema(); // (stays on the tab that was open)
     }
-  });
+    return saved;
+  }
+  const fsDirty = () => fsPendingList().length > 0; // something Save would change (the rename box itself doesn't count)
 
   // -------------------- Categories --------------------
 
@@ -2820,6 +2851,54 @@
     if (!st) return;
     st.className = 'save-state dirty';
     st.querySelector('.txt').textContent = 'Unsaved changes';
+    if (section && section.id === 'field-types-section') setTimeout(showFsPending, 0);
+  }
+  // 1.11.4: Field Types says what Save will change, field by field, instead of only "Unsaved changes".
+  // Worked out from the page each time, so a change put back the way it was drops off the list.
+  function fsPendingList() {
+    const out = [];
+    const groups = Array.from(document.querySelectorAll('#fs-rows .fs-tab-group'));
+    const many = groups.length > 1;
+    groups.forEach((g) => {
+      const tab = g.dataset.tab;
+      const was = fieldSchemaMap[tab] || {};
+      const pre = many ? tab + ': ' : '';
+      g.querySelectorAll('.fs-row').forEach((r) => {
+        const colEl = r.querySelector('.fs-col');
+        if (!colEl) return;
+        if (colEl.tagName === 'INPUT') { const n = colEl.value.trim(); if (n) out.push(`${pre}new field "${n}"`); return; }
+        const col = colEl.dataset.value || '';
+        if (!col) return;
+        const typeSel = r.querySelector('.fs-type');
+        const type = typeSel ? typeSel.value.trim() : '';
+        const old = was[col] || {};
+        if (type !== String(old.type || '')) {
+          const label = typeSel && typeSel.selectedOptions[0] ? typeSel.selectedOptions[0].textContent.trim() : type;
+          out.push(`${pre}"${col}" becomes ${type ? label : 'plain text'}`);
+        } else if (type) {
+          const key = r.fsKey ? r.fsKey() : ((r.querySelector('.fs-optkey') || {}).value || '').trim();
+          const based = ((r.querySelector('.fs-basedon') || {}).value || '').trim();
+          if (key !== String(old.optionsKey || '') || based !== String(old.basedOn || '')) out.push(`${pre}"${col}" gets new choices`);
+        }
+        if (r.classList.contains('fs-real') && (r.dataset.hidden || '') !== (r.dataset.hidden0 || '')) out.push(`${pre}"${col}" ${r.dataset.hidden === '1' ? 'is hidden' : 'shows again'}`);
+      });
+      const order = Array.from(g.querySelectorAll('.fs-real')).map((r) => r.dataset.col).join('\u0001');
+      if (g.dataset.order0 !== undefined && g.dataset.order0 !== order) out.push(`${pre}the order of the fields`);
+    });
+    return out;
+  }
+  function showFsPending() {
+    const el = document.getElementById('fs-pending');
+    if (!el) return;
+    const list = fsPendingList();
+    const st = saveStateEl(document.getElementById('field-types-section'));
+    if (!list.length) {
+      el.hidden = true; el.textContent = '';
+      if (st && st.classList.contains('dirty')) { st.className = 'save-state'; st.querySelector('.txt').textContent = 'No changes yet'; }
+      return;
+    }
+    el.hidden = false;
+    el.innerHTML = `<b>Save will change ${list.length === 1 ? '1 thing' : list.length + ' things'}:</b> ` + list.map((x) => `<span class="fs-pending-item">${esc(x)}</span>`).join('; ') + '. Everything is saved together.';
   }
   function wireSaveStates() {
     document.querySelectorAll('#content > .section').forEach((section) => {
@@ -2827,6 +2906,7 @@
       saveStateEl(section);
       const dirty = (e) => {
         if (e.target.closest('.row-actions')) return; // the Save/Add buttons themselves
+        if (e.target.closest('.fs-rename-box, .fs-delete-box')) return; // Rename / Delete have their own buttons
         markDirty(section);
       };
       section.addEventListener('input', dirty);

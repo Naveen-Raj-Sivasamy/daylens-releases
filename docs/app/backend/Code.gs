@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.11.3'; // always the same as the app's version (package.json) — a test keeps them equal
+var BACKEND_VERSION = '1.11.4'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -4059,7 +4059,10 @@ function saveFieldLayout_(session, body) {
     lock.releaseLock();
   }
   logAudit_(body.sessionToken, 'field layout', tabs.join(', '), (moved.length ? 'Fields moved in ' + moved.join(', ') + '. ' : '') + 'Hidden fields saved.', 'Success');
-  return { ok: true, moved: moved, added: added, message: 'Saved.' };
+  // 1.11.4: "movedTabs", not "moved": the app reads {moved: true} as "this team moved to a new link"
+  // (a handover), and an empty list still counts as true in JavaScript, so every field layout save
+  // was reported as a failed move after it had saved.
+  return { ok: true, movedTabs: moved, added: added, message: 'Saved.' };
 }
 
 // ==================== renaming a field (1.10.1) ====================
