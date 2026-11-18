@@ -158,5 +158,21 @@
     return '#' + [m[1], m[2], m[3]].map(function (n) { return ('0' + Number(n).toString(16)).slice(-2); }).join('');
   }
 
-  window.DaylensCRPrint = { html: html, chartImages: chartImages };
+  /** One entry as a page (1.11.7). list: [{ name, html }] already made safe by the app (escaped, then rich text). */
+  function entryHtml(e, list, meta) {
+    meta = meta || {};
+    var made = [];
+    if (meta.team) made.push(meta.team);
+    if (meta.by) made.push('made by ' + meta.by);
+    made.push(new Date().toLocaleString());
+    var css = CSS.replace('@page{size:A4 landscape;margin:11mm}', '@page{size:A4;margin:14mm}') +
+      '.pr-fields{border-collapse:collapse;width:100%}.pr-fields th{width:170px;text-align:left;vertical-align:top;background:#eef3ea;border:1px solid #cfd8d2;padding:8px 10px;font-size:12px}' +
+      '.pr-fields td{vertical-align:top;border:1px solid #cfd8d2;padding:8px 10px;font-size:12.5px;line-height:1.55;overflow-wrap:anywhere}.pr-fields tr{break-inside:avoid}.pr-fields ul,.pr-fields ol{margin:2px 0;padding-left:20px}.pr-fields a{color:#0b4f8a}';
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>' + esc(e.tab + ', ' + e.date) + '</title><style>' + css + '</style></head><body>' +
+      '<div class="pr-head"><div><h1>' + esc(e.tab) + ', ' + esc(e.date) + '</h1><div class="pr-meta">' + esc(e.people) + '</div><div class="pr-meta">' + esc(made.join(', ')) + '</div></div><div class="pr-brand">Daylens</div></div>' +
+      '<table class="pr-fields">' + list.map(function (x) { return '<tr><th>' + esc(x.name) + '</th><td>' + String(x.html).replace(/<script[\s\S]*?<\/script>/gi, '').replace(/\son\w+="[^"]*"/gi, '') + '</td></tr>'; }).join('') + '</table>' +
+      '<div class="pr-foot">From the team\'s Sheet, as entered.</div></body></html>';
+  }
+
+  window.DaylensCRPrint = { html: html, chartImages: chartImages, entryHtml: entryHtml };
 })();

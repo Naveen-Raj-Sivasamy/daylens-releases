@@ -1258,6 +1258,25 @@
   table.cr-table td.cr-left, table.cr-table th.cr-left { text-align: left; white-space: normal; }
   table.cr-table .cr-sub { font-weight: 600; color: var(--card-text-dim); font-size: 11.5px; }
   .cr-up, .cr-down, .cr-flat { font-weight: 800; }
+  /* 1.11.7: one entry on its own */
+  #cr-rows tbody tr.cr-open-row { cursor: pointer; }
+  #cr-rows tbody tr.cr-open-row:hover td { background: var(--accent-soft); color: var(--card-text); }
+  #cr-rows td.cr-details { min-width: 280px; max-width: 640px; }
+  .cr-more { font-weight: 800; white-space: nowrap; }
+  .cr-entry-back { position: fixed; inset: 0; z-index: 900; background: rgba(0,0,0,.45); display: grid; place-items: center; padding: 16px; }
+  .cr-entry { background: var(--card-bg); color: var(--card-text); border: 2px solid var(--card-border); border-radius: 16px; width: min(820px, 100%); max-height: calc(100vh - 32px); display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.35); }
+  .cr-entry-head { padding: 14px 16px; background: var(--gold); color: var(--on-gold); display: flex; gap: 10px; align-items: start; }
+  .cr-entry-head h3 { margin: 0; font-size: 16px; }
+  .cr-entry-head .cr-entry-sub { font-size: 12.5px; font-weight: 600; margin-top: 2px; }
+  .cr-entry-head button { margin-left: auto; }
+  .cr-entry-body { overflow: auto; padding: 12px 16px; display: grid; gap: 10px; }
+  .cr-entry-field { display: grid; grid-template-columns: minmax(110px, 170px) minmax(0, 1fr); gap: 10px; border-bottom: 1px solid var(--card-border); padding-bottom: 8px; }
+  .cr-entry-field dt { font-weight: 800; font-size: 12.5px; color: var(--card-text-dim); }
+  .cr-entry-field dd { margin: 0; font-size: 13.5px; line-height: 1.55; overflow-wrap: anywhere; min-width: 0; }
+  .cr-entry-field dd ul, .cr-entry-field dd ol { margin: 2px 0; padding-left: 20px; }
+  .cr-entry-field dd a { color: inherit; font-weight: 600; }
+  .cr-entry-foot { padding: 10px 16px; border-top: 1px solid var(--card-border); display: grid; gap: 8px; }
+  @media (max-width: 560px) { .cr-entry-field { grid-template-columns: 1fr; gap: 2px; } }
   /* Custom report charts (1.11.1): their own light or dark surface, so the series colours stay readable in every theme */
   .viz-root { position: relative; --viz-surface: #fcfcfb; --viz-text: #0b0b0b; --viz-text-2: #52514e; --viz-muted: #6f6d68; --viz-axis: #c3c2b7; --viz-gridc: #e6e5df;
     background: var(--viz-surface); color: var(--viz-text); border-radius: 12px; padding: 12px; }
@@ -2428,6 +2447,7 @@
             <button type="button" class="mini-btn" id="cr-pdf">⬇️ Download report (PDF)</button>
             <button type="button" class="mini-btn" id="cr-download">Excel (data only)</button>
             <button type="button" class="mini-btn" id="cr-email">✉️ Email…</button>
+            <button type="button" class="mini-btn" id="cr-teams" hidden>💬 Teams…</button>
             <span style="flex:1"></span>
             <select id="cr-preset" aria-label="Saved reports" class="mini-btn"></select>
             <button type="button" class="mini-btn" id="cr-preset-save">Save these choices</button>
@@ -2543,6 +2563,10 @@
       return `<td><span class="${cls}">${c.diff > 0 ? '▲' : c.diff < 0 ? '▼' : '●'} ${sign}${fmtN(c.diff)}</span>${c.pct === null ? '' : ` <span class="cr-sub">(${sign}${fmtN(c.pct)}%)</span>`}<span class="visually-hidden"> ${word}</span>${c.perDayDiff === null ? '' : `<div class="cr-sub">${c.perDayDiff > 0 ? '+' : ''}${fmtN(c.perDayDiff)} per working day</div>`}</td>`;
     };
     let shown = null; // the report on the screen and the choices that made it
+    // 1.11.7: an entry opens on its own (delegated: the list is redrawn with each report)
+    const openRow = (tr) => { const r = shown && shown.data && shown.data.rows[Number(tr.dataset.i)]; if (r && r.ref) openEntry(r); };
+    document.getElementById('cr-out').addEventListener('click', (e) => { const tr = e.target.closest('tr.cr-open-row'); if (tr) openRow(tr); });
+    document.getElementById('cr-out').addEventListener('keydown', (e) => { if (e.key !== 'Enter' && e.key !== ' ') return; const tr = e.target.closest('tr.cr-open-row'); if (tr) { e.preventDefault(); openRow(tr); } });
     function drawReport(d, sp) {
       shown = { data: d, key: JSON.stringify(sp || null) };
       const out = $('cr-out');
@@ -2567,7 +2591,7 @@
         <div class="cr-card">
           <h3>All entries and leave, in one list</h3>
           <div class="cr-dim">${d.rowsTotal ? (d.rows.length < d.rowsTotal ? `The first ${d.rows.length} of ${d.rowsTotal} rows. The Excel file has all of them.` : `${d.rowsTotal} row${d.rowsTotal === 1 ? '' : 's'}.`) : (total ? '' : 'Nothing was found for these choices.')}</div>
-          ${d.rows.length ? `<div class="cr-scroll" style="max-height:420px"><table class="cr-table" id="cr-rows"><thead><tr><th>Date</th><th class="cr-left">Person</th><th class="cr-left">From</th><th class="cr-left">Details</th></tr></thead><tbody>${d.rows.map((r) => `<tr><td>${escapeHtml(r.date)}</td><td class="cr-left">${escapeHtml(r.person)}</td><td class="cr-left">${escapeHtml(r.source)}</td><td class="cr-left">${escapeHtml(r.details)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+          ${d.rows.length ? `<div class="cr-scroll" style="max-height:420px"><table class="cr-table" id="cr-rows"><thead><tr><th>Date</th><th class="cr-left">Person</th><th class="cr-left">From</th><th class="cr-left">Details</th></tr></thead><tbody>${d.rows.map((r, i) => `<tr${r.ref ? ` class="cr-open-row" data-i="${i}" tabindex="0" title="Open this entry: all of it, to read, download, email or post to Teams"` : ''}><td>${escapeHtml(r.date)}</td><td class="cr-left">${escapeHtml(r.person)}</td><td class="cr-left">${escapeHtml(r.source)}</td><td class="cr-left cr-details">${escapeHtml(r.details)}${r.cut ? '… <span class="cr-more">Open to read all</span>' : ''}</td></tr>`).join('')}</tbody></table></div><div class="cr-dim">Click an entry to open it whole: rich text as written, and ways to download, email or post it to Teams.</div>` : ''}
         </div>`;
       if ($('cr-charts')) window.DaylensCRCharts.render($('cr-charts'), d);
       const copyBtn = $('cr-copy');
@@ -2659,10 +2683,108 @@
           if (scr.stale) return;
           if (!r || !r.ok) { say(cleanError((r && r.error) || 'That didn\'t work.'), true); return; }
           box.hidden = true; box.innerHTML = '';
-          say('Emailed to ' + (r.sent || []).join(', ') + (r.pdf ? ', with the PDF and the Excel workbook.' : ', with the Excel workbook.'));
+          say(emailedLine(r, r.pdf ? 'with the PDF and the Excel workbook' : 'with the Excel workbook'));
         });
       };
     };
+    // Who it went to, with each address shortened, and where to look when it doesn't arrive (1.11.7)
+    function emailedLine(r, what) {
+      const to = (r.sent || []).map((n, i) => n + (r.to && r.to[i] ? ` (${r.to[i]})` : ''));
+      return `Emailed to ${to.join(', ')}${what ? ', ' + what : ''}. Not in the inbox in a few minutes? Look in Junk or Quarantine: work mail often holds mail from Gmail that has attachments.`;
+    }
+    // A channel picker (one choice) in a box, then Send: used by the report and by an entry
+    function teamsPicker(box, onSend, msg) {
+      const list = opt.channels || [];
+      box.hidden = false;
+      box.innerHTML = `<div class="cr-dim">Post to:</div><div class="cr-chips" role="group" aria-label="Teams channel"></div><div class="cr-actions"><button type="button" class="mini-btn go" data-act="send">Post to Teams</button><button type="button" class="mini-btn" data-act="cancel">Cancel</button></div>`;
+      let pickedCh = list.length === 1 ? list[0].id : '';
+      const host = box.querySelector('.cr-chips');
+      list.forEach((c) => { const b = chip(c.label, c.id === pickedCh); b.dataset.channel = c.id; b.onclick = () => { pickedCh = c.id; host.querySelectorAll('.cr-chip').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }; host.appendChild(b); });
+      box.querySelector('[data-act="cancel"]').onclick = () => { box.hidden = true; box.innerHTML = ''; };
+      const send = box.querySelector('[data-act="send"]');
+      send.onclick = () => {
+        if (!pickedCh) { msg('Pick a channel.', true); return; }
+        busyBtn(send, 'Posting…', async () => {
+          let r;
+          try { r = await onSend(pickedCh); } catch (err) { r = { ok: false, error: err.message }; }
+          if (scr.stale) return;
+          if (!r || !r.ok) { msg(cleanError((r && r.error) || 'That didn\'t work.'), true); return; }
+          box.hidden = true; box.innerHTML = '';
+          msg('Posted to ' + ((list.find((c) => c.id === pickedCh) || {}).label || 'Teams') + '.');
+        });
+      };
+    }
+    function recipientPicker(box, onSend, msg, intro) {
+      const list = opt.recipients || [];
+      box.hidden = false;
+      if (!list.length) { box.innerHTML = '<div class="cr-dim">Nobody you can send to has an email in People yet. An admin can add them in People → Email.</div>'; return; }
+      box.innerHTML = `${intro ? `<div class="cr-dim">${intro}</div>` : ''}<div class="cr-dim">Send to (${opt.role === 'admin' ? 'anyone in the team with an email in People' : 'you and the people above you'}):</div><div class="cr-chips" role="group" aria-label="Send to"></div><div class="cr-actions"><button type="button" class="mini-btn go" data-act="send">Send</button><button type="button" class="mini-btn" data-act="cancel">Cancel</button></div>`;
+      const picked = new Set();
+      const host = box.querySelector('.cr-chips');
+      list.forEach((n) => { const b = chip(n === opt.me ? n + ' (you)' : n, false); b.dataset.name = n; b.onclick = () => { if (picked.has(n)) picked.delete(n); else picked.add(n); b.setAttribute('aria-pressed', String(picked.has(n))); }; host.appendChild(b); });
+      box.querySelector('[data-act="cancel"]').onclick = () => { box.hidden = true; box.innerHTML = ''; };
+      const send = box.querySelector('[data-act="send"]');
+      send.onclick = () => {
+        if (!picked.size) { msg('Pick who to send it to.', true); return; }
+        busyBtn(send, 'Sending…', async () => {
+          let r;
+          try { r = await onSend(Array.from(picked)); } catch (err) { r = { ok: false, error: err.message }; }
+          if (scr.stale) return;
+          if (!r || !r.ok) { msg(cleanError((r && r.error) || 'That didn\'t work.'), true); return; }
+          box.hidden = true; box.innerHTML = '';
+          msg(emailedLine(r, ''));
+        });
+      };
+    }
+    if ((opt.channels || []).length) $('cr-teams').hidden = false;
+    $('cr-teams').onclick = () => {
+      const sp = spec(); if (!sp) return;
+      say('');
+      teamsPicker($('cr-email-box'), async (ch) => {
+        const d = await reportForChoices(sp); if (!d) return { ok: true, quiet: true };
+        return window.statusApp.customReportTeams(sp, ch);
+      }, say);
+    };
+    // One entry, whole: every field, rich text as written; Copy, PDF, Email, Teams
+    async function openEntry(row) {
+      document.querySelectorAll('.cr-entry-back').forEach((n) => n.remove());
+      const back = document.createElement('div');
+      back.className = 'cr-entry-back';
+      back.innerHTML = `<div class="cr-entry" role="dialog" aria-modal="true" aria-labelledby="cr-entry-title"><div class="cr-entry-head"><div><h3 id="cr-entry-title">${escapeHtml(row.source)}, ${escapeHtml(row.date)}</h3><div class="cr-entry-sub">${escapeHtml(row.person)}</div></div><button type="button" class="mini-btn" id="cr-entry-close">Close</button></div><div class="cr-entry-body" id="cr-entry-body"><div class="cr-dim">Opening the entry…</div></div><div class="cr-entry-foot"><div class="cr-actions"><button type="button" class="mini-btn" id="cr-entry-copy" disabled>Copy</button><button type="button" class="mini-btn" id="cr-entry-pdf" disabled>⬇️ Download (PDF)</button><button type="button" class="mini-btn" id="cr-entry-email" disabled>✉️ Email…</button>${(opt.channels || []).length ? '<button type="button" class="mini-btn" id="cr-entry-teams" disabled>💬 Teams…</button>' : ''}</div><div class="cr-msg" id="cr-entry-msg" role="status"></div><div id="cr-entry-box" hidden></div></div></div>`;
+      document.body.appendChild(back);
+      const q = (id) => back.querySelector('#' + id);
+      const msg = (t, bad) => { const m = q('cr-entry-msg'); m.textContent = t || ''; m.classList.toggle('err', !!bad); };
+      const close = () => { back.remove(); document.removeEventListener('keydown', onKey); };
+      const onKey = (e) => { if (e.key === 'Escape') close(); };
+      document.addEventListener('keydown', onKey);
+      back.addEventListener('click', (e) => { if (e.target === back) close(); });
+      q('cr-entry-close').onclick = close;
+      q('cr-entry-close').focus();
+      let e;
+      try { e = await window.statusApp.customReportEntry(row.ref); } catch (err) { e = { ok: false, error: err.message }; }
+      if (!back.isConnected) return;
+      if (!e || !e.ok) { q('cr-entry-body').innerHTML = `<div class="cr-msg err">${escapeHtml(cleanError((e && e.error) || 'That entry couldn\'t be opened.'))}</div>`; return; }
+      const plainHtml = (v) => renderMarkdownLite(v).replace(/<\/?(strong|ul|ol|li)>/g, '').replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
+      const richHtml = (v) => renderMarkdownLite(v).replace(/(^|[\s(>])(https?:\/\/[^\s<)"]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
+      const list = [{ name: e.dateLabel || 'Date', html: escapeHtml(e.date) }, { name: e.peopleLabel || 'People', html: escapeHtml(e.people) }]
+        .concat(e.fields.map((f) => ({ name: f.name, html: f.rich ? richHtml(f.value) : plainHtml(f.value) })));
+      q('cr-entry-body').innerHTML = `<dl style="margin:0;display:grid;gap:10px;">${list.map((x) => `<div class="cr-entry-field"><dt>${escapeHtml(x.name)}</dt><dd>${x.html}</dd></div>`).join('')}</dl>`;
+      back.querySelectorAll('.cr-entry-foot button').forEach((b) => { b.disabled = false; });
+      q('cr-entry-copy').onclick = async () => {
+        const text = `${e.tab}, ${e.date}\n${e.people}\n\n` + e.fields.map((f) => `${f.name}:\n${f.value.replace(/\*\*([^*]+)\*\*/g, '$1')}`).join('\n\n');
+        try { await window.statusApp.copyText(text); msg('Copied.'); } catch { msg('Couldn\'t copy.', true); }
+      };
+      q('cr-entry-pdf').onclick = () => busyBtn(q('cr-entry-pdf'), 'Preparing…', async () => {
+        const team = await window.statusApp.getTeamInfo().catch(() => ({}));
+        let r;
+        try { r = await window.statusApp.customReportPdf(window.DaylensCRPrint.entryHtml(e, list, { team: (team && team.teamName) || '', by: opt.me || '' }), `${e.tab} ${e.date}`); } catch (err) { r = { ok: false, error: err.message }; }
+        if (!back.isConnected) return;
+        if (!r || !r.ok) { msg(cleanError((r && r.error) || 'That didn\'t work.'), true); return; }
+        msg(r.canceled ? '' : r.printed ? 'In the print window, choose "Save as PDF" as the printer.' : 'Saved' + (r.filePath ? ' to ' + r.filePath : '') + '.');
+      });
+      q('cr-entry-email').onclick = () => { msg(''); recipientPicker(q('cr-entry-box'), (to) => window.statusApp.customReportEntrySend(e.ref, 'email', to, ''), msg, 'The email shows this entry laid out like here, rich text included.'); };
+      if (q('cr-entry-teams')) q('cr-entry-teams').onclick = () => { msg(''); teamsPicker(q('cr-entry-box'), (ch) => window.statusApp.customReportEntrySend(e.ref, 'teams', [], ch), msg); };
+    }
     // "Say what you need": plain rules first (instant, no AI); Gemini only when the rules can't read it
     const applyFill = (fill, how) => {
       if (opt.role !== 'self') f.people = (fill.people || []).filter((n) => opt.people.includes(n));
