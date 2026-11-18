@@ -42,6 +42,7 @@
     'table.cr-table th:first-child,table.cr-table td:first-child,table.cr-table .cr-left{text-align:left}',
     'table.cr-table tbody tr:nth-child(even) td{background:#f8faf6}',
     '.cr-sub{color:#52605a;font-size:10px;font-weight:600}',
+    '.cr-field{margin:0 0 4px;line-height:1.5;overflow-wrap:anywhere}.cr-field ul,.cr-field ol{margin:2px 0;padding-left:18px}.cr-field a{color:#0b4f8a}table.cr-table td.cr-details{min-width:0;width:60%}',
     '.cr-up{color:#0a6b35;font-weight:800}.cr-down{color:#a8221b;font-weight:800}.cr-flat{color:#52605a;font-weight:800}',
     '.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}',
     '.viz-grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}',

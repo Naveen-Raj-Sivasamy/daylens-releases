@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.11.7'; // always the same as the app's version (package.json) — a test keeps them equal
+var BACKEND_VERSION = '1.11.8'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -1455,7 +1455,7 @@ function doPostInner_(e) {
       if (!callerSession) return jsonOut({ ok: false, error: 'Please log in again.' });
       if (isDemoRole_(callerSession.role)) return jsonOut({ ok: false, error: 'Custom report isn\'t part of the demo.' });
       if (body.action === 'customReportOptions') return jsonOut(Object.assign(customReportOptions_(callerSession), { recipients: customReportRecipients_(callerSession) }));
-      if (body.action === 'customReport') return jsonOut(customReportData_(callerSession, body.spec, {}));
+      if (body.action === 'customReport') return jsonOut(customReportData_(callerSession, body.spec, { allRows: body.allRows === true })); // allRows: for a PDF of every row
       if (body.action === 'customReportFile') return jsonOut(customReportFile_(callerSession, body.spec));
       if (body.action === 'customReportEmail') return jsonOut(customReportEmail_(callerSession, body.spec, body.to, body.pdf, body.charts));
       if (body.action === 'customReportEntry') return jsonOut(customReportEntry_(callerSession, body.ref));
@@ -7301,7 +7301,9 @@ var MONTHS_SHORT_ = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'se
  * month/day for US Sheets), 29-Oct-2026, 29 Oct 2026, Oct 29, 2026. */
 function activityCellDate_(v, monthFirst) {
   var strict = cleanupCellDate_(v);
-  if (strict) return strict;
+  // 1.11.8: the day only. A date cell that also holds a time (17 Nov 2026 14:30) used to fall outside a report
+  // for 17 Nov to 17 Nov, whose end is the start of that day.
+  if (strict) return new Date(strict.getFullYear(), strict.getMonth(), strict.getDate());
   var t = String(v == null ? '' : v).trim().toLowerCase();
   if (!t) return null;
   var mk = function (y, m, d) { var x = new Date(y, m, d); return x.getFullYear() === y && x.getMonth() === m && x.getDate() === d ? x : null; };
@@ -8762,6 +8764,7 @@ function askAssistant_(session, body) {
 var CUSTOM_REPORT_MAX_PERIODS_ = 12;
 var CUSTOM_REPORT_MAX_ROWS_ = 5000;
 var CUSTOM_REPORT_VIEW_ROWS_ = 300;
+var CUSTOM_REPORT_CELL_MAX_ = 50000; // a Sheet cell holds at most 50,000 characters: all of it
 
 /** { role: 'admin' | 'manager' | 'self', names: [the people this person may report on] } */
 function customReportScope_(session) {
@@ -8905,7 +8908,7 @@ function customReportEntry_(session, ref) {
     if (!h || i === nameIdx || i === dIdx) return;
     var v = fmt(r[i]).trim();
     if (!v) return;
-    fields.push({ name: h === TIMESTAMP_COLUMN ? 'Added' : String(h), value: v.slice(0, 20000), rich: !!(schemaTab[h] && schemaTab[h].type === 'richtext') });
+    fields.push({ name: h === TIMESTAMP_COLUMN ? 'Added' : String(h), value: v.slice(0, CUSTOM_REPORT_CELL_MAX_), rich: !!(schemaTab[h] && schemaTab[h].type === 'richtext') });
   });
   var d = activityCellDate_(r[dIdx], sheetMonthFirst_());
   return { ok: true, ref: String(ref), tab: tab, row: row, date: d ? dayKey_(d) : fmt(r[dIdx]), dateLabel: String(headers[dIdx]), people: people.join(', '), peopleLabel: String(headers[nameIdx]), fields: fields };
@@ -8921,10 +8924,61 @@ function customReportEntryHtml_(e, sender) {
     '<div style="border:2px solid #111111;border-radius:12px;background:#8ace00;color:#111111;padding:12px 16px;margin:0 0 12px;"><div style="font-size:18px;font-weight:bold;">' + esc(e.tab) + ', ' + esc(e.date) + '</div><div style="font-size:12.5px;margin-top:3px;">' + esc(e.people) + (sender ? '. Sent from Daylens by ' + esc(sender) + '.' : '') + '</div></div>' +
     '<table style="border-collapse:collapse;width:100%;">' + rows.map(function (x) { return '<tr><th style="text-align:left;vertical-align:top;padding:8px 10px;border:1px solid #cfd8d2;background:#eef3ea;font-size:12.5px;width:160px;">' + x[0] + '</th><td style="vertical-align:top;padding:8px 10px;border:1px solid #cfd8d2;font-size:13px;line-height:1.5;">' + x[1] + '</td></tr>'; }).join('') + '</table></div>';
 }
+// 1.11.8: Teams cards laid out like the entry on the screen: a green heading band, then one row per field
+// (the name on a shaded left column, the value on the right), lines between rows. Adaptive Cards only allow
+// Teams' own colour styles, so "good" (green) stands in for the app's lime.
+function teamsHeader_(title, sub) {
+  var items = [{ type: 'TextBlock', text: String(title), wrap: true, size: 'Large', weight: 'Bolder' }];
+  if (sub) items.push({ type: 'TextBlock', text: String(sub), wrap: true, spacing: 'None', weight: 'Bolder', size: 'Small' });
+  return { type: 'Container', style: 'good', bleed: true, items: items };
+}
+function teamsFieldRow_(label, value, rich, first) {
+  return { type: 'ColumnSet', separator: !first, spacing: first ? 'Medium' : 'None', columns: [
+    { type: 'Column', width: 32, style: 'emphasis', items: [{ type: 'TextBlock', text: String(label), wrap: true, weight: 'Bolder', size: 'Small' }] },
+    { type: 'Column', width: 68, items: [{ type: 'TextBlock', text: teamsText_(value, rich), wrap: true }] },
+  ] };
+}
+/** A field row, split into several rows ("Comments (continued)") when its text alone is too big for one Teams message. */
+function teamsSplitRow_(label, value, rich, first) {
+  var text = String(value == null ? '' : value), max = 12000, out = [];
+  if (text.length <= max) return [teamsFieldRow_(label, text, rich, first)];
+  var lines = text.split('\n'), chunk = '';
+  var flush = function () { if (chunk) { out.push(teamsFieldRow_(out.length ? label + ' (continued)' : label, chunk, rich, first && !out.length)); chunk = ''; } };
+  lines.forEach(function (l) {
+    while (l.length > max) { flush(); chunk = l.slice(0, max); flush(); l = l.slice(max); }
+    if ((chunk + '\n' + l).length > max) flush();
+    chunk = chunk ? chunk + '\n' + l : l;
+  });
+  flush();
+  return out;
+}
+/** Blocks packed into cards of at most ~23 KB each, in order. */
+function teamsPack_(blocks) {
+  var cards = [], cur = [], size = 0;
+  blocks.forEach(function (b) {
+    var n = JSON.stringify(b).length;
+    if (cur.length && size + n > 22000) { cards.push(cur); cur = []; size = 0; }
+    cur.push(b); size += n;
+  });
+  if (cur.length) cards.push(cur);
+  return cards;
+}
+function teamsFooter_(text) {
+  return { type: 'TextBlock', text: text, wrap: true, isSubtle: true, size: 'Small', spacing: 'Medium' };
+}
 /** An Adaptive Card text: Teams shows **bold**, "- " and "1. " lists and [text](link) itself. */
 function teamsText_(v, rich) {
-  var t = String(v == null ? '' : v).slice(0, 6000);
-  return rich ? t : t.replace(/\*\*/g, '');
+  var t = String(v == null ? '' : v);
+  if (!rich) return t.replace(/\*\*/g, '');
+  // a blank line where a list ends or starts, so "**Name:**" after a list isn't read as part of its last item
+  var isList = function (l) { return /^\s*(- |\d+\. )/.test(l); };
+  var lines = t.split('\n'), out = [];
+  lines.forEach(function (l, i) {
+    var prev = i ? lines[i - 1] : '';
+    if (i && l.trim() && prev.trim() && isList(prev) !== isList(l)) out.push('');
+    out.push(l);
+  });
+  return out.join('\n');
 }
 function postCardToTeams_(url, body) {
   var card = buildAdaptiveCardPayload_(body);
@@ -8948,17 +9002,18 @@ function customReportEntrySend_(session, body) {
   if (via === 'teams') {
     var url = customReportChannelUrl_(session, String(body.channel || ''));
     if (!url) return { ok: false, error: 'Pick a Teams channel. Only admins and managers can post, and only to the channels set in Daylens.' };
-    var card = [
-      { type: 'TextBlock', text: e.tab, wrap: true, size: 'Medium', weight: 'Bolder' },
-      { type: 'TextBlock', text: e.date + '  |  ' + e.people, wrap: true, isSubtle: true, spacing: 'None' },
-    ];
-    e.fields.forEach(function (f) {
-      card.push({ type: 'TextBlock', text: f.name, wrap: true, weight: 'Bolder', spacing: 'Medium', size: 'Small' });
-      card.push({ type: 'TextBlock', text: teamsText_(f.value, f.rich), wrap: true, spacing: 'None' });
-    });
-    card.push({ type: 'TextBlock', text: 'Shared from Daylens by ' + session.username, wrap: true, isSubtle: true, size: 'Small', spacing: 'Medium' });
-    var t = postCardToTeams_(url, card);
-    if (!t.ok) return t;
+    var card = [teamsHeader_(e.tab + ', ' + e.date, e.people)];
+    card.push(teamsFieldRow_(e.dateLabel || 'Date', e.date, false, true));
+    card.push(teamsFieldRow_(e.peopleLabel || 'People', e.people, false, false));
+    var rest = [];
+    e.fields.forEach(function (f) { teamsSplitRow_(f.name, f.value, f.rich, false).forEach(function (b) { rest.push(b); }); });
+    var packs = teamsPack_(card.concat(rest));
+    packs[packs.length - 1].push(teamsFooter_('Shared from Daylens by ' + session.username + '.'));
+    for (var pi = 0; pi < packs.length; pi++) {
+      if (pi) Utilities.sleep(700);
+      var t = postCardToTeams_(url, pi ? [{ type: 'TextBlock', text: e.tab + ', ' + e.date + ' (continued, ' + (pi + 1) + ' of ' + packs.length + ')', wrap: true, weight: 'Bolder' }].concat(packs[pi]) : packs[pi]);
+      if (!t.ok) return t;
+    }
     logAudit_(null, 'customReport', e.tab, session.username + ' posted an entry (' + e.tab + ', row ' + e.row + ') to Teams: ' + String(body.channel).replace(/^group:/, ''), 'Success');
     return { ok: true, posted: String(body.channel) };
   }
@@ -9003,36 +9058,52 @@ function customReportMail_(names, subject, plain, html, extra) {
 function customReportTeams_(session, spec, channel) {
   var url = customReportChannelUrl_(session, String(channel || ''));
   if (!url) return { ok: false, error: 'Pick a Teams channel. Only admins and managers can post, and only to the channels set in Daylens.' };
-  var data = customReportData_(session, spec, {});
+  var data = customReportData_(session, spec, { allRows: true });
   if (!data.ok) return data;
   var P = data.periods, last = P.length - 1;
   var num = function (n) { return n === null || n === undefined ? '–' : String(Math.round(n * 100) / 100); };
   var card = [
-    { type: 'TextBlock', text: customReportName_(data), wrap: true, size: 'Medium', weight: 'Bolder' },
-    { type: 'TextBlock', text: 'From: ' + data.sources.join(', '), wrap: true, isSubtle: true, spacing: 'None', size: 'Small' },
-    { type: 'TextBlock', text: 'In short', wrap: true, weight: 'Bolder', spacing: 'Medium' },
-    { type: 'TextBlock', text: customReportHighlights_(data).map(function (x) { return '- ' + x; }).join('\n'), wrap: true, spacing: 'Small' },
+    teamsHeader_(customReportName_(data), 'From: ' + data.sources.join(', ')),
+    { type: 'Container', style: 'emphasis', spacing: 'Medium', items: [
+      { type: 'TextBlock', text: 'In short', wrap: true, weight: 'Bolder' },
+      { type: 'TextBlock', text: customReportHighlights_(data).map(function (x) { return '- ' + x; }).join('\n'), wrap: true, spacing: 'Small' },
+    ] },
   ];
   var head = function (txt, w) { return { type: 'Column', width: w, items: [{ type: 'TextBlock', text: txt, weight: 'Bolder', wrap: true, size: 'Small' }] }; };
   var cell = function (txt, w, color) { var b = { type: 'TextBlock', text: txt, wrap: true, size: 'Small' }; if (color) b.color = color; return { type: 'Column', width: w, items: [b] }; };
   var cols = [head('Person', 'stretch'), head('Entries, ' + P[last].label, 'auto'), head('Per working day', 'auto'), head('Leave days', 'auto')];
   if (P.length > 1) cols.push(head('vs ' + P[last - 1].label, 'auto'));
-  card.push({ type: 'TextBlock', text: 'Summary', wrap: true, weight: 'Bolder', spacing: 'Medium' });
-  card.push({ type: 'ColumnSet', columns: cols, spacing: 'Small' });
+  card.push({ type: 'TextBlock', text: 'Summary', wrap: true, weight: 'Bolder', spacing: 'Medium', size: 'Medium' });
+  card.push({ type: 'Container', style: 'emphasis', spacing: 'Small', items: [{ type: 'ColumnSet', columns: cols }] });
   data.people.slice(0, 30).forEach(function (p) {
-    var c = [cell(p.person, 'stretch'), cell(String(p.entries[last]), 'auto'), cell(num(p.perDay[last]), 'auto'), cell(num(p.leaveDays[last]), 'auto')];
+    var c = [{ type: 'Column', width: 'stretch', items: [{ type: 'TextBlock', text: p.person, wrap: true, size: 'Small', weight: 'Bolder' }] }, cell(String(p.entries[last]), 'auto'), cell(num(p.perDay[last]), 'auto'), cell(num(p.leaveDays[last]), 'auto')];
     if (P.length > 1) {
       var ch = p.changes[last - 1];
       c.push(cell((ch.diff > 0 ? '▲ +' : ch.diff < 0 ? '▼ ' : '● ') + num(ch.diff) + (ch.pct === null ? '' : ' (' + (ch.pct > 0 ? '+' : '') + num(ch.pct) + '%)'), 'auto', ch.diff > 0 ? 'Good' : ch.diff < 0 ? 'Attention' : null));
     }
-    card.push({ type: 'ColumnSet', columns: c, spacing: 'Small', separator: true });
+    card.push({ type: 'ColumnSet', columns: c, spacing: 'None', separator: true });
   });
   if (data.people.length > 30) card.push({ type: 'TextBlock', text: '…and ' + (data.people.length - 30) + ' more in Daylens.', wrap: true, isSubtle: true, size: 'Small' });
-  card.push({ type: 'TextBlock', text: 'Shared from Daylens by ' + session.username + '. Counting entries shows how much was logged, not how hard each piece of work was.', wrap: true, isSubtle: true, size: 'Small', spacing: 'Medium' });
+  card.push(teamsFooter_('Shared from Daylens by ' + session.username + '. Counting entries shows how much was logged, not how hard each piece of work was.'));
+  // 1.11.8: then every entry and leave day, each laid out like an opened entry, every field whole. One Teams
+  // message takes about 28 KB, so the entries go in as many messages as they need ("Entries, 2 of 3").
+  var blocks = [];
+  (data.rows || []).forEach(function (r) {
+    blocks.push({ type: 'Container', style: 'good', spacing: 'Medium', items: [{ type: 'TextBlock', text: r.source + ', ' + r.date + ': ' + r.person, wrap: true, weight: 'Bolder', size: 'Small' }] });
+    (r.fields || []).forEach(function (f, fi) { teamsSplitRow_(f.name, f.value, f.rich, fi === 0).forEach(function (b) { blocks.push(b); }); });
+  });
+  var cards = teamsPack_(blocks, 'Entries');
+  if (cards.length > 20) return { ok: false, error: 'That is ' + cards.length + ' Teams messages of entries. Pick a shorter period or fewer people, or email it (the email carries every entry).' };
   var t = postCardToTeams_(url, card);
   if (!t.ok) return t;
-  logAudit_(null, 'customReport', '', session.username + ' posted a custom report to Teams: ' + String(channel).replace(/^group:/, ''), 'Success');
-  return { ok: true, posted: String(channel) };
+  for (var ci = 0; ci < cards.length; ci++) {
+    if (ci) Utilities.sleep(700); // in order, and gently: Teams refuses bursts
+    var head = [{ type: 'TextBlock', text: customReportName_(data) + ': entries' + (cards.length > 1 ? ', ' + (ci + 1) + ' of ' + cards.length : ''), wrap: true, weight: 'Bolder', size: 'Medium' }];
+    var tc = postCardToTeams_(url, head.concat(cards[ci]));
+    if (!tc.ok) return { ok: false, error: 'The report was posted, and ' + ci + ' of the ' + cards.length + ' messages of entries; then ' + tc.error.charAt(0).toLowerCase() + tc.error.slice(1) };
+  }
+  logAudit_(null, 'customReport', '', session.username + ' posted a custom report to Teams (' + (1 + cards.length) + ' messages): ' + String(channel).replace(/^group:/, ''), 'Success');
+  return { ok: true, posted: String(channel), messages: 1 + cards.length };
 }
 
 
@@ -9192,17 +9263,18 @@ function customReportData_(session, rawSpec, opts) {
       headers.forEach(function (h, i) { if (i !== tsIdx) cells.push(fmt(r[i])); });
       if (table.rows.length < CUSTOM_REPORT_MAX_ROWS_) table.rows.push(cells);
       if (rows.length < CUSTOM_REPORT_MAX_ROWS_) {
-        var details = [];
+        // 1.11.8: every field whole (nothing cut short), rich text kept, for the screen, the PDF, the email and Teams
+        var details = [], fields = [];
         headers.forEach(function (h, i) {
           if (i === nameIdx || i === dIdx || i === tsIdx || !h) return;
-          var v = fmt(r[i]);
-          if (schemaTab[h] && schemaTab[h].type === 'richtext') v = markdownLitePlain_(v); // 1.11.7: **bold** and list marks dropped in the one-line view
-          v = v.replace(/\s+/g, ' ').trim();
-          if (v) details.push(h + ': ' + v);
+          var raw = fmt(r[i]).trim();
+          if (!raw) return;
+          var rich = !!(schemaTab[h] && schemaTab[h].type === 'richtext');
+          fields.push({ name: String(h), value: raw.slice(0, CUSTOM_REPORT_CELL_MAX_), rich: rich });
+          details.push(h + ': ' + (rich ? markdownLitePlain_(raw) : raw).replace(/\s+/g, ' '));
         });
-        var joined = details.join(' · ');
         rows.push({ period: periods[ps[0]].label, date: dayKey_(d), person: named.map(function (n) { return n.acct.name; }).join(', '), source: tab, kind: isLeave ? 'leave' : 'entry',
-          details: joined.slice(0, 700), cut: joined.length > 700, ref: tab + '\u0001' + (firstRow + vi) + '\u0001' + rowFingerprint_(r) });
+          details: details.join(' · '), fields: fields, ref: tab + '\u0001' + (firstRow + vi) + '\u0001' + rowFingerprint_(r) });
       }
     });
     if (unreadable && !readable) notes.push('"' + tab + '": its dates (column "' + headers[dIdx] + '") aren\'t written in a way Daylens can read, so nothing from it is counted.');
@@ -9241,7 +9313,7 @@ function customReportData_(session, rawSpec, opts) {
     pairs: pairs.map(function (pr) { return { from: pr[0], to: pr[1] }; }),
     teamEntries: teamEntries,
     rowsTotal: rowsTotal,
-    rows: opts.full ? rows : rows.slice(0, CUSTOM_REPORT_VIEW_ROWS_),
+    rows: opts.full || opts.allRows ? rows : rows.slice(0, CUSTOM_REPORT_VIEW_ROWS_),
     notes: notes,
   };
   if (opts.full) out.tables = tables;
@@ -9434,7 +9506,18 @@ function customReportEmailHtml_(data, title, sender, chartList, hasPdf) {
     });
   });
   if (tabRows.length && tabRows.length <= 120) parts.push(card('By tab', '<table style="border-collapse:collapse;"><tr><th style="' + th + 'text-align:left;">Person</th><th style="' + th + 'text-align:left;">Tab</th>' + P.map(function (p) { return '<th style="' + th + '">' + esc(p.label) + '</th>'; }).join('') + '</tr>' + tabRows.join('') + '</table>'));
-  parts.push('<div style="' + sub + '">' + (hasPdf ? 'The list of every entry and leave day is in the attached PDF and Excel workbook.' : 'The list of every entry and leave day is in the attached Excel workbook.') + '</div>');
+  // 1.11.8: every entry and leave day, every field whole, rich text as written
+  if ((data.rows || []).length) {
+    var cellTd = 'padding:6px 9px;border:1px solid #cfd8d2;font-size:12.5px;vertical-align:top;line-height:1.5;';
+    parts.push(card('All entries and leave', '<table style="border-collapse:collapse;width:100%;"><tr><th style="' + th + 'text-align:left;">Date</th><th style="' + th + 'text-align:left;">Person</th><th style="' + th + 'text-align:left;">From</th><th style="' + th + 'text-align:left;">Details</th></tr>' +
+      data.rows.map(function (r) {
+        var det = (r.fields || []).map(function (f) {
+          var h = markdownLiteHtml_(f.value);
+          return '<div style="margin:0 0 4px;"><b>' + esc(f.name) + ':</b> ' + (f.rich ? h : h.replace(/<\/?(strong|ul|ol|li)[^>]*>/g, '')) + '</div>';
+        }).join('');
+        return '<tr><td style="' + cellTd + 'white-space:nowrap;">' + esc(r.date) + '</td><td style="' + cellTd + '">' + esc(r.person) + '</td><td style="' + cellTd + '">' + esc(r.source) + '</td><td style="' + cellTd + '">' + det + '</td></tr>';
+      }).join('') + '</table>'));
+  }
   return '<div style="font-family:Arial,Helvetica,sans-serif;color:#14201a;max-width:900px;">' + parts.join('') + '</div>';
 }
 

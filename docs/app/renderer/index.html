@@ -1261,7 +1261,10 @@
   /* 1.11.7: one entry on its own */
   #cr-rows tbody tr.cr-open-row { cursor: pointer; }
   #cr-rows tbody tr.cr-open-row:hover td { background: var(--accent-soft); color: var(--card-text); }
-  #cr-rows td.cr-details { min-width: 280px; max-width: 640px; }
+  #cr-rows td.cr-details { min-width: 300px; max-width: 720px; }
+  #cr-rows .cr-field { margin: 0 0 4px; line-height: 1.5; overflow-wrap: anywhere; }
+  #cr-rows .cr-field ul, #cr-rows .cr-field ol { margin: 2px 0; padding-left: 20px; }
+  #cr-rows .cr-field a { color: inherit; font-weight: 600; }
   .cr-more { font-weight: 800; white-space: nowrap; }
   .cr-entry-back { position: fixed; inset: 0; z-index: 900; background: rgba(0,0,0,.45); display: grid; place-items: center; padding: 16px; }
   .cr-entry { background: var(--card-bg); color: var(--card-text); border: 2px solid var(--card-border); border-radius: 16px; width: min(820px, 100%); max-height: calc(100vh - 32px); display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.35); }
@@ -2567,6 +2570,13 @@
     const openRow = (tr) => { const r = shown && shown.data && shown.data.rows[Number(tr.dataset.i)]; if (r && r.ref) openEntry(r); };
     document.getElementById('cr-out').addEventListener('click', (e) => { const tr = e.target.closest('tr.cr-open-row'); if (tr) openRow(tr); });
     document.getElementById('cr-out').addEventListener('keydown', (e) => { if (e.key !== 'Enter' && e.key !== ' ') return; const tr = e.target.closest('tr.cr-open-row'); if (tr) { e.preventDefault(); openRow(tr); } });
+    // 1.11.8: every field of every row, whole, rich text as written (the PDF and the email show the same)
+    const linkify = (html) => html.replace(/(^|[\s(>])(https?:\/\/[^\s<)"]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
+    const fieldHtml = (f) => {
+      const h = f.rich ? renderMarkdownLite(f.value) : escapeHtml(f.value).replace(/\n/g, '<br>');
+      return `<div class="cr-field"><b>${escapeHtml(f.name)}:</b> ${linkify(h)}</div>`;
+    };
+    const rowsTableHtml = (rows) => `<table class="cr-table" id="cr-rows"><thead><tr><th>Date</th><th class="cr-left">Person</th><th class="cr-left">From</th><th class="cr-left">Details</th></tr></thead><tbody>${rows.map((r, i) => `<tr${r.ref ? ` class="cr-open-row" data-i="${i}" tabindex="0" title="Open this entry on its own, to download, email or post it to Teams"` : ''}><td>${escapeHtml(r.date)}</td><td class="cr-left">${escapeHtml(r.person)}</td><td class="cr-left">${escapeHtml(r.source)}</td><td class="cr-left cr-details">${r.fields ? r.fields.map(fieldHtml).join('') : escapeHtml(r.details)}</td></tr>`).join('')}</tbody></table>`;
     function drawReport(d, sp) {
       shown = { data: d, key: JSON.stringify(sp || null) };
       const out = $('cr-out');
@@ -2590,8 +2600,8 @@
         ${tabRows.length ? `<div class="cr-card"><h3>By tab</h3><div class="cr-scroll"><table class="cr-table" id="cr-bytab"><thead><tr><th>Person</th><th class="cr-left">Tab</th>${P.map((p) => `<th>${escapeHtml(p.label)}</th>`).join('')}</tr></thead><tbody>${tabRows.join('')}</tbody></table></div></div>` : ''}
         <div class="cr-card">
           <h3>All entries and leave, in one list</h3>
-          <div class="cr-dim">${d.rowsTotal ? (d.rows.length < d.rowsTotal ? `The first ${d.rows.length} of ${d.rowsTotal} rows. The Excel file has all of them.` : `${d.rowsTotal} row${d.rowsTotal === 1 ? '' : 's'}.`) : (total ? '' : 'Nothing was found for these choices.')}</div>
-          ${d.rows.length ? `<div class="cr-scroll" style="max-height:420px"><table class="cr-table" id="cr-rows"><thead><tr><th>Date</th><th class="cr-left">Person</th><th class="cr-left">From</th><th class="cr-left">Details</th></tr></thead><tbody>${d.rows.map((r, i) => `<tr${r.ref ? ` class="cr-open-row" data-i="${i}" tabindex="0" title="Open this entry: all of it, to read, download, email or post to Teams"` : ''}><td>${escapeHtml(r.date)}</td><td class="cr-left">${escapeHtml(r.person)}</td><td class="cr-left">${escapeHtml(r.source)}</td><td class="cr-left cr-details">${escapeHtml(r.details)}${r.cut ? '… <span class="cr-more">Open to read all</span>' : ''}</td></tr>`).join('')}</tbody></table></div><div class="cr-dim">Click an entry to open it whole: rich text as written, and ways to download, email or post it to Teams.</div>` : ''}
+          <div class="cr-dim">${d.rowsTotal ? (d.rows.length < d.rowsTotal ? `The first ${d.rows.length} of ${d.rowsTotal} rows here; the PDF, the email and the Excel file have all of them.` : `${d.rowsTotal} row${d.rowsTotal === 1 ? '' : 's'}.`) : (total ? '' : 'Nothing was found for these choices.')}</div>
+          ${d.rows.length ? `<div class="cr-scroll" style="max-height:420px">${rowsTableHtml(d.rows)}</div><div class="cr-dim">Click an entry to download, email or post just that one to Teams.</div>` : ''}
         </div>`;
       if ($('cr-charts')) window.DaylensCRCharts.render($('cr-charts'), d);
       const copyBtn = $('cr-copy');
@@ -2632,7 +2642,19 @@
     };
     const reportPage = async (d) => {
       const team = await window.statusApp.getTeamInfo().catch(() => ({}));
-      return window.DaylensCRPrint.html($('cr-out'), d, { team: (team && team.teamName) || '', by: opt.me || '' });
+      let src = $('cr-out');
+      if (d.rows.length < d.rowsTotal && shown && shown.data === d) {
+        // the screen lists the first rows; the PDF and the email get every one (1.11.8)
+        let all = null;
+        try { all = await window.statusApp.customReport(JSON.parse(shown.key), true); } catch { all = null; }
+        if (all && all.ok && all.rows && all.rows.length > d.rows.length) {
+          src = src.cloneNode(true);
+          const tbl = src.querySelector('#cr-rows');
+          if (tbl) tbl.outerHTML = rowsTableHtml(all.rows);
+          src.querySelectorAll('.cr-card .cr-dim').forEach((n) => { if (/^The first \d+ of/.test(n.textContent)) n.textContent = `${all.rows.length} rows.`; });
+        }
+      }
+      return window.DaylensCRPrint.html(src, d, { team: (team && team.teamName) || '', by: opt.me || '' });
     };
     $('cr-pdf').onclick = () => {
       const sp = spec(); if (!sp) return;
@@ -2693,10 +2715,23 @@
       return `Emailed to ${to.join(', ')}${what ? ', ' + what : ''}. Not in the inbox in a few minutes? Look in Junk or Quarantine: work mail often holds mail from Gmail that has attachments.`;
     }
     // A channel picker (one choice) in a box, then Send: used by the report and by an entry
+    // 1.11.8: where the channels come from, right where they're picked (admins get links to change them)
+    const openManageAt = (sub) => window.__appMode && window.__appPost({ type: 'open-section', name: 'manage', sub });
+    const channelsWhere = () => opt.role === 'admin'
+      ? `<div class="where-box">The <b>Team channel</b> is the Teams link in Connections &amp; keys; each <b>group</b> is a Teams link in Ticket Groups. <button type="button" class="where-link" data-go="app-settings-section">Connections &amp; keys →</button> <button type="button" class="where-link" data-go="ticket-groups-section">Ticket Groups →</button></div>`
+      : '<div class="where-box">The channels are set by an admin in Tabs &amp; fields: the team channel in Connections &amp; keys, group channels in Ticket Groups.</div>';
+    const wireWhere = (box) => box.querySelectorAll('[data-go]').forEach((b) => { b.onclick = () => openManageAt(b.dataset.go); });
     function teamsPicker(box, onSend, msg) {
       const list = opt.channels || [];
       box.hidden = false;
-      box.innerHTML = `<div class="cr-dim">Post to:</div><div class="cr-chips" role="group" aria-label="Teams channel"></div><div class="cr-actions"><button type="button" class="mini-btn go" data-act="send">Post to Teams</button><button type="button" class="mini-btn" data-act="cancel">Cancel</button></div>`;
+      if (!list.length) {
+        box.innerHTML = `<div class="cr-dim">No Teams channel is set up yet. Paste a channel's webhook link in one of these, then come back:</div>${channelsWhere()}<div class="cr-actions"><button type="button" class="mini-btn" data-act="cancel">Close</button></div>`;
+        wireWhere(box);
+        box.querySelector('[data-act="cancel"]').onclick = () => { box.hidden = true; box.innerHTML = ''; };
+        return;
+      }
+      box.innerHTML = `<div class="cr-dim">Post to:</div><div class="cr-chips" role="group" aria-label="Teams channel"></div>${channelsWhere()}<div class="cr-actions"><button type="button" class="mini-btn go" data-act="send">Post to Teams</button><button type="button" class="mini-btn" data-act="cancel">Cancel</button></div>`;
+      wireWhere(box);
       let pickedCh = list.length === 1 ? list[0].id : '';
       const host = box.querySelector('.cr-chips');
       list.forEach((c) => { const b = chip(c.label, c.id === pickedCh); b.dataset.channel = c.id; b.onclick = () => { pickedCh = c.id; host.querySelectorAll('.cr-chip').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }; host.appendChild(b); });
@@ -2736,7 +2771,7 @@
         });
       };
     }
-    if ((opt.channels || []).length) $('cr-teams').hidden = false;
+    if ((opt.channels || []).length || opt.role === 'admin') $('cr-teams').hidden = false; // an admin sees it even before a channel is set, with where to set one
     $('cr-teams').onclick = () => {
       const sp = spec(); if (!sp) return;
       say('');
@@ -2750,7 +2785,7 @@
       document.querySelectorAll('.cr-entry-back').forEach((n) => n.remove());
       const back = document.createElement('div');
       back.className = 'cr-entry-back';
-      back.innerHTML = `<div class="cr-entry" role="dialog" aria-modal="true" aria-labelledby="cr-entry-title"><div class="cr-entry-head"><div><h3 id="cr-entry-title">${escapeHtml(row.source)}, ${escapeHtml(row.date)}</h3><div class="cr-entry-sub">${escapeHtml(row.person)}</div></div><button type="button" class="mini-btn" id="cr-entry-close">Close</button></div><div class="cr-entry-body" id="cr-entry-body"><div class="cr-dim">Opening the entry…</div></div><div class="cr-entry-foot"><div class="cr-actions"><button type="button" class="mini-btn" id="cr-entry-copy" disabled>Copy</button><button type="button" class="mini-btn" id="cr-entry-pdf" disabled>⬇️ Download (PDF)</button><button type="button" class="mini-btn" id="cr-entry-email" disabled>✉️ Email…</button>${(opt.channels || []).length ? '<button type="button" class="mini-btn" id="cr-entry-teams" disabled>💬 Teams…</button>' : ''}</div><div class="cr-msg" id="cr-entry-msg" role="status"></div><div id="cr-entry-box" hidden></div></div></div>`;
+      back.innerHTML = `<div class="cr-entry" role="dialog" aria-modal="true" aria-labelledby="cr-entry-title"><div class="cr-entry-head"><div><h3 id="cr-entry-title">${escapeHtml(row.source)}, ${escapeHtml(row.date)}</h3><div class="cr-entry-sub">${escapeHtml(row.person)}</div></div><button type="button" class="mini-btn" id="cr-entry-close">Close</button></div><div class="cr-entry-body" id="cr-entry-body"><div class="cr-dim">Opening the entry…</div></div><div class="cr-entry-foot"><div class="cr-actions"><button type="button" class="mini-btn" id="cr-entry-copy" disabled>Copy</button><button type="button" class="mini-btn" id="cr-entry-pdf" disabled>⬇️ Download (PDF)</button><button type="button" class="mini-btn" id="cr-entry-email" disabled>✉️ Email…</button>${(opt.channels || []).length || opt.role === 'admin' ? '<button type="button" class="mini-btn" id="cr-entry-teams" disabled>💬 Teams…</button>' : ''}</div><div class="cr-msg" id="cr-entry-msg" role="status"></div><div id="cr-entry-box" hidden></div></div></div>`;
       document.body.appendChild(back);
       const q = (id) => back.querySelector('#' + id);
       const msg = (t, bad) => { const m = q('cr-entry-msg'); m.textContent = t || ''; m.classList.toggle('err', !!bad); };
