@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.11.5'; // always the same as the app's version (package.json) — a test keeps them equal
+var BACKEND_VERSION = '1.11.7'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -1451,13 +1451,16 @@ function doPostInner_(e) {
 
     /** Custom report (1.11): any tabs, people and periods in one report. Signed-in people only (not Demo);
      * the server decides whose data each person may see. */
-    if (body.action === 'customReportOptions' || body.action === 'customReport' || body.action === 'customReportFile' || body.action === 'customReportEmail' || body.action === 'customReportAsk') {
+    if (body.action === 'customReportOptions' || body.action === 'customReport' || body.action === 'customReportFile' || body.action === 'customReportEmail' || body.action === 'customReportAsk' || body.action === 'customReportEntry' || body.action === 'customReportEntrySend' || body.action === 'customReportTeams') {
       if (!callerSession) return jsonOut({ ok: false, error: 'Please log in again.' });
       if (isDemoRole_(callerSession.role)) return jsonOut({ ok: false, error: 'Custom report isn\'t part of the demo.' });
       if (body.action === 'customReportOptions') return jsonOut(Object.assign(customReportOptions_(callerSession), { recipients: customReportRecipients_(callerSession) }));
       if (body.action === 'customReport') return jsonOut(customReportData_(callerSession, body.spec, {}));
       if (body.action === 'customReportFile') return jsonOut(customReportFile_(callerSession, body.spec));
       if (body.action === 'customReportEmail') return jsonOut(customReportEmail_(callerSession, body.spec, body.to, body.pdf, body.charts));
+      if (body.action === 'customReportEntry') return jsonOut(customReportEntry_(callerSession, body.ref));
+      if (body.action === 'customReportEntrySend') return jsonOut(customReportEntrySend_(callerSession, body));
+      if (body.action === 'customReportTeams') return jsonOut(customReportTeams_(callerSession, body.spec, body.channel));
       return jsonOut(customReportAsk_(callerSession, body.text));
     }
 
@@ -8815,8 +8818,223 @@ function customReportTabs_() {
 function customReportOptions_(session) {
   var scope = customReportScope_(session);
   var tabs = customReportTabs_();
-  return { ok: true, role: scope.role, people: scope.names, tabs: tabs, today: dayKey_(new Date()), me: String(session.username).trim() };
+  return { ok: true, role: scope.role, people: scope.names, tabs: tabs, today: dayKey_(new Date()), me: String(session.username).trim(), channels: customReportChannels_(session) };
 }
+
+// ---- 1.11.7: one entry on its own, and sending to Teams ----
+
+/** Where a report or an entry can be posted in Teams: the team's channel and the groups' channels, by name only
+ * (the links themselves never leave the Sheet). Admins and managers only: a channel is the whole team's. */
+function customReportChannels_(session) {
+  var scope = customReportScope_(session);
+  if (scope.role === 'self') return [];
+  var out = [];
+  if (getTeamsWebhookUrl()) out.push({ id: 'team', label: 'Team channel' });
+  try {
+    getConnectGroups().forEach(function (g) { if (g.name && g.webhookUrl) out.push({ id: 'group:' + g.name, label: g.name }); });
+  } catch (e) { /* no groups tab */ }
+  return out;
+}
+function customReportChannelUrl_(session, id) {
+  var ok = customReportChannels_(session).some(function (c) { return c.id === id; });
+  if (!ok) return '';
+  return id === 'team' ? getTeamsWebhookUrl() : getConnectGroupWebhookUrl(String(id).slice(6));
+}
+
+/** A short, stable mark of a row's contents, so "this entry" still means the same entry when it is opened later. */
+function rowFingerprint_(r) {
+  var str = JSON.stringify((r || []).map(function (v) { return Object.prototype.toString.call(v) === '[object Date]' ? v.getTime() : v; }));
+  var h = 2166136261;
+  for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h.toString(36);
+}
+
+/** **bold** and [text](link) as plain text (lists keep their "- " and "1. "). */
+function markdownLitePlain_(text) {
+  return String(text == null ? '' : text).replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|mailto:[^\s)]+)\)/g, '$1 ($2)').replace(/\*\*([^*]+)\*\*/g, '$1');
+}
+/** The same four things as the app's rich text, as safe HTML for email (escaped first, then the tags); bare links become links. */
+function markdownLiteHtml_(text) {
+  var html = escapeHtml_(String(text == null ? '' : text))
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|mailto:[^\s)]+)\)/g, '<a href="$2">$1</a>')
+    .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, function (m, pre, url) { return pre + '<a href="' + url + '">' + url + '</a>'; })
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  var out = '', list = null;
+  var close = function () { if (list) { out += '</' + list + '>'; list = null; } };
+  html.split('\n').forEach(function (line) {
+    var b = line.match(/^\s*- (.*)$/), n = line.match(/^\s*\d+\. (.*)$/);
+    if (b) { if (list !== 'ul') { close(); out += '<ul style="margin:4px 0;padding-left:20px;">'; list = 'ul'; } out += '<li>' + b[1] + '</li>'; }
+    else if (n) { if (list !== 'ol') { close(); out += '<ol style="margin:4px 0;padding-left:20px;">'; list = 'ol'; } out += '<li>' + n[1] + '</li>'; }
+    else { close(); out += line + '<br>'; }
+  });
+  close();
+  return out.replace(/(<br>)+$/, '');
+}
+
+/** One entry from a report, whole, if this person may see it: { tab, row, date, people, fields: [{ name, value, rich }] }. */
+function customReportEntry_(session, ref) {
+  var parts = String(ref || '').split('\u0001');
+  var gone = { ok: false, error: 'That entry can\'t be found. View the report again.' };
+  if (parts.length !== 3) return gone;
+  var tab = parts[0], row = Number(parts[1]);
+  var info = customReportTabs_().filter(function (t) { return t.tab === tab; })[0];
+  if (!info || !(row >= 2)) return gone;
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tab);
+  if (!sheet || row > sheet.getLastRow()) return { ok: false, error: 'That entry is no longer in the Sheet.' };
+  var headers = getHeaderRow(sheet);
+  var r = sheet.getRange(row, 1, 1, headers.length).getValues()[0];
+  if (rowFingerprint_(r) !== parts[2]) return { ok: false, error: 'That entry was changed or moved since the report was made. View the report again.' };
+  var schemaTab = getFieldSchemaMap()[tab] || {};
+  var nameIdx = activityPersonColumn_(headers, info.type, tab);
+  var dIdx = activityDateColumn_(headers, schemaTab, info.type);
+  var scope = customReportScope_(session);
+  var mine = {};
+  scope.names.forEach(function (n) { mine[personKey_(n)] = 1; });
+  var whoRaw = String(r[nameIdx] == null ? '' : r[nameIdx]).trim();
+  var people = whoRaw.split(/\s*(?:[,;\n\/&]|\band\b)\s*/i).map(function (x) { return x.trim(); }).filter(Boolean);
+  var renamed = getRenamedUsers_();
+  var isMine = function (n) { return !!mine[personKey_(renamed[String(n).toLowerCase()] || n)]; };
+  if (!isMine(whoRaw) && !people.some(isMine)) return { ok: false, error: 'You can open only your own entries and those of the people who report to you.' };
+  var tz = Session.getScriptTimeZone();
+  var fmt = function (v) {
+    if (Object.prototype.toString.call(v) === '[object Date]' && !isNaN(v.getTime())) return Utilities.formatDate(v, tz, Utilities.formatDate(v, tz, 'HH:mm') !== '00:00' ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd');
+    return v === null || v === undefined ? '' : String(v);
+  };
+  var fields = [];
+  headers.forEach(function (h, i) {
+    if (!h || i === nameIdx || i === dIdx) return;
+    var v = fmt(r[i]).trim();
+    if (!v) return;
+    fields.push({ name: h === TIMESTAMP_COLUMN ? 'Added' : String(h), value: v.slice(0, 20000), rich: !!(schemaTab[h] && schemaTab[h].type === 'richtext') });
+  });
+  var d = activityCellDate_(r[dIdx], sheetMonthFirst_());
+  return { ok: true, ref: String(ref), tab: tab, row: row, date: d ? dayKey_(d) : fmt(r[dIdx]), dateLabel: String(headers[dIdx]), people: people.join(', '), peopleLabel: String(headers[nameIdx]), fields: fields };
+}
+
+function customReportEntryHtml_(e, sender) {
+  var esc = escapeHtml_;
+  var rows = [[esc(e.dateLabel || 'Date'), esc(e.date)], [esc(e.peopleLabel || 'People'), esc(e.people)]].concat(e.fields.map(function (f) {
+    var h = markdownLiteHtml_(f.value);
+    return [esc(f.name), f.rich ? h : h.replace(/<\/?(strong|ul|ol|li)[^>]*>/g, '')];
+  }));
+  return '<div style="font-family:Arial,Helvetica,sans-serif;color:#14201a;max-width:760px;">' +
+    '<div style="border:2px solid #111111;border-radius:12px;background:#8ace00;color:#111111;padding:12px 16px;margin:0 0 12px;"><div style="font-size:18px;font-weight:bold;">' + esc(e.tab) + ', ' + esc(e.date) + '</div><div style="font-size:12.5px;margin-top:3px;">' + esc(e.people) + (sender ? '. Sent from Daylens by ' + esc(sender) + '.' : '') + '</div></div>' +
+    '<table style="border-collapse:collapse;width:100%;">' + rows.map(function (x) { return '<tr><th style="text-align:left;vertical-align:top;padding:8px 10px;border:1px solid #cfd8d2;background:#eef3ea;font-size:12.5px;width:160px;">' + x[0] + '</th><td style="vertical-align:top;padding:8px 10px;border:1px solid #cfd8d2;font-size:13px;line-height:1.5;">' + x[1] + '</td></tr>'; }).join('') + '</table></div>';
+}
+/** An Adaptive Card text: Teams shows **bold**, "- " and "1. " lists and [text](link) itself. */
+function teamsText_(v, rich) {
+  var t = String(v == null ? '' : v).slice(0, 6000);
+  return rich ? t : t.replace(/\*\*/g, '');
+}
+function postCardToTeams_(url, body) {
+  var card = buildAdaptiveCardPayload_(body);
+  card.actions = [{ type: 'Action.OpenUrl', title: 'Open Daylens', url: DAYLENS_WEB_URL_, style: 'positive' }];
+  var json = JSON.stringify(card);
+  if (json.length > 26000) return { ok: false, error: 'That is too long for one Teams message (Teams takes about 28 KB). Pick fewer people or a shorter period, or email it.' };
+  try {
+    var resp = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', payload: json, muteHttpExceptions: true });
+    var code = resp.getResponseCode();
+    if (code >= 200 && code < 300) return { ok: true };
+    return { ok: false, error: 'Teams didn\'t take it (answer ' + code + '). Check the channel\'s link in Settings' + (code === 404 ? ': it may have been removed in Teams.' : '.') };
+  } catch (e) {
+    return { ok: false, error: 'Couldn\'t reach Teams: ' + String((e && e.message) || e).slice(0, 160) };
+  }
+}
+
+function customReportEntrySend_(session, body) {
+  var e = customReportEntry_(session, body.ref);
+  if (!e.ok) return e;
+  var via = String(body.via || '');
+  if (via === 'teams') {
+    var url = customReportChannelUrl_(session, String(body.channel || ''));
+    if (!url) return { ok: false, error: 'Pick a Teams channel. Only admins and managers can post, and only to the channels set in Daylens.' };
+    var card = [
+      { type: 'TextBlock', text: e.tab, wrap: true, size: 'Medium', weight: 'Bolder' },
+      { type: 'TextBlock', text: e.date + '  |  ' + e.people, wrap: true, isSubtle: true, spacing: 'None' },
+    ];
+    e.fields.forEach(function (f) {
+      card.push({ type: 'TextBlock', text: f.name, wrap: true, weight: 'Bolder', spacing: 'Medium', size: 'Small' });
+      card.push({ type: 'TextBlock', text: teamsText_(f.value, f.rich), wrap: true, spacing: 'None' });
+    });
+    card.push({ type: 'TextBlock', text: 'Shared from Daylens by ' + session.username, wrap: true, isSubtle: true, size: 'Small', spacing: 'Medium' });
+    var t = postCardToTeams_(url, card);
+    if (!t.ok) return t;
+    logAudit_(null, 'customReport', e.tab, session.username + ' posted an entry (' + e.tab + ', row ' + e.row + ') to Teams: ' + String(body.channel).replace(/^group:/, ''), 'Success');
+    return { ok: true, posted: String(body.channel) };
+  }
+  if (via === 'email') {
+    var names = customReportPickRecipients_(session, body.to);
+    if (!names.length) return { ok: false, error: 'Pick who to send it to. Only people with an email in People can be chosen.' };
+    var quota = MailApp.getRemainingDailyQuota();
+    if (quota < names.length) return { ok: false, error: 'Google\'s daily email limit for this Sheet is used up (' + quota + ' left today). Try again tomorrow.' };
+    var html = customReportEntryHtml_(e, session.username);
+    var plain = e.tab + ', ' + e.date + '\n' + e.people + '\n\n' + e.fields.map(function (f) { return f.name + ':\n' + markdownLitePlain_(f.value); }).join('\n\n');
+    var sent = customReportMail_(names, e.tab + ', ' + e.date + ' (' + e.people + ')', plain, html, null);
+    logAudit_(null, 'customReport', e.tab, session.username + ' emailed an entry (' + e.tab + ', row ' + e.row + ') to ' + sent.map(function (x) { return x.name; }).join(', '), 'Success');
+    return { ok: true, sent: sent.map(function (x) { return x.name; }), to: sent.map(function (x) { return x.masked; }) };
+  }
+  return { ok: false, error: 'Unknown way to send.' };
+}
+
+/** The people picked who may get it (the same rule as the report email). */
+function customReportPickRecipients_(session, to) {
+  var may = {};
+  customReportRecipients_(session).forEach(function (n) { may[personKey_(n)] = n; });
+  var names = [];
+  (Array.isArray(to) ? to : []).map(String).slice(0, 30).forEach(function (n) { var hit = may[personKey_(n)]; if (hit && names.indexOf(hit) === -1) names.push(hit); });
+  return names;
+}
+/** Sends one mail to each person; returns [{ name, masked }] for the ones that went. */
+function customReportMail_(names, subject, plain, html, extra) {
+  var sent = [];
+  names.forEach(function (n) {
+    var addr = userEmail_(n);
+    if (!addr) return;
+    var mail = { to: addr, subject: subject, body: plain, htmlBody: html, name: 'Daylens' };
+    if (extra && extra.attachments && extra.attachments.length) mail.attachments = extra.attachments;
+    if (extra && extra.inlineImages) mail.inlineImages = extra.inlineImages;
+    MailApp.sendEmail(mail);
+    sent.push({ name: n, masked: maskEmail_(addr) });
+  });
+  return sent;
+}
+
+/** The report in a Teams channel: the "In short" lines and the Summary, as a card. */
+function customReportTeams_(session, spec, channel) {
+  var url = customReportChannelUrl_(session, String(channel || ''));
+  if (!url) return { ok: false, error: 'Pick a Teams channel. Only admins and managers can post, and only to the channels set in Daylens.' };
+  var data = customReportData_(session, spec, {});
+  if (!data.ok) return data;
+  var P = data.periods, last = P.length - 1;
+  var num = function (n) { return n === null || n === undefined ? '–' : String(Math.round(n * 100) / 100); };
+  var card = [
+    { type: 'TextBlock', text: customReportName_(data), wrap: true, size: 'Medium', weight: 'Bolder' },
+    { type: 'TextBlock', text: 'From: ' + data.sources.join(', '), wrap: true, isSubtle: true, spacing: 'None', size: 'Small' },
+    { type: 'TextBlock', text: 'In short', wrap: true, weight: 'Bolder', spacing: 'Medium' },
+    { type: 'TextBlock', text: customReportHighlights_(data).map(function (x) { return '- ' + x; }).join('\n'), wrap: true, spacing: 'Small' },
+  ];
+  var head = function (txt, w) { return { type: 'Column', width: w, items: [{ type: 'TextBlock', text: txt, weight: 'Bolder', wrap: true, size: 'Small' }] }; };
+  var cell = function (txt, w, color) { var b = { type: 'TextBlock', text: txt, wrap: true, size: 'Small' }; if (color) b.color = color; return { type: 'Column', width: w, items: [b] }; };
+  var cols = [head('Person', 'stretch'), head('Entries, ' + P[last].label, 'auto'), head('Per working day', 'auto'), head('Leave days', 'auto')];
+  if (P.length > 1) cols.push(head('vs ' + P[last - 1].label, 'auto'));
+  card.push({ type: 'TextBlock', text: 'Summary', wrap: true, weight: 'Bolder', spacing: 'Medium' });
+  card.push({ type: 'ColumnSet', columns: cols, spacing: 'Small' });
+  data.people.slice(0, 30).forEach(function (p) {
+    var c = [cell(p.person, 'stretch'), cell(String(p.entries[last]), 'auto'), cell(num(p.perDay[last]), 'auto'), cell(num(p.leaveDays[last]), 'auto')];
+    if (P.length > 1) {
+      var ch = p.changes[last - 1];
+      c.push(cell((ch.diff > 0 ? '▲ +' : ch.diff < 0 ? '▼ ' : '● ') + num(ch.diff) + (ch.pct === null ? '' : ' (' + (ch.pct > 0 ? '+' : '') + num(ch.pct) + '%)'), 'auto', ch.diff > 0 ? 'Good' : ch.diff < 0 ? 'Attention' : null));
+    }
+    card.push({ type: 'ColumnSet', columns: c, spacing: 'Small', separator: true });
+  });
+  if (data.people.length > 30) card.push({ type: 'TextBlock', text: '…and ' + (data.people.length - 30) + ' more in Daylens.', wrap: true, isSubtle: true, size: 'Small' });
+  card.push({ type: 'TextBlock', text: 'Shared from Daylens by ' + session.username + '. Counting entries shows how much was logged, not how hard each piece of work was.', wrap: true, isSubtle: true, size: 'Small', spacing: 'Medium' });
+  var t = postCardToTeams_(url, card);
+  if (!t.ok) return t;
+  logAudit_(null, 'customReport', '', session.username + ' posted a custom report to Teams: ' + String(channel).replace(/^group:/, ''), 'Success');
+  return { ok: true, posted: String(channel) };
+}
+
 
 function customReportDay_(s) {
   var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || '').trim());
@@ -8934,7 +9152,9 @@ function customReportData_(session, rawSpec, opts) {
     var tsIdx = findColumnIndex(headers, TIMESTAMP_COLUMN);
     var table = { tab: tab, headers: headers.filter(function (h, i) { return i !== tsIdx; }), rows: [] };
     var unreadable = 0, readable = 0;
-    values.forEach(function (r) {
+    var firstRow = isLeave ? 2 : sheet.getLastRow() - values.length + 1; // the Sheet row of values[0] (both reads end at the last row)
+    var schemaTab = schema[tab] || {};
+    values.forEach(function (r, vi) {
       var who = String(r[nameIdx] == null ? '' : r[nameIdx]).trim();
       if (!who) return;
       var d = activityCellDate_(r[dIdx], monthFirst);
@@ -8975,10 +9195,14 @@ function customReportData_(session, rawSpec, opts) {
         var details = [];
         headers.forEach(function (h, i) {
           if (i === nameIdx || i === dIdx || i === tsIdx || !h) return;
-          var v = fmt(r[i]).replace(/\s+/g, ' ').trim();
+          var v = fmt(r[i]);
+          if (schemaTab[h] && schemaTab[h].type === 'richtext') v = markdownLitePlain_(v); // 1.11.7: **bold** and list marks dropped in the one-line view
+          v = v.replace(/\s+/g, ' ').trim();
           if (v) details.push(h + ': ' + v);
         });
-        rows.push({ period: periods[ps[0]].label, date: dayKey_(d), person: named.map(function (n) { return n.acct.name; }).join(', '), source: tab, kind: isLeave ? 'leave' : 'entry', details: details.join(' · ').slice(0, 700) });
+        var joined = details.join(' · ');
+        rows.push({ period: periods[ps[0]].label, date: dayKey_(d), person: named.map(function (n) { return n.acct.name; }).join(', '), source: tab, kind: isLeave ? 'leave' : 'entry',
+          details: joined.slice(0, 700), cut: joined.length > 700, ref: tab + '\u0001' + (firstRow + vi) + '\u0001' + rowFingerprint_(r) });
       }
     });
     if (unreadable && !readable) notes.push('"' + tab + '": its dates (column "' + headers[dIdx] + '") aren\'t written in a way Daylens can read, so nothing from it is counted.');
@@ -9265,17 +9489,12 @@ function customReportEmail_(session, spec, to, pdf, charts) {
   extra.charts.forEach(function (c, i) { inline['chart' + i] = c.blob; });
   var files = extra.pdf ? [extra.pdf, built.blob] : [built.blob];
   var plain = title + '\n\nSent from Daylens by ' + session.username + '.\n\n' + customReportHighlights_(data).map(function (x) { return '- ' + x; }).join('\n') + '\n\n' + (extra.pdf ? 'The report (PDF) and the Excel workbook are attached.' : 'The Excel workbook is attached.');
-  var sent = [];
-  names.forEach(function (n) {
-    var addr = userEmail_(n);
-    if (!addr) return;
-    var mail = { to: addr, subject: title, body: plain, htmlBody: html, attachments: files };
-    if (extra.charts.length) mail.inlineImages = inline;
-    MailApp.sendEmail(mail);
-    sent.push(n);
-  });
+  var quota = MailApp.getRemainingDailyQuota();
+  if (quota < names.length) return { ok: false, error: 'Google\'s daily email limit for this Sheet is used up (' + quota + ' left today). Try again tomorrow.' };
+  var sentTo = customReportMail_(names, title, plain, html, { attachments: files, inlineImages: extra.charts.length ? inline : null });
+  var sent = sentTo.map(function (x) { return x.name; });
   logAudit_(null, 'customReport', '', session.username + ' emailed a custom report to ' + sent.join(', ') + (extra.pdf ? ' (with the PDF)' : ''), 'Success');
-  return { ok: true, sent: sent, pdf: !!extra.pdf, charts: extra.charts.length };
+  return { ok: true, sent: sent, to: sentTo.map(function (x) { return x.masked; }), pdf: !!extra.pdf, charts: extra.charts.length };
 }
 
 /** "Ask in words": Gemini turns a sentence into the form's choices, nothing else. It is given the tab names, the
