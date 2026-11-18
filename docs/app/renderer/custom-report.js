@@ -82,6 +82,8 @@
     var q = Math.floor(m / 3) * 3;
     var monday = addDays(t, -((t.getDay() + 6) % 7));
     switch (k) {
+      case 'today': return { from: key(t), to: key(t), breakdown: 'none' }; // 1.11.8: for the daily report
+      case 'yesterday': return { from: key(addDays(t, -1)), to: key(addDays(t, -1)), breakdown: 'none' };
       case 'this-week': return { from: key(monday), to: key(addDays(monday, 6)), breakdown: 'none' };
       case 'last-week': return { from: key(addDays(monday, -7)), to: key(addDays(monday, -1)), breakdown: 'none' };
       case 'this-month': return { from: key(monthStart(y, m)), to: key(monthEnd(y, m)), breakdown: 'none' };
@@ -94,7 +96,7 @@
       default: return null;
     }
   }
-  var QUICK = [['this-week', 'This week'], ['last-week', 'Last week'], ['this-month', 'This month'], ['last-month', 'Last month'],
+  var QUICK = [['today', 'Today'], ['yesterday', 'Yesterday'], ['this-week', 'This week'], ['last-week', 'Last week'], ['this-month', 'This month'], ['last-month', 'Last month'],
     ['last-3-months', 'Last 3 months'], ['last-6-months', 'Last 6 months'], ['this-quarter', 'This quarter'], ['last-quarter', 'Last quarter'], ['this-year', 'This year']];
 
   var squash = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); };
@@ -171,7 +173,9 @@
       var lastM = dates[dates.length - 1];
       fill.to = key(monthEnd(lastM.getFullYear(), lastM.getMonth()));
       if (dates.length > 1 && key(dates[0]) !== key(lastM)) fill.breakdown = 'month';
-    } else if (/\blast week\b/.test(t)) set(quickRange('last-week', key(today)));
+    } else if (/\btoday\b/.test(t)) set(quickRange('today', key(today)));
+    else if (/\byesterday\b/.test(t)) set(quickRange('yesterday', key(today)));
+    else if (/\blast week\b/.test(t)) set(quickRange('last-week', key(today)));
     else if (/\bthis week\b/.test(t)) set(quickRange('this-week', key(today)));
     else if (/\blast month\b/.test(t)) set(quickRange('last-month', key(today)));
     else if (/\bthis month\b/.test(t)) set(quickRange('this-month', key(today)));

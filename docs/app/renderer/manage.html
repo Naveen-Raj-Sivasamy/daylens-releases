@@ -629,8 +629,8 @@
       <h3>Connections &amp; keys</h3>
       <p class="hint">Your team's Teams channel and the Gemini key that powers the AI digest and Ask Daylens. Who "Contact Admin" emails is in Contacts &amp; backups; report reminders are set on each report in Reports → Scheduled reports.</p>
 
-      <div class="field-label">Teams channel (report reminders)</div>
-      <p class="hint" style="margin: -2px 0 6px;">Optional. Paste a Teams channel's webhook link to also post each report's reminder there. Ticket trackers post to their own channels (Ticket Groups). Leave blank for email only.</p>
+      <div class="field-label">Team's Teams channel (report reminders, the weekly check-in, Custom report)</div>
+      <p class="hint" style="margin: -2px 0 6px;">Optional. Paste a Teams channel's webhook link: each report's reminder and the weekly check-in are posted there, and Custom report can post to it ("Team channel"). More channels, one per group, go in Ticket Groups below. Leave blank for email only.</p>
       <input id="teams-webhook-url" type="text" placeholder="https://..." style="width:100%;" />
       <p class="hint old-link-warn" id="teams-webhook-old" role="status" hidden></p>
 
@@ -785,7 +785,7 @@
 
     <div class="section" id="ticket-groups-section">
       <h3>Ticket Groups</h3>
-      <p class="hint">Each group posts its tickets (from a Ticket tracker tab) to its own Teams channel — pick the group right on the ticket form. Paste the channel's Incoming Webhook link here.</p>
+      <p class="hint">A group's own Teams channel: paste the channel's webhook link. Ticket trackers post each group's tickets there (pick the group on the ticket form), and Custom report lists each group here as a channel it can post to.</p>
       <div id="connect-groups"></div>
       <div class="row-actions">
         <button class="secondary" id="add-connect-group-btn">+ Add group</button>
