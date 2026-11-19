@@ -1,9 +1,249 @@
 {
-  "updated": "2026-11-18",
+  "updated": "2026-11-19",
   "items": [
     {
-      "text": "Suno now lets you make AI videos for your AI music (The Verge, 18 Nov 2026)",
+      "text": "Scientists tested 212 plant-based foods. Every single one contained fungal toxins (ScienceDaily, 19 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-19"
+    },
+    {
+      "text": "Anthropic raises $81bn in record-breaking stock market debut (BBC Technology, 19 Nov 2026)",
       "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-19"
+    },
+    {
+      "text": "Uncensored AI models are thriving on code hosting platforms (The Register, 19 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-19"
+    },
+    {
+      "text": "Stonehenge’s six-ton mystery deepens as scientists narrow their search (ScienceDaily, 19 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-19"
+    },
+    {
+      "text": "Is free will an illusion? New brain research reveals a surprising twist (ScienceDaily, 19 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-19"
+    },
+    {
+      "text": "Amidst fears of AI cyberattacks, Satya Nadella says lots of critical infrastructure is ‘unpatchable’ (TechCrunch, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "The seven Anthropic founders who are about to become multi-billionaires (BBC Technology, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Microsoft CEO Satya Nadella remains confident in Nvidia after Huang’s exit (TechCrunch, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Satya Nadella predicts AI agents will reshuffle the economics of the web (TechCrunch, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "NASA Sets Coverage for Northrop Grumman CRS-25 Launch, Prelaunch (NASA, 18 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Nvidia’s rise, visualized (The Verge, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Does Nvidia Got This? Interim CEO Colette Kress Says It’s Got This (Wired, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Anthropic prices IPO at $83 a share, above projected range (TechCrunch, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Nvidia created a weird bit of intrigue by not filing a routine SEC report (TechCrunch, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Anthropic decides to go head-to-head with GTA VI release, schedules IPO for the same day (The Register, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Palmer Luckey warns AI-powered cyberattacks are outpacing defenses: ‘It’s time to start running’ (TechCrunch, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Palmer Luckey thinks China is ‘thrilled to have Jensen out,’ so he wants the ousted Nvidia CEO reinstated (TechCrunch, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Too much exercise could leave your brain stuck in overdrive (ScienceDaily, 18 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Simon Jack: Can Anthropic's record-breaking IPO stop the AI bubble bursting? (BBC Technology, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "AI found more critical bugs in another widely used technology running 225M websites (The Register, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Snapchat now lets developers build AR Lenses with AI assistants like Claude Code and Cursor (TechCrunch, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "An AI Debt Collection Service Exposed 6.6 Million Accounts and 315,000 Call Recordings (Wired, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "NASA Announces Mid-Power Electric Rocket Challenge for US Companies (NASA, 18 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Will Wright's next simulation will use AI to mine content from your memories (Ars Technica, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "AI found a hole in Java, and it starts with 'AAAAAAAA...' (Engadget, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "What Is the Moon Base? (NASA, 18 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Inside Nvidia’s First Post-Jensen All-Hands: Pay Raises and More Equity (Wired, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Thank You for Doing NASA Science! (NASA, 18 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "You can use Google’s Spark AI agent, renamed Tasks, for free now – with limits (ZDNET, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "74% of shoppers trust AI agents for buying advice – but checkout is another story (ZDNET, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "The wrong setting for AI cache can cost you a lot of cash (The Register, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "NASA Data Clinches First-of-Its-Kind Stellar Merger (NASA, 18 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "‘Just Ridiculous’: A Famed Philosopher Takes on AI Consciousness (Wired, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "AI-powered cyber threats are changing the rules of enterprise recovery (The Register, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "The AI Hype Index: AI is everywhere (MIT Technology Review, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Business as usual, but Huang ain't coming back, says Nvidia (The Register, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Hacks, AI or just overdue updates - why have there been so many outages? (BBC Technology, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "The Download: AI learns to smell and hydropower struggles (MIT Technology Review, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Microsoft’s new Licensed Weights lets businesses customize AI models with their own data (ZDNET, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "New discovery reveals what may be holding back room-temperature superconductors (ScienceDaily, 18 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "MIT discovers that aging weakens the brain’s nighttime cleaning system (ScienceDaily, 18 Nov 2026)",
+      "topic": "Science news",
       "news": true,
       "asof": "2026-11-18"
     },
@@ -26,13 +266,61 @@
       "asof": "2026-11-18"
     },
     {
-      "text": "A Chinese bottle-cap manufacturer brilliantly deflated AI hype (The Register, 18 Nov 2026)",
-      "topic": "AI news",
+      "text": "More than a billion years of Earth's history vanished. Scientists may finally know why (ScienceDaily, 18 Nov 2026)",
+      "topic": "Science news",
       "news": true,
       "asof": "2026-11-18"
     },
     {
       "text": "How important are Nvidia and Jensen Huang to the US economy? (BBC Technology, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "APOD: 2026 November 18 – A Medium-Sized Solar Flare (NASA, 18 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Nvidia says it won't reinstate Huang as it reports soaring sales (BBC Technology, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Autistic brains look surprisingly similar on average. Then scientists looked closer. (ScienceDaily, 18 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Government risks missing climate targets if EV rules weakened, adviser warns (BBC Science, 18 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Copilot is \"the new OS for work,\" and now Office runs inside of it (Ars Technica, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "You can now see and edit what Google Gemini remembers about you (Engadget, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "Suno now lets you make AI videos for your AI music (The Verge, 18 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-18"
+    },
+    {
+      "text": "A Chinese bottle-cap manufacturer brilliantly deflated AI hype (The Register, 18 Nov 2026)",
       "topic": "AI news",
       "news": true,
       "asof": "2026-11-18"
@@ -56,40 +344,10 @@
       "asof": "2026-11-18"
     },
     {
-      "text": "Nvidia says it won't reinstate Huang as it reports soaring sales (BBC Technology, 18 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
-      "text": "Government risks missing climate targets if EV rules weakened, adviser warns (BBC Science, 18 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
-      "text": "Copilot is \"the new OS for work,\" and now Office runs inside of it (Ars Technica, 18 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
       "text": "Nvidia promises that revenue will keep soaring — for now (TechCrunch, 18 Nov 2026)",
       "topic": "AI news",
       "news": true,
       "asof": "2026-11-18"
-    },
-    {
-      "text": "You can now see and edit what Google Gemini remembers about you (Engadget, 18 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
-      "text": "Nvidia is abandoning China after Jensen Huang’s ouster (TechCrunch, 17 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-17"
     },
     {
       "text": "Pakistan's solar revolution is so successful the national grid is lagging behind (BBC Science, 17 Nov 2026)",
@@ -110,6 +368,36 @@
       "asof": "2026-11-17"
     },
     {
+      "text": "Microsoft says its new AI coding model rivals Claude Opus 5.5 at 5% of the cost (ZDNET, 17 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-17"
+    },
+    {
+      "text": "Goodbye, Gemini Gems: How to use Google’s new Skills – and share them (ZDNET, 17 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-17"
+    },
+    {
+      "text": "Google is making it easier to opt out of Gemini AI model training – here’s how (ZDNET, 17 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-17"
+    },
+    {
+      "text": "Giant lunar sculpture has visitors over the moon (BBC Science, 17 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-17"
+    },
+    {
+      "text": "Nvidia is abandoning China after Jensen Huang’s ouster (TechCrunch, 17 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-17"
+    },
+    {
       "text": "Nvidia says its open source AI strategy remains intact after Jensen Huang’s exit (TechCrunch, 17 Nov 2026)",
       "topic": "AI news",
       "news": true,
@@ -117,12 +405,6 @@
     },
     {
       "text": "Read everything that Nvidia’s board chair had to say about Jensen Huang (The Verge, 17 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-17"
-    },
-    {
-      "text": "Microsoft says its new AI coding model rivals Claude Opus 5.5 at 5% of the cost (ZDNET, 17 Nov 2026)",
       "topic": "AI news",
       "news": true,
       "asof": "2026-11-17"
@@ -188,12 +470,6 @@
       "asof": "2026-11-17"
     },
     {
-      "text": "Goodbye, Gemini Gems: How to use Google’s new Skills – and share them (ZDNET, 17 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-17"
-    },
-    {
       "text": "Gemini test proves once again that amoral AI agents will do almost anything if told ‘NEVER give up’ (The Register, 17 Nov 2026)",
       "topic": "AI news",
       "news": true,
@@ -207,12 +483,6 @@
     },
     {
       "text": "Google expands access to Gemini Tasks, which can help with calls, purchases (TechCrunch, 17 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-17"
-    },
-    {
-      "text": "Google is making it easier to opt out of Gemini AI model training – here’s how (ZDNET, 17 Nov 2026)",
       "topic": "AI news",
       "news": true,
       "asof": "2026-11-17"
@@ -266,280 +536,10 @@
       "asof": "2026-11-17"
     },
     {
-      "text": "Giant lunar sculpture has visitors over the moon (BBC Science, 17 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-17"
-    },
-    {
       "text": "Scientists tracked kids for 8 years. What they found about screen time was surprising (ScienceDaily, 17 Nov 2026)",
       "topic": "Science news",
       "news": true,
       "asof": "2026-11-17"
-    },
-    {
-      "text": "The hidden language of psychopathy is not what scientists expected (ScienceDaily, 17 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-17"
-    },
-    {
-      "text": "AI Told These Ex-Google Guys How to Build a Billion-Dollar Weapons Business (Wired, 17 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-17"
-    },
-    {
-      "text": "ESA’s Hera spacecraft is flying rectangles around NASA’s asteroid crash site (ScienceDaily, 17 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-17"
-    },
-    {
-      "text": "A material just one atom thick reveals a strange quantum secret (ScienceDaily, 17 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-17"
-    },
-    {
-      "text": "Apple adds new disk controls to prevent AI agents from running amok (Engadget, 17 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-17"
-    },
-    {
-      "text": "Apple could build its AI health chatbot from this study – how to enroll (ZDNET, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Building trustworthy AI by fencing it in, not predicting it (MIT Technology Review, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "NASA is offering $1 million for bold ideas to help build a Moon base (ScienceDaily, 16 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "NASA smashed into an asteroid. Now Hera has revealed a strange new world (ScienceDaily, 16 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Building AI that can work across the enterprise (MIT Technology Review, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Hidden ecosystem: Scientists discover 245 animals living inside a single deep-sea rock (ScienceDaily, 16 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Pupils fascinated by space get astronomy lesson (BBC Science, 16 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Cybersecurity AI startup Corma reaches $1B valuation in about 3 months (TechCrunch, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "The AI start-ups fixing India's broken roads and messy land records (BBC Technology, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "A Collage Showing 49 Drill Holes Made by NASA’s Curiosity Mars Rover (NASA, 16 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "All the questions Nvidia should answer on Tuesday — but probably won’t (TechCrunch, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Apple reveals new Mac security controls as AI agents raise privacy risks (TechCrunch, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "NASA Receives 16th Consecutive ‘Clean’ Financial Audit Opinion (NASA, 16 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Attackers are using AI agents to automate cybercrime at 'industrial scale,' FBI and AWS warn (The Register, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Google Maps' chatbot can find appointments and call to book them for you (Engadget, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "US moves to cut China’s remote access to AI chips (Ars Technica, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "China’s grip on Top500 remains uncontested as US chases AI-HPC fusion (The Register, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "5 ways AI will change how you defend your business in 2027 (ZDNET, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Sentinel-6B in Orbit Around Earth (NASA, 16 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Sam Altman on Nvidia without Jensen Huang: The industry will be ‘fine’ (TechCrunch, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Ubuntu gets AI-generated security fixes for those feeling brave (The Register, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Your Samsung phone could soon get a personal AI agent – what we know about Galaxy Claw (ZDNET, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Jordan Belfort’s new AI voice startup, Tone, wants to sell like the ‘Wolf of Wall Street’ (TechCrunch, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "OpenAI will embed safety researchers to investigate AI subversion (TechCrunch, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "OpenAI releases a new image classifier and ChatGPT warnings to combat CSAM (TechCrunch, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "US allies deepen deal to guard AI supply chains against 'hostile actors' (cough, China, cough) (The Register, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Has AI’s ‘Black October’ changed the way you secure your code? (The Register, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Audible turns to AI to help users discover audiobooks (TechCrunch, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Contractor to Civil Servant: NASA Welcomes Jim Mirandy (NASA, 16 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Your enterprise AI access can be sold for pennies – beware ‘LLM Mixers’ (ZDNET, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Google: AI agent turned a security patch into a working exploit with no human help (The Register, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "The Jensen Huang saga could be the beginning of the end of the AI bubble – or just a boon for competitors (The Register, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Elon Musk leads Silicon Valley's campaign to put Jensen Huang back in charge at Nvidia (The Register, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Nvidia Was Already in Trouble Before the Jensen Huang Mess (Wired, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "APOD: 2026 November 16 – NGC 7129: Star Formation with Jets from Webb (NASA, 16 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "The secret to building Moon bases may be hiding in emergency blankets (ScienceDaily, 16 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Suspected China spy linked to Nvidia's ex-boss left in 2025, Megaspeed says (BBC Technology, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "An ancient virus may help explain what makes the human brain different (ScienceDaily, 16 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-16"
-    },
-    {
-      "text": "Senator slams Commerce Secretary for flow of Nvidia AI chips to China (The Verge, 16 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-16"
     }
   ]
 }
