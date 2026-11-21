@@ -31,7 +31,7 @@
 
 // Bumped with every backend change; the app compares it with the version it
 // bundles and offers the team's admin "Team update available → Update".
-var BACKEND_VERSION = '1.11.8'; // always the same as the app's version (package.json) — a test keeps them equal
+var BACKEND_VERSION = '1.11.9'; // always the same as the app's version (package.json) — a test keeps them equal
 
 // The safety switch: the oldest Daylens app this Sheet still accepts saves
 // from. Raise it ONLY when a change here would let an older app save
@@ -8938,31 +8938,6 @@ function teamsFieldRow_(label, value, rich, first) {
     { type: 'Column', width: 68, items: [{ type: 'TextBlock', text: teamsText_(value, rich), wrap: true }] },
   ] };
 }
-/** A field row, split into several rows ("Comments (continued)") when its text alone is too big for one Teams message. */
-function teamsSplitRow_(label, value, rich, first) {
-  var text = String(value == null ? '' : value), max = 12000, out = [];
-  if (text.length <= max) return [teamsFieldRow_(label, text, rich, first)];
-  var lines = text.split('\n'), chunk = '';
-  var flush = function () { if (chunk) { out.push(teamsFieldRow_(out.length ? label + ' (continued)' : label, chunk, rich, first && !out.length)); chunk = ''; } };
-  lines.forEach(function (l) {
-    while (l.length > max) { flush(); chunk = l.slice(0, max); flush(); l = l.slice(max); }
-    if ((chunk + '\n' + l).length > max) flush();
-    chunk = chunk ? chunk + '\n' + l : l;
-  });
-  flush();
-  return out;
-}
-/** Blocks packed into cards of at most ~23 KB each, in order. */
-function teamsPack_(blocks) {
-  var cards = [], cur = [], size = 0;
-  blocks.forEach(function (b) {
-    var n = JSON.stringify(b).length;
-    if (cur.length && size + n > 22000) { cards.push(cur); cur = []; size = 0; }
-    cur.push(b); size += n;
-  });
-  if (cur.length) cards.push(cur);
-  return cards;
-}
 function teamsFooter_(text) {
   return { type: 'TextBlock', text: text, wrap: true, isSubtle: true, size: 'Small', spacing: 'Medium' };
 }
@@ -9005,15 +8980,18 @@ function customReportEntrySend_(session, body) {
     var card = [teamsHeader_(e.tab + ', ' + e.date, e.people)];
     card.push(teamsFieldRow_(e.dateLabel || 'Date', e.date, false, true));
     card.push(teamsFieldRow_(e.peopleLabel || 'People', e.people, false, false));
-    var rest = [];
-    e.fields.forEach(function (f) { teamsSplitRow_(f.name, f.value, f.rich, false).forEach(function (b) { rest.push(b); }); });
-    var packs = teamsPack_(card.concat(rest));
-    packs[packs.length - 1].push(teamsFooter_('Shared from Daylens by ' + session.username + '.'));
-    for (var pi = 0; pi < packs.length; pi++) {
-      if (pi) Utilities.sleep(700);
-      var t = postCardToTeams_(url, pi ? [{ type: 'TextBlock', text: e.tab + ', ' + e.date + ' (continued, ' + (pi + 1) + ' of ' + packs.length + ')', wrap: true, weight: 'Bolder' }].concat(packs[pi]) : packs[pi]);
-      if (!t.ok) return t;
-    }
+    // 1.11.9: always one message; a field too long for it is shortened (the whole text is in the email and the PDF)
+    var one = null;
+    [0, 6000, 3000, 1500, 600].some(function (max) {
+      var c = card.slice();
+      e.fields.forEach(function (f) { var v = String(f.value); c.push(teamsFieldRow_(f.name, max && v.length > max ? v.slice(0, max) + '…' : v, f.rich, false)); });
+      c.push(teamsFooter_('Shared from Daylens by ' + session.username + '.'));
+      if (JSON.stringify(buildAdaptiveCardPayload_(c)).length <= 25000) { one = c; return true; }
+      return false;
+    });
+    if (!one) return { ok: false, error: 'This entry is too long for one Teams message. Email it instead: the email carries it in full.' };
+    var t = postCardToTeams_(url, one);
+    if (!t.ok) return t;
     logAudit_(null, 'customReport', e.tab, session.username + ' posted an entry (' + e.tab + ', row ' + e.row + ') to Teams: ' + String(body.channel).replace(/^group:/, ''), 'Success');
     return { ok: true, posted: String(body.channel) };
   }
@@ -9071,39 +9049,82 @@ function customReportTeams_(session, spec, channel) {
   ];
   var head = function (txt, w) { return { type: 'Column', width: w, items: [{ type: 'TextBlock', text: txt, weight: 'Bolder', wrap: true, size: 'Small' }] }; };
   var cell = function (txt, w, color) { var b = { type: 'TextBlock', text: txt, wrap: true, size: 'Small' }; if (color) b.color = color; return { type: 'Column', width: w, items: [b] }; };
-  var cols = [head('Person', 'stretch'), head('Entries, ' + P[last].label, 'auto'), head('Per working day', 'auto'), head('Leave days', 'auto')];
-  if (P.length > 1) cols.push(head('vs ' + P[last - 1].label, 'auto'));
+  // weighted widths, so the numbers sit under their headings (1.11.9)
+  var W = P.length > 1 ? [34, 16, 16, 14, 20] : [40, 20, 20, 20];
+  var cols = [head('Person', W[0]), head('Entries', W[1]), head('Per working day', W[2]), head('Leave days', W[3])];
+  if (P.length > 1) cols.push(head('vs ' + P[last - 1].label, W[4]));
   card.push({ type: 'TextBlock', text: 'Summary', wrap: true, weight: 'Bolder', spacing: 'Medium', size: 'Medium' });
   card.push({ type: 'Container', style: 'emphasis', spacing: 'Small', items: [{ type: 'ColumnSet', columns: cols }] });
   data.people.slice(0, 30).forEach(function (p) {
-    var c = [{ type: 'Column', width: 'stretch', items: [{ type: 'TextBlock', text: p.person, wrap: true, size: 'Small', weight: 'Bolder' }] }, cell(String(p.entries[last]), 'auto'), cell(num(p.perDay[last]), 'auto'), cell(num(p.leaveDays[last]), 'auto')];
+    var c = [{ type: 'Column', width: W[0], items: [{ type: 'TextBlock', text: p.person, wrap: true, size: 'Small', weight: 'Bolder' }] }, cell(String(p.entries[last]), W[1]), cell(num(p.perDay[last]), W[2]), cell(num(p.leaveDays[last]), W[3])];
     if (P.length > 1) {
       var ch = p.changes[last - 1];
-      c.push(cell((ch.diff > 0 ? '▲ +' : ch.diff < 0 ? '▼ ' : '● ') + num(ch.diff) + (ch.pct === null ? '' : ' (' + (ch.pct > 0 ? '+' : '') + num(ch.pct) + '%)'), 'auto', ch.diff > 0 ? 'Good' : ch.diff < 0 ? 'Attention' : null));
+      c.push(cell((ch.diff > 0 ? '▲ +' : ch.diff < 0 ? '▼ ' : '● ') + num(ch.diff) + (ch.pct === null ? '' : ' (' + (ch.pct > 0 ? '+' : '') + num(ch.pct) + '%)'), W[4], ch.diff > 0 ? 'Good' : ch.diff < 0 ? 'Attention' : null));
     }
     card.push({ type: 'ColumnSet', columns: c, spacing: 'None', separator: true });
   });
   if (data.people.length > 30) card.push({ type: 'TextBlock', text: '…and ' + (data.people.length - 30) + ' more in Daylens.', wrap: true, isSubtle: true, size: 'Small' });
   card.push(teamsFooter_('Shared from Daylens by ' + session.username + '. Counting entries shows how much was logged, not how hard each piece of work was.'));
-  // 1.11.8: then every entry and leave day, each laid out like an opened entry, every field whole. One Teams
-  // message takes about 28 KB, so the entries go in as many messages as they need ("Entries, 2 of 3").
-  var blocks = [];
-  (data.rows || []).forEach(function (r) {
-    blocks.push({ type: 'Container', style: 'good', spacing: 'Medium', items: [{ type: 'TextBlock', text: r.source + ', ' + r.date + ': ' + r.person, wrap: true, weight: 'Bolder', size: 'Small' }] });
-    (r.fields || []).forEach(function (f, fi) { teamsSplitRow_(f.name, f.value, f.rich, fi === 0).forEach(function (b) { blocks.push(b); }); });
+  // 1.11.9: ONE message. 1.11.8 posted every entry as its own block over many messages, which flooded the
+  // channel. Now the report card carries "Day by day": for each day, one row per entry: what (the activity),
+  // who, and a short summary. The full text of every field stays in the PDF and the email.
+  var footer = card.pop();
+  var day = customReportDayByDay_(data.rows || []);
+  var budget = 25000;
+  var built = null;
+  [220, 140, 90, 50, 0].some(function (len) {
+    var tryCard = card.concat(day.length ? customReportDayBlocks_(day, len) : []).concat([footer]);
+    if (JSON.stringify(buildAdaptiveCardPayload_(tryCard)).length <= budget) { built = { card: tryCard, len: len }; return true; }
+    return false;
   });
-  var cards = teamsPack_(blocks, 'Entries');
-  if (cards.length > 20) return { ok: false, error: 'That is ' + cards.length + ' Teams messages of entries. Pick a shorter period or fewer people, or email it (the email carries every entry).' };
-  var t = postCardToTeams_(url, card);
+  if (!built) return { ok: false, error: 'That report is too long for one Teams message (' + (data.rows || []).length + ' entries). Pick a shorter period or fewer people, or send it by email (the email carries every entry in full).' };
+  var t = postCardToTeams_(url, built.card);
   if (!t.ok) return t;
-  for (var ci = 0; ci < cards.length; ci++) {
-    if (ci) Utilities.sleep(700); // in order, and gently: Teams refuses bursts
-    var head = [{ type: 'TextBlock', text: customReportName_(data) + ': entries' + (cards.length > 1 ? ', ' + (ci + 1) + ' of ' + cards.length : ''), wrap: true, weight: 'Bolder', size: 'Medium' }];
-    var tc = postCardToTeams_(url, head.concat(cards[ci]));
-    if (!tc.ok) return { ok: false, error: 'The report was posted, and ' + ci + ' of the ' + cards.length + ' messages of entries; then ' + tc.error.charAt(0).toLowerCase() + tc.error.slice(1) };
-  }
-  logAudit_(null, 'customReport', '', session.username + ' posted a custom report to Teams (' + (1 + cards.length) + ' messages): ' + String(channel).replace(/^group:/, ''), 'Success');
-  return { ok: true, posted: String(channel), messages: 1 + cards.length };
+  logAudit_(null, 'customReport', '', session.username + ' posted a custom report to Teams: ' + String(channel).replace(/^group:/, ''), 'Success');
+  return { ok: true, posted: String(channel), messages: 1, summaryChars: built.len };
+}
+
+/** The report's rows grouped by day (oldest first): [{ day, rows: [{ what, who, from, summary, status }] }]. */
+function customReportDayByDay_(rows) {
+  var WHAT = /^(activity|task|title|subject|ticket( id| no| number)?|work( item)?|item|request|page|summary)$/i;
+  var WHAT2 = /activity|task|title|subject|ticket|work|item|request/i;
+  var SUMMARY = /description|update|details?|comments?|notes?|summary|work done|remarks?/i;
+  var STATUS = /^status$/i;
+  var byDay = {};
+  rows.forEach(function (r) {
+    var f = r.fields || [];
+    var pick = function (re) { for (var k = 0; k < f.length; k++) if (re.test(f[k].name)) return f[k]; return null; };
+    var what = r.kind === 'leave' ? { value: 'Leave' } : (pick(WHAT) || pick(WHAT2) || f[0] || { value: '' });
+    var status = pick(STATUS);
+    var sum = [];
+    f.forEach(function (x) { if (x !== what && x !== status && SUMMARY.test(x.name) && String(x.value).trim()) sum.push(markdownLitePlain_(x.value)); });
+    if (!sum.length) f.forEach(function (x) { if (x !== what && x !== status && sum.length < 2) sum.push(x.name + ': ' + markdownLitePlain_(x.value)); });
+    (byDay[r.date] = byDay[r.date] || []).push({
+      what: String(what.value || '').replace(/\s+/g, ' ').trim(),
+      who: r.person, from: r.source,
+      status: status ? String(status.value).trim() : '',
+      summary: sum.join(' | ').replace(/\s+/g, ' ').trim(),
+    });
+  });
+  return Object.keys(byDay).sort().map(function (k) { return { day: k, rows: byDay[k] }; });
+}
+
+/** "Day by day" as Adaptive Card blocks: a shaded day heading, then one row per entry (What | Who | Summary). */
+function customReportDayBlocks_(days, len) {
+  var cut = function (t) { t = String(t || ''); return !len ? '' : t.length > len ? t.slice(0, len - 1).replace(/\s+\S*$/, '') + '…' : t; };
+  var head = function (txt, w) { return { type: 'Column', width: w, items: [{ type: 'TextBlock', text: txt, weight: 'Bolder', wrap: true, size: 'Small' }] }; };
+  var col = function (txt, w, bold) { return { type: 'Column', width: w, items: [{ type: 'TextBlock', text: txt || ' ', wrap: true, size: 'Small', weight: bold ? 'Bolder' : 'Default' }] }; };
+  var out = [{ type: 'TextBlock', text: 'Day by day', wrap: true, weight: 'Bolder', size: 'Medium', spacing: 'Large' },
+    { type: 'Container', style: 'emphasis', spacing: 'Small', items: [{ type: 'ColumnSet', columns: len ? [head('What', 30), head('Who', 22), head('Summary', 48)] : [head('What', 55), head('Who', 45)] }] }];
+  days.forEach(function (d) {
+    var dt = customReportDay_(d.day);
+    out.push({ type: 'Container', style: 'good', spacing: 'Small', items: [{ type: 'TextBlock', text: (dt ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dt.getDay()] + ' ' + dt.getDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][dt.getMonth()] : d.day) + '  (' + d.rows.length + ' ' + (d.rows.length === 1 ? 'entry' : 'entries') + ')', wrap: true, weight: 'Bolder', size: 'Small' }] });
+    d.rows.forEach(function (r, i) {
+      var what = r.what + (r.status ? ' (' + r.status + ')' : '');
+      out.push({ type: 'ColumnSet', spacing: 'None', separator: i > 0, columns: len ? [col(what, 30, true), col(r.who, 22), col(cut(r.summary), 48)] : [col(what, 55, true), col(r.who, 45)] });
+    });
+  });
+  return out;
 }
 
 
