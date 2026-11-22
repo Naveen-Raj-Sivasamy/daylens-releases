@@ -1,6 +1,24 @@
 {
-  "updated": "2026-11-21",
+  "updated": "2026-11-22",
   "items": [
+    {
+      "text": "Banks Have Had It Up to Here With Your AI Agent (Wired, 22 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-22"
+    },
+    {
+      "text": "New draft deal aims to avert collapse of talks at COP31 climate summit (BBC Science, 22 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-22"
+    },
+    {
+      "text": "Will COP31 end with a new global climate deal? (BBC Science, 21 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-21"
+    },
     {
       "text": "Fight over fossil fuels leaves COP31 climate talks in deadlock (BBC Science, 21 Nov 2026)",
       "topic": "Science news",
@@ -8,8 +26,56 @@
       "asof": "2026-11-21"
     },
     {
-      "text": "NASA’s Voyager 1 is now so far away that light takes 24 hours to reach it (ScienceDaily, 21 Nov 2026)",
+      "text": "Signal restricts mobile screenshots as it confronts ‘existential threat’ of AI surveillance (TechCrunch, 21 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-21"
+    },
+    {
+      "text": "Here are the top AI agents that can live in your text messages (TechCrunch, 21 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-21"
+    },
+    {
+      "text": "Is selling an AI version of your face to this microdrama startup the future of Hollywood? (TechCrunch, 21 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-21"
+    },
+    {
+      "text": "Time may be far stranger than we realize. Scientists have a way to test it (ScienceDaily, 21 Nov 2026)",
       "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-21"
+    },
+    {
+      "text": "A giant star swallowed another star. James Webb reveals the aftermath (ScienceDaily, 21 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-21"
+    },
+    {
+      "text": "Even scientists can't agree on what science actually is (ScienceDaily, 21 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-21"
+    },
+    {
+      "text": "Scientists say the human family tree may need a radical rewrite (ScienceDaily, 21 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-21"
+    },
+    {
+      "text": "Can Anthropic afford to put safety first? (The Verge, 21 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-21"
+    },
+    {
+      "text": "ChatGPT shrunk down to run on a Super Nintendo (The Register, 21 Nov 2026)",
+      "topic": "AI news",
       "news": true,
       "asof": "2026-11-21"
     },
@@ -26,7 +92,13 @@
       "asof": "2026-11-21"
     },
     {
-      "text": "In a year of AI solving maths problems, Anthropic may have just solved the biggest (BBC Technology, 20 Nov 2026)",
+      "text": "NASA’s Voyager 1 is now so far away that light takes 24 hours to reach it (ScienceDaily, 21 Nov 2026)",
+      "topic": "Science news",
+      "news": true,
+      "asof": "2026-11-21"
+    },
+    {
+      "text": "In a year of AI solving maths problems, an Anthropic worker says he may have cracked the biggest (BBC Technology, 20 Nov 2026)",
       "topic": "AI news",
       "news": true,
       "asof": "2026-11-20"
@@ -74,12 +146,6 @@
       "asof": "2026-11-20"
     },
     {
-      "text": "Signal now blocks screenshots by default to stymie AI agents (Engadget, 20 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-20"
-    },
-    {
       "text": "Daniel Ek backs AI researcher’s fusion power startup. Here’s what they’re building. (TechCrunch, 20 Nov 2026)",
       "topic": "AI news",
       "news": true,
@@ -110,18 +176,6 @@
       "asof": "2026-11-20"
     },
     {
-      "text": "OpenAI brings its collaborative Space hubs to Plus users (Engadget, 20 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-20"
-    },
-    {
-      "text": "Nothing's AI device debuts December 8, and it looks like two vapes stuck together (Engadget, 20 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-20"
-    },
-    {
       "text": "China attackers deployed AI agents that autonomously found and exploited a 0-day to take over a university server (The Register, 20 Nov 2026)",
       "topic": "AI news",
       "news": true,
@@ -129,12 +183,6 @@
     },
     {
       "text": "Signal to restrict screenshots over AI agent concerns – again (ZDNET, 20 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-20"
-    },
-    {
-      "text": "Anthropic mathematician claims to have solved prestigious Millennium Prize problem with Claude (The Verge, 20 Nov 2026)",
       "topic": "AI news",
       "news": true,
       "asof": "2026-11-20"
@@ -176,13 +224,13 @@
       "asof": "2026-11-20"
     },
     {
-      "text": "AI could open wallets where ERP upgrade pitches can't, says PwC (The Register, 20 Nov 2026)",
-      "topic": "AI news",
+      "text": "NASA’s Voyager 1 is now so far away that light takes 24 hours to reach it (ScienceDaily, 20 Nov 2026)",
+      "topic": "Science news",
       "news": true,
       "asof": "2026-11-20"
     },
     {
-      "text": "Google boosts Gemini's ability to do 'repetitive tasks' on its Mac app (Engadget, 20 Nov 2026)",
+      "text": "AI could open wallets where ERP upgrade pitches can't, says PwC (The Register, 20 Nov 2026)",
       "topic": "AI news",
       "news": true,
       "asof": "2026-11-20"
@@ -206,12 +254,6 @@
       "asof": "2026-11-20"
     },
     {
-      "text": "OpenAI is testing Dots personal agents on its $20 per month Plus tier (Engadget, 20 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-20"
-    },
-    {
       "text": "More climate money for Africa? Europe says use what's already pledged (BBC Science, 20 Nov 2026)",
       "topic": "Science news",
       "news": true,
@@ -219,6 +261,48 @@
     },
     {
       "text": "US let Nvidia and AMD sell bucketloads of chips to military-linked Chinese companies (The Register, 20 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-20"
+    },
+    {
+      "text": "In a year of AI solving maths problems, Anthropic may have just solved the biggest (BBC Technology, 20 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-20"
+    },
+    {
+      "text": "Signal now blocks screenshots by default to stymie AI agents (Engadget, 20 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-20"
+    },
+    {
+      "text": "OpenAI brings its collaborative Space hubs to Plus users (Engadget, 20 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-20"
+    },
+    {
+      "text": "Nothing's AI device debuts December 8, and it looks like two vapes stuck together (Engadget, 20 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-20"
+    },
+    {
+      "text": "Anthropic mathematician claims to have solved prestigious Millennium Prize problem with Claude (The Verge, 20 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-20"
+    },
+    {
+      "text": "Google boosts Gemini's ability to do 'repetitive tasks' on its Mac app (Engadget, 20 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-20"
+    },
+    {
+      "text": "OpenAI is testing Dots personal agents on its $20 per month Plus tier (Engadget, 20 Nov 2026)",
       "topic": "AI news",
       "news": true,
       "asof": "2026-11-20"
@@ -266,12 +350,6 @@
       "asof": "2026-11-19"
     },
     {
-      "text": "Anthropic throws open doors at $2T valuation as shares pop 34% in initial trading (The Register, 19 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-19"
-    },
-    {
       "text": "Dutch watchdog tells people not to buy AI smart glasses (BBC Technology, 19 Nov 2026)",
       "topic": "AI news",
       "news": true,
@@ -297,6 +375,12 @@
     },
     {
       "text": "90% of employers reject resumes that look like AI – yet half use AI to interview (ZDNET, 19 Nov 2026)",
+      "topic": "AI news",
+      "news": true,
+      "asof": "2026-11-19"
+    },
+    {
+      "text": "Anthropic throws open doors at $2T valuation as shares pop 34% in initial trading (The Register, 19 Nov 2026)",
       "topic": "AI news",
       "news": true,
       "asof": "2026-11-19"
@@ -434,12 +518,6 @@
       "asof": "2026-11-19"
     },
     {
-      "text": "Too much exercise could leave your brain stuck in overdrive (ScienceDaily, 18 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
       "text": "You can use Google’s Spark AI agent, renamed Tasks, for free now – with limits (ZDNET, 18 Nov 2026)",
       "topic": "AI news",
       "news": true,
@@ -460,84 +538,6 @@
     {
       "text": "The Download: AI learns to smell and hydropower struggles (MIT Technology Review, 18 Nov 2026)",
       "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
-      "text": "Microsoft’s new Licensed Weights lets businesses customize AI models with their own data (ZDNET, 18 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
-      "text": "This smell startup says its AI nose is as good as a human’s (MIT Technology Review, 18 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
-      "text": "Government risks missing climate targets if EV rules weakened, adviser warns (BBC Science, 18 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
-      "text": "The seven Anthropic founders who are about to become multi-billionaires (BBC Technology, 18 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
-      "text": "NASA Sets Coverage for Northrop Grumman CRS-25 Launch, Prelaunch (NASA, 18 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
-      "text": "Anthropic decides to go head-to-head with GTA VI release, schedules IPO for the same day (The Register, 18 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
-      "text": "Simon Jack: Can Anthropic's record-breaking IPO stop the AI bubble bursting? (BBC Technology, 18 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
-      "text": "AI found more critical bugs in another widely used technology running 225M websites (The Register, 18 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
-      "text": "Will Wright's next simulation will use AI to mine content from your memories (Ars Technica, 18 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
-      "text": "The wrong setting for AI cache can cost you a lot of cash (The Register, 18 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
-      "text": "Hacks, AI or just overdue updates - why have there been so many outages? (BBC Technology, 18 Nov 2026)",
-      "topic": "AI news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
-      "text": "New discovery reveals what may be holding back room-temperature superconductors (ScienceDaily, 18 Nov 2026)",
-      "topic": "Science news",
-      "news": true,
-      "asof": "2026-11-18"
-    },
-    {
-      "text": "MIT discovers that aging weakens the brain’s nighttime cleaning system (ScienceDaily, 18 Nov 2026)",
-      "topic": "Science news",
       "news": true,
       "asof": "2026-11-18"
     }
